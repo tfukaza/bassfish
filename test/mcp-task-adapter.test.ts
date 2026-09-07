@@ -1,0 +1,47 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import type { JSONRPCMessage, Transport } from '@modelcontextprotocol/server';
+import { TaskAwareStdioTransport } from '../src/mcp.js';
+import { createTaskResult, tasksExtensionId, wireTaskNotification } from '../src/tasks.js';
+
+class MemoryTransport implements Transport {
+  onclose?: () => void;
+  onerror?: (error: Error) => void;
+  onmessage?: (message: JSONRPCMessage) => void;
+  sent: JSONRPCMessage[] = [];
+  async start(): Promise<void> {}
+  async close(): Promise<void> { this.onclose?.(); }
+  async send(message: JSONRPCMessage): Promise<void> { this.sent.push(message); }
+  receive(message: Record<string,unknown>): void { this.onmessage?.(message as unknown as JSONRPCMessage); }
+}
+
+test('the Tasks transport emits the official CreateTaskResult instead of a tool sentinel', async () => {
+  const inner = new MemoryTransport(); const transport = new TaskAwareStdioTransport(() => {},inner); await transport.start();
+  await transport.send({ jsonrpc: '2.0', id: 7, result: { content: [], structuredContent: { __bassfishTask: {
+    taskId: 'task-1', status: 'working', statusMessage: 'Queued', createdAt: '2026-09-06T00:00:00.000Z',
+    lastUpdatedAt: '2026-09-06T00:00:00.000Z', ttlMs: 60_000, pollIntervalMs: 250,
+  } } } } as JSONRPCMessage);
+  const result = (inner.sent[0] as unknown as { result: unknown }).result;
+  assert.equal(createTaskResult.parse(result).resultType,'task');
+  assert.equal(JSON.stringify(result).includes('__bassfishTask'),false);
+});
+
+test('task subscriptions require the negotiated extension and round-trip taskIds', async () => {
+  const inner = new MemoryTransport(); let subscribed: string[] = [];
+  const transport = new TaskAwareStdioTransport(ids => { subscribed = ids; },inner); await transport.start();
+  let forwarded: Record<string,unknown> | undefined; transport.onmessage = message => { forwarded = message as unknown as Record<string,unknown>; };
+  inner.receive({ jsonrpc: '2.0', id: 1, method: 'subscriptions/listen', params: { notifications: { taskIds: ['task-1'] } } });
+  assert.equal(forwarded,undefined); assert.equal((inner.sent[0] as unknown as { error: { code: number } }).error.code,-32021);
+  inner.receive({ jsonrpc: '2.0', id: 2, method: 'subscriptions/listen', params: {
+    notifications: { taskIds: ['task-1'] }, _meta: { 'io.modelcontextprotocol/clientCapabilities': { extensions: { [tasksExtensionId]: {} } } },
+  } });
+  assert.deepEqual(subscribed,['task-1']);
+  assert.deepEqual(((forwarded!.params as Record<string,unknown>).notifications as Record<string,unknown>).taskIds,undefined);
+  await transport.send({ jsonrpc: '2.0', method: 'notifications/subscriptions/acknowledged', params: { notifications: {} } } as JSONRPCMessage);
+  assert.deepEqual((((inner.sent.at(-1) as unknown as { params: Record<string,unknown> }).params.notifications) as Record<string,unknown>).taskIds,['task-1']);
+});
+
+test('task notifications carry DetailedTask directly without a result discriminator', () => {
+  const notification = wireTaskNotification({ taskId: 'task-1', status: 'working', createdAt: '2026-09-06T00:00:00.000Z', lastUpdatedAt: '2026-09-06T00:00:00.000Z', ttlMs: 1 });
+  assert.equal(Object.hasOwn(notification,'resultType'),false);
+});

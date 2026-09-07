@@ -1,0 +1,19 @@
+WEBVTT
+
+00:00:00.000 --> 00:00:02.000
+Two agents are working on API pagination.
+
+00:00:02.000 --> 00:00:06.000
+The API agent proposes changing the response.
+
+00:00:06.000 --> 00:00:12.000
+The client agent reads it and flags a dependency.
+
+00:00:12.000 --> 00:00:16.000
+They agree to keep the existing endpoint.
+
+00:00:16.000 --> 00:00:21.000
+The client agent picks up the new endpoint.
+
+00:00:21.000 --> 00:00:25.000
+They update the API and client.

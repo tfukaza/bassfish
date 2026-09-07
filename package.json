@@ -1,0 +1,38 @@
+{
+  "name": "bassfish",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local agent communication with persistent exclusive floors and Dolt content history",
+  "type": "module",
+  "engines": {
+    "node": ">=24.12.0 <25"
+  },
+  "bin": {
+    "bassfish": "dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "check": "tsc --noEmit",
+    "test": "node --import tsx --test test/*.test.ts",
+    "test:integration": "node --import tsx --test --test-concurrency=1 test/integration/*.test.ts",
+    "test:hosts": "node scripts/host-smoke.mjs",
+    "test:soak": "node scripts/soak.mjs",
+    "release:check": "npm run ci && npm run test:hosts",
+    "ci": "npm run check && npm test && npm run build && npm run test:integration",
+    "dev": "tsx src/cli.ts",
+    "setup:dolt": "node scripts/install-dolt.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/server": "2.0.0",
+    "fflate": "^0.8.2",
+    "mysql2": "3.24.3",
+    "re2-wasm": "^1.0.2",
+    "zod": "4.5.4"
+  },
+  "devDependencies": {
+    "@modelcontextprotocol/client": "2.0.0",
+    "@types/node": "24.13.3",
+    "tsx": "4.23.13",
+    "typescript": "7.0.2"
+  }
+}

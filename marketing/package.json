@@ -1,0 +1,15 @@
+{
+  "name": "bassfish-marketing",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "build:stills": "node scripts/build.mjs --stills-only",
+    "verify": "node scripts/verify.mjs",
+    "verify:layout": "node scripts/verify-layout.cjs",
+    "capture:demo": "node scripts/capture-terminal-demo.mjs"
+  },
+  "devDependencies": {
+    "sharp": "0.34.5"
+  }
+}

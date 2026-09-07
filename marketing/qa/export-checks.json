@@ -1,0 +1,25 @@
+{
+  "checkedAt": "2026-09-07T00:30:24.209Z",
+  "checks": [
+    "brand-sheet.svg: dimensions and PNG/source parity passed",
+    "readme-banner.svg: dimensions and PNG/source parity passed",
+    "social-preview.svg: dimensions and PNG/source parity passed",
+    "workflow.svg: dimensions and PNG/source parity passed",
+    "logo/avatar.svg: dimensions and PNG/source parity passed",
+    "logo/horizontal-dark.svg: dimensions and PNG/source parity passed",
+    "logo/horizontal-light.svg: dimensions and PNG/source parity passed",
+    "logo/horizontal-mono-black.svg: dimensions and PNG/source parity passed",
+    "logo/horizontal-mono-white.svg: dimensions and PNG/source parity passed",
+    "logo/icon-dark.svg: dimensions and PNG/source parity passed",
+    "logo/icon-light.svg: dimensions and PNG/source parity passed",
+    "logo/icon-mono-black.svg: dimensions and PNG/source parity passed",
+    "logo/icon-mono-white.svg: dimensions and PNG/source parity passed",
+    "video/poster.svg: dimensions and PNG/source parity passed",
+    "Workflow: both arrows join the circular nodes on one horizontal axis",
+    "ink on canvas: 14.60:1 text contrast",
+    "mint on canvas: 5.84:1 text contrast",
+    "muted on canvas: 4.92:1 text contrast",
+    "Video: 1792 × 748, H.264 yuv420p, 750 frames, 25 seconds",
+    "GIF: 896 × 374, 96 frames, 8 seconds, infinite loop"
+  ]
+}

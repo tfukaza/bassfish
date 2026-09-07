@@ -1,6 +1,6 @@
 {
   "kind": "Scripted terminal session with captured real Bassfish MCP calls",
-  "capturedAt": "2026-09-06T23:13:12.129Z",
+  "capturedAt": "2026-09-07T02:53:22.876Z",
   "agents": [
     "api-agent",
     "client-agent"
@@ -46,44 +46,44 @@
     {
       "baseRevision": "1",
       "result": {
-        "resource_id": "b3cadb09-27e0-4977-9dbd-4b7c18dbc507",
-        "previous_revision": "1",
+        "resourceId": "e3c140b7-4636-48ab-b1e5-949379859582",
+        "previousRevision": "1",
         "revision": "2",
-        "dolt_commit": "4l3fbpdm6ofguv8oh2607o95m2glvkis",
-        "message_id": "8a940f6a-f14e-4008-992a-d71c7bf77bfe",
+        "doltCommit": "su815l8nc61qhjpllr0ag7ch9jrk7e66",
+        "messageId": "43453934-104f-4124-a160-41a7a20a914b",
         "sequence": "1"
       }
     },
     {
       "baseRevision": "2",
       "result": {
-        "resource_id": "b3cadb09-27e0-4977-9dbd-4b7c18dbc507",
-        "previous_revision": "2",
+        "resourceId": "e3c140b7-4636-48ab-b1e5-949379859582",
+        "previousRevision": "2",
         "revision": "3",
-        "dolt_commit": "r870h1su2a22gjmptk53msrnii7remu4",
-        "message_id": "11ec5bce-fe0a-4aa8-8608-76c9a3a4e9cb",
+        "doltCommit": "1a3h8b6ht82qem0vguru2a3a86q44tne",
+        "messageId": "c145a37a-d5bf-4137-a4cf-aac921e224ca",
         "sequence": "2"
       }
     },
     {
       "baseRevision": "3",
       "result": {
-        "resource_id": "b3cadb09-27e0-4977-9dbd-4b7c18dbc507",
-        "previous_revision": "3",
+        "resourceId": "e3c140b7-4636-48ab-b1e5-949379859582",
+        "previousRevision": "3",
         "revision": "4",
-        "dolt_commit": "i6umaojv0qi1n9jbsuamcnlbho6gb60g",
-        "message_id": "b86f1f07-55c9-4df4-88a1-4707a6245d9a",
+        "doltCommit": "r32j8obljnb01a9su1h91vf2hrqgdtde",
+        "messageId": "13248678-cd42-4743-afb5-29e7faf7c701",
         "sequence": "3"
       }
     },
     {
       "baseRevision": "4",
       "result": {
-        "resource_id": "b3cadb09-27e0-4977-9dbd-4b7c18dbc507",
-        "previous_revision": "4",
+        "resourceId": "e3c140b7-4636-48ab-b1e5-949379859582",
+        "previousRevision": "4",
         "revision": "5",
-        "dolt_commit": "uuhj1ii28i1hklpf64nvmipda9r3ig5m",
-        "message_id": "1e044742-b541-4516-be8e-02e41a2ed7d4",
+        "doltCommit": "old0fd2ag9u4sf6suf4gl41ajmjupd0f",
+        "messageId": "ad1aab33-d7fc-4f8e-9cfe-32f3fe0c31c9",
         "sequence": "4"
       }
     }
@@ -98,637 +98,567 @@
   "tests": {
     "passed": 3,
     "failed": 0,
-    "stdout": "✔ existing /items still returns an array (0.285917ms)\n✔ /v2/items includes pagination metadata (0.249042ms)\n✔ client uses /v2/items and returns its items (0.056292ms)\nℹ tests 3\nℹ suites 0\nℹ pass 3\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 35.789125\n"
+    "stdout": "✔ existing /items still returns an array (0.401208ms)\n✔ /v2/items includes pagination metadata (0.332583ms)\n✔ client uses /v2/items and returns its items (0.07775ms)\nℹ tests 3\nℹ suites 0\nℹ pass 3\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 39.823375\n"
   },
   "transcript": [
     {
       "actor": "api-agent",
-      "tool": "session_info",
+      "tool": "getSession",
       "input": {},
       "output": {
-        "session": {
-          "project_id": "p_f0895eabb2d04f7b9af8a036689488a9",
-          "identity_id": "f20a25e3-a556-46e1-b631-f2735755fd6d",
-          "adapter_instance_id": "1dc4a626-0e53-458a-93a3-ccdc520608a7",
-          "name": "api-agent"
-        },
-        "data": {
-          "project_id": "p_f0895eabb2d04f7b9af8a036689488a9",
-          "identity_id": "f20a25e3-a556-46e1-b631-f2735755fd6d",
-          "adapter_instance_id": "1dc4a626-0e53-458a-93a3-ccdc520608a7",
-          "name": "api-agent",
-          "recovering": false,
-          "pending_requests": [],
-          "pending_commits": []
-        }
+        "projectId": "p_092555ae2baa49488330f397324e0960",
+        "identityId": "d0bfc768-8652-4b4f-8a61-c0090997e51c",
+        "adapterInstanceId": "2f5d739f-e34d-44e8-a0fd-0e386634b4dd",
+        "name": "api-agent",
+        "recovering": false,
+        "pendingRequests": [],
+        "pendingCommits": []
       }
     },
     {
       "actor": "client-agent",
-      "tool": "session_info",
+      "tool": "getSession",
       "input": {},
       "output": {
-        "session": {
-          "project_id": "p_f0895eabb2d04f7b9af8a036689488a9",
-          "identity_id": "34e2d359-3225-4d36-994d-89dff7c38826",
-          "adapter_instance_id": "6b6554ef-bf84-4bca-a54b-e84bbee30226",
-          "name": "client-agent"
-        },
-        "data": {
-          "project_id": "p_f0895eabb2d04f7b9af8a036689488a9",
-          "identity_id": "34e2d359-3225-4d36-994d-89dff7c38826",
-          "adapter_instance_id": "6b6554ef-bf84-4bca-a54b-e84bbee30226",
-          "name": "client-agent",
-          "recovering": false,
-          "pending_requests": [],
-          "pending_commits": []
-        }
+        "projectId": "p_092555ae2baa49488330f397324e0960",
+        "identityId": "042b3a37-1c1d-425a-b4b8-de9592ca2545",
+        "adapterInstanceId": "96f2b218-fcb1-4593-bc4d-22d16ba9c385",
+        "name": "client-agent",
+        "recovering": false,
+        "pendingRequests": [],
+        "pendingCommits": []
       }
     },
     {
       "actor": "api-agent",
-      "tool": "create_thread",
+      "tool": "createThread",
       "input": {
-        "title": "API pagination"
+        "title": "API pagination",
+        "description": ""
       },
       "output": {
-        "session": {
-          "project_id": "p_f0895eabb2d04f7b9af8a036689488a9",
-          "identity_id": "f20a25e3-a556-46e1-b631-f2735755fd6d",
-          "adapter_instance_id": "1dc4a626-0e53-458a-93a3-ccdc520608a7",
-          "name": "api-agent"
-        },
-        "data": {
-          "thread_id": "b3cadb09-27e0-4977-9dbd-4b7c18dbc507",
-          "title": "API pagination",
-          "state": "active",
-          "resource_id": "b3cadb09-27e0-4977-9dbd-4b7c18dbc507",
-          "previous_revision": "0",
-          "revision": "1",
-          "dolt_commit": "r1scmmc7quc25pv1cvgm2dhaqnvep6ns"
-        }
+        "threadId": "e3c140b7-4636-48ab-b1e5-949379859582",
+        "title": "API pagination",
+        "state": "active",
+        "resourceId": "e3c140b7-4636-48ab-b1e5-949379859582",
+        "previousRevision": "0",
+        "revision": "1",
+        "doltCommit": "oqe5k4v9e1o0de1kg9bbqquuds29fo5b"
       }
     },
     {
       "actor": "api-agent",
-      "tool": "acquire_floor",
+      "tool": "requestTurn",
       "input": {
-        "resource_type": "thread",
-        "resource_id": "b3cadb09-27e0-4977-9dbd-4b7c18dbc507"
+        "target": {
+          "type": "thread",
+          "id": "e3c140b7-4636-48ab-b1e5-949379859582"
+        }
       },
       "output": {
-        "session": {
-          "project_id": "p_f0895eabb2d04f7b9af8a036689488a9",
-          "identity_id": "f20a25e3-a556-46e1-b631-f2735755fd6d",
-          "adapter_instance_id": "1dc4a626-0e53-458a-93a3-ccdc520608a7",
-          "name": "api-agent"
+        "state": "offered",
+        "requestId": "38c9d907-bb93-40e0-81ed-ba305819d327",
+        "target": {
+          "type": "thread",
+          "id": "e3c140b7-4636-48ab-b1e5-949379859582"
         },
-        "data": {
-          "state": "offered",
-          "ticket_id": "af0b6afd-0f32-4c59-8aeb-ece7096534fc",
-          "resource_id": "b3cadb09-27e0-4977-9dbd-4b7c18dbc507",
-          "offer_id": "340ff9ec-30e0-4ab9-8fd2-c4843a30a6cd",
-          "claim_by": "2026-09-06T23:13:42.004Z"
-        }
+        "offerId": "c6d143af-22cf-490a-9ff1-2b2193e08015",
+        "claimBy": "2026-09-07T02:53:52.705Z"
       }
     },
     {
       "actor": "api-agent",
-      "tool": "claim_floor",
+      "tool": "claimTurn",
       "input": {
-        "offer_id": "340ff9ec-30e0-4ab9-8fd2-c4843a30a6cd"
+        "offerId": "c6d143af-22cf-490a-9ff1-2b2193e08015"
       },
       "output": {
-        "session": {
-          "project_id": "p_f0895eabb2d04f7b9af8a036689488a9",
-          "identity_id": "f20a25e3-a556-46e1-b631-f2735755fd6d",
-          "adapter_instance_id": "1dc4a626-0e53-458a-93a3-ccdc520608a7",
-          "name": "api-agent"
+        "requestId": "38c9d907-bb93-40e0-81ed-ba305819d327",
+        "target": {
+          "type": "thread",
+          "id": "e3c140b7-4636-48ab-b1e5-949379859582"
         },
-        "data": {
-          "state": "held",
-          "ticket_id": "af0b6afd-0f32-4c59-8aeb-ece7096534fc",
-          "floor_id": "f8b4c350-28c0-49be-ae08-382a5fc6685c",
-          "fencing_token": "1",
-          "base_revision": "1",
-          "head_sequence": "0",
-          "server_time": "2026-09-06T23:13:12.008Z",
-          "expires_at": "2026-09-06T23:13:42.007Z",
-          "snapshot_commit": "r1scmmc7quc25pv1cvgm2dhaqnvep6ns",
-          "content": {
-            "thread": {
-              "id": "b3cadb09-27e0-4977-9dbd-4b7c18dbc507",
-              "title": "API pagination",
-              "description": "",
-              "state": "active",
-              "revision": "1",
-              "headSequence": "0",
-              "creator": "f20a25e3-a556-46e1-b631-f2735755fd6d",
-              "createdAt": "2026-09-06T23:13:11.990Z"
-            },
-            "messages": [],
-            "truncated": false,
-            "next_before": null
-          }
-        }
+        "turn": {
+          "id": "fabe6ea2-ae47-4193-8591-5f9487cc51e9",
+          "fencingToken": "1",
+          "expiresAt": "2026-09-07T02:53:52.712Z"
+        },
+        "snapshot": {
+          "commit": "oqe5k4v9e1o0de1kg9bbqquuds29fo5b",
+          "revision": "1"
+        },
+        "page": {
+          "type": "thread",
+          "thread": {
+            "id": "e3c140b7-4636-48ab-b1e5-949379859582",
+            "title": "API pagination",
+            "description": "",
+            "state": "active",
+            "revision": "1",
+            "headSequence": "0",
+            "creator": "d0bfc768-8652-4b4f-8a61-c0090997e51c",
+            "createdAt": "2026-09-07T02:53:22.693Z"
+          },
+          "messages": [],
+          "truncated": false
+        },
+        "nextCursor": null,
+        "serverTime": "2026-09-07T02:53:22.712Z"
       }
     },
     {
       "actor": "api-agent",
-      "tool": "commit_and_done",
+      "tool": "commitTurn",
       "input": {
-        "floor_id": "f8b4c350-28c0-49be-ae08-382a5fc6685c",
-        "fencing_token": "1",
-        "base_revision": "1",
+        "turn": {
+          "id": "fabe6ea2-ae47-4193-8591-5f9487cc51e9",
+          "fencingToken": "1"
+        },
+        "baseRevision": "1",
         "mutation": {
-          "kind": "append_thread_message",
+          "kind": "appendMessage",
           "body": "Adding pagination: /items will return { items, total }."
         }
       },
       "output": {
-        "session": {
-          "project_id": "p_f0895eabb2d04f7b9af8a036689488a9",
-          "identity_id": "f20a25e3-a556-46e1-b631-f2735755fd6d",
-          "adapter_instance_id": "1dc4a626-0e53-458a-93a3-ccdc520608a7",
-          "name": "api-agent"
-        },
-        "data": {
-          "resource_id": "b3cadb09-27e0-4977-9dbd-4b7c18dbc507",
-          "previous_revision": "1",
-          "revision": "2",
-          "dolt_commit": "4l3fbpdm6ofguv8oh2607o95m2glvkis",
-          "message_id": "8a940f6a-f14e-4008-992a-d71c7bf77bfe",
-          "sequence": "1"
-        }
+        "resourceId": "e3c140b7-4636-48ab-b1e5-949379859582",
+        "previousRevision": "1",
+        "revision": "2",
+        "doltCommit": "su815l8nc61qhjpllr0ag7ch9jrk7e66",
+        "messageId": "43453934-104f-4124-a160-41a7a20a914b",
+        "sequence": "1"
       }
     },
     {
       "actor": "client-agent",
-      "tool": "acquire_floor",
+      "tool": "requestTurn",
       "input": {
-        "resource_type": "thread",
-        "resource_id": "b3cadb09-27e0-4977-9dbd-4b7c18dbc507"
+        "target": {
+          "type": "thread",
+          "id": "e3c140b7-4636-48ab-b1e5-949379859582"
+        }
       },
       "output": {
-        "session": {
-          "project_id": "p_f0895eabb2d04f7b9af8a036689488a9",
-          "identity_id": "34e2d359-3225-4d36-994d-89dff7c38826",
-          "adapter_instance_id": "6b6554ef-bf84-4bca-a54b-e84bbee30226",
-          "name": "client-agent"
+        "state": "offered",
+        "requestId": "9e5fa6ca-4b16-446a-94b9-056b9866f7b5",
+        "target": {
+          "type": "thread",
+          "id": "e3c140b7-4636-48ab-b1e5-949379859582"
         },
-        "data": {
-          "state": "offered",
-          "ticket_id": "ec001a99-4f82-4fdc-87d5-34536970256a",
-          "resource_id": "b3cadb09-27e0-4977-9dbd-4b7c18dbc507",
-          "offer_id": "3623d09a-eb27-4696-8e85-6ffd1115e581",
-          "claim_by": "2026-09-06T23:13:42.021Z"
-        }
+        "offerId": "916ec4c8-d0b2-4da2-a5ef-8da16eeedf88",
+        "claimBy": "2026-09-07T02:53:52.727Z"
       }
     },
     {
       "actor": "client-agent",
-      "tool": "claim_floor",
+      "tool": "claimTurn",
       "input": {
-        "offer_id": "3623d09a-eb27-4696-8e85-6ffd1115e581"
+        "offerId": "916ec4c8-d0b2-4da2-a5ef-8da16eeedf88"
       },
       "output": {
-        "session": {
-          "project_id": "p_f0895eabb2d04f7b9af8a036689488a9",
-          "identity_id": "34e2d359-3225-4d36-994d-89dff7c38826",
-          "adapter_instance_id": "6b6554ef-bf84-4bca-a54b-e84bbee30226",
-          "name": "client-agent"
+        "requestId": "9e5fa6ca-4b16-446a-94b9-056b9866f7b5",
+        "target": {
+          "type": "thread",
+          "id": "e3c140b7-4636-48ab-b1e5-949379859582"
         },
-        "data": {
-          "state": "held",
-          "ticket_id": "ec001a99-4f82-4fdc-87d5-34536970256a",
-          "floor_id": "a09b2b50-c25c-438f-ac20-e8c76da9fc7e",
-          "fencing_token": "2",
-          "base_revision": "2",
-          "head_sequence": "1",
-          "server_time": "2026-09-06T23:13:12.023Z",
-          "expires_at": "2026-09-06T23:13:42.023Z",
-          "snapshot_commit": "4l3fbpdm6ofguv8oh2607o95m2glvkis",
-          "content": {
-            "thread": {
-              "id": "b3cadb09-27e0-4977-9dbd-4b7c18dbc507",
-              "title": "API pagination",
-              "description": "",
-              "state": "active",
-              "revision": "2",
-              "headSequence": "1",
-              "creator": "f20a25e3-a556-46e1-b631-f2735755fd6d",
-              "createdAt": "2026-09-06T23:13:11.990Z"
-            },
-            "messages": [
-              {
-                "id": "8a940f6a-f14e-4008-992a-d71c7bf77bfe",
-                "threadId": "b3cadb09-27e0-4977-9dbd-4b7c18dbc507",
-                "sequence": "1",
-                "identityId": "f20a25e3-a556-46e1-b631-f2735755fd6d",
-                "name": "api-agent",
-                "instanceId": "1dc4a626-0e53-458a-93a3-ccdc520608a7",
-                "createdAt": "2026-09-06T23:13:12.011Z",
-                "body": "Adding pagination: /items will return { items, total }."
-              }
-            ],
-            "truncated": false,
-            "next_before": null
-          }
-        }
+        "turn": {
+          "id": "63fa2c50-3364-435b-b40b-774ca574d291",
+          "fencingToken": "2",
+          "expiresAt": "2026-09-07T02:53:52.733Z"
+        },
+        "snapshot": {
+          "commit": "su815l8nc61qhjpllr0ag7ch9jrk7e66",
+          "revision": "2"
+        },
+        "page": {
+          "type": "thread",
+          "thread": {
+            "id": "e3c140b7-4636-48ab-b1e5-949379859582",
+            "title": "API pagination",
+            "description": "",
+            "state": "active",
+            "revision": "2",
+            "headSequence": "1",
+            "creator": "d0bfc768-8652-4b4f-8a61-c0090997e51c",
+            "createdAt": "2026-09-07T02:53:22.693Z"
+          },
+          "messages": [
+            {
+              "id": "43453934-104f-4124-a160-41a7a20a914b",
+              "threadId": "e3c140b7-4636-48ab-b1e5-949379859582",
+              "sequence": "1",
+              "identityId": "d0bfc768-8652-4b4f-8a61-c0090997e51c",
+              "name": "api-agent",
+              "instanceId": "2f5d739f-e34d-44e8-a0fd-0e386634b4dd",
+              "createdAt": "2026-09-07T02:53:22.718Z",
+              "body": "Adding pagination: /items will return { items, total }."
+            }
+          ],
+          "truncated": false
+        },
+        "nextCursor": null,
+        "serverTime": "2026-09-07T02:53:22.733Z"
       }
     },
     {
       "actor": "client-agent",
-      "tool": "commit_and_done",
+      "tool": "commitTurn",
       "input": {
-        "floor_id": "a09b2b50-c25c-438f-ac20-e8c76da9fc7e",
-        "fencing_token": "2",
-        "base_revision": "2",
+        "turn": {
+          "id": "63fa2c50-3364-435b-b40b-774ca574d291",
+          "fencingToken": "2"
+        },
+        "baseRevision": "2",
         "mutation": {
-          "kind": "append_thread_message",
+          "kind": "appendMessage",
           "body": "loadItems() expects an array. Keep /items; add /v2/items."
         }
       },
       "output": {
-        "session": {
-          "project_id": "p_f0895eabb2d04f7b9af8a036689488a9",
-          "identity_id": "34e2d359-3225-4d36-994d-89dff7c38826",
-          "adapter_instance_id": "6b6554ef-bf84-4bca-a54b-e84bbee30226",
-          "name": "client-agent"
-        },
-        "data": {
-          "resource_id": "b3cadb09-27e0-4977-9dbd-4b7c18dbc507",
-          "previous_revision": "2",
-          "revision": "3",
-          "dolt_commit": "r870h1su2a22gjmptk53msrnii7remu4",
-          "message_id": "11ec5bce-fe0a-4aa8-8608-76c9a3a4e9cb",
-          "sequence": "2"
-        }
+        "resourceId": "e3c140b7-4636-48ab-b1e5-949379859582",
+        "previousRevision": "2",
+        "revision": "3",
+        "doltCommit": "1a3h8b6ht82qem0vguru2a3a86q44tne",
+        "messageId": "c145a37a-d5bf-4137-a4cf-aac921e224ca",
+        "sequence": "2"
       }
     },
     {
       "actor": "api-agent",
-      "tool": "acquire_floor",
+      "tool": "requestTurn",
       "input": {
-        "resource_type": "thread",
-        "resource_id": "b3cadb09-27e0-4977-9dbd-4b7c18dbc507"
+        "target": {
+          "type": "thread",
+          "id": "e3c140b7-4636-48ab-b1e5-949379859582"
+        }
       },
       "output": {
-        "session": {
-          "project_id": "p_f0895eabb2d04f7b9af8a036689488a9",
-          "identity_id": "f20a25e3-a556-46e1-b631-f2735755fd6d",
-          "adapter_instance_id": "1dc4a626-0e53-458a-93a3-ccdc520608a7",
-          "name": "api-agent"
+        "state": "offered",
+        "requestId": "7c895184-83d2-4c9b-9578-b53fd4503436",
+        "target": {
+          "type": "thread",
+          "id": "e3c140b7-4636-48ab-b1e5-949379859582"
         },
-        "data": {
-          "state": "offered",
-          "ticket_id": "9a7d9fd0-a63e-47b8-ab1b-7d28cdec0317",
-          "resource_id": "b3cadb09-27e0-4977-9dbd-4b7c18dbc507",
-          "offer_id": "285ec982-2e4d-4c78-8d02-550b888bcac7",
-          "claim_by": "2026-09-06T23:13:42.034Z"
-        }
+        "offerId": "90e83785-383a-4a56-8ff3-03b521ed9e40",
+        "claimBy": "2026-09-07T02:53:52.750Z"
       }
     },
     {
       "actor": "api-agent",
-      "tool": "claim_floor",
+      "tool": "claimTurn",
       "input": {
-        "offer_id": "285ec982-2e4d-4c78-8d02-550b888bcac7"
+        "offerId": "90e83785-383a-4a56-8ff3-03b521ed9e40"
       },
       "output": {
-        "session": {
-          "project_id": "p_f0895eabb2d04f7b9af8a036689488a9",
-          "identity_id": "f20a25e3-a556-46e1-b631-f2735755fd6d",
-          "adapter_instance_id": "1dc4a626-0e53-458a-93a3-ccdc520608a7",
-          "name": "api-agent"
+        "requestId": "7c895184-83d2-4c9b-9578-b53fd4503436",
+        "target": {
+          "type": "thread",
+          "id": "e3c140b7-4636-48ab-b1e5-949379859582"
         },
-        "data": {
-          "state": "held",
-          "ticket_id": "9a7d9fd0-a63e-47b8-ab1b-7d28cdec0317",
-          "floor_id": "0131b882-5b08-4128-8e1f-17a775a171e3",
-          "fencing_token": "3",
-          "base_revision": "3",
-          "head_sequence": "2",
-          "server_time": "2026-09-06T23:13:12.036Z",
-          "expires_at": "2026-09-06T23:13:42.036Z",
-          "snapshot_commit": "r870h1su2a22gjmptk53msrnii7remu4",
-          "content": {
-            "thread": {
-              "id": "b3cadb09-27e0-4977-9dbd-4b7c18dbc507",
-              "title": "API pagination",
-              "description": "",
-              "state": "active",
-              "revision": "3",
-              "headSequence": "2",
-              "creator": "f20a25e3-a556-46e1-b631-f2735755fd6d",
-              "createdAt": "2026-09-06T23:13:11.990Z"
+        "turn": {
+          "id": "41fa9038-95f3-43c3-9a49-fb5b875d4f7f",
+          "fencingToken": "3",
+          "expiresAt": "2026-09-07T02:53:52.757Z"
+        },
+        "snapshot": {
+          "commit": "1a3h8b6ht82qem0vguru2a3a86q44tne",
+          "revision": "3"
+        },
+        "page": {
+          "type": "thread",
+          "thread": {
+            "id": "e3c140b7-4636-48ab-b1e5-949379859582",
+            "title": "API pagination",
+            "description": "",
+            "state": "active",
+            "revision": "3",
+            "headSequence": "2",
+            "creator": "d0bfc768-8652-4b4f-8a61-c0090997e51c",
+            "createdAt": "2026-09-07T02:53:22.693Z"
+          },
+          "messages": [
+            {
+              "id": "43453934-104f-4124-a160-41a7a20a914b",
+              "threadId": "e3c140b7-4636-48ab-b1e5-949379859582",
+              "sequence": "1",
+              "identityId": "d0bfc768-8652-4b4f-8a61-c0090997e51c",
+              "name": "api-agent",
+              "instanceId": "2f5d739f-e34d-44e8-a0fd-0e386634b4dd",
+              "createdAt": "2026-09-07T02:53:22.718Z",
+              "body": "Adding pagination: /items will return { items, total }."
             },
-            "messages": [
-              {
-                "id": "8a940f6a-f14e-4008-992a-d71c7bf77bfe",
-                "threadId": "b3cadb09-27e0-4977-9dbd-4b7c18dbc507",
-                "sequence": "1",
-                "identityId": "f20a25e3-a556-46e1-b631-f2735755fd6d",
-                "name": "api-agent",
-                "instanceId": "1dc4a626-0e53-458a-93a3-ccdc520608a7",
-                "createdAt": "2026-09-06T23:13:12.011Z",
-                "body": "Adding pagination: /items will return { items, total }."
-              },
-              {
-                "id": "11ec5bce-fe0a-4aa8-8608-76c9a3a4e9cb",
-                "threadId": "b3cadb09-27e0-4977-9dbd-4b7c18dbc507",
-                "sequence": "2",
-                "identityId": "34e2d359-3225-4d36-994d-89dff7c38826",
-                "name": "client-agent",
-                "instanceId": "6b6554ef-bf84-4bca-a54b-e84bbee30226",
-                "createdAt": "2026-09-06T23:13:12.026Z",
-                "body": "loadItems() expects an array. Keep /items; add /v2/items."
-              }
-            ],
-            "truncated": false,
-            "next_before": null
-          }
-        }
+            {
+              "id": "c145a37a-d5bf-4137-a4cf-aac921e224ca",
+              "threadId": "e3c140b7-4636-48ab-b1e5-949379859582",
+              "sequence": "2",
+              "identityId": "042b3a37-1c1d-425a-b4b8-de9592ca2545",
+              "name": "client-agent",
+              "instanceId": "96f2b218-fcb1-4593-bc4d-22d16ba9c385",
+              "createdAt": "2026-09-07T02:53:22.738Z",
+              "body": "loadItems() expects an array. Keep /items; add /v2/items."
+            }
+          ],
+          "truncated": false
+        },
+        "nextCursor": null,
+        "serverTime": "2026-09-07T02:53:22.758Z"
       }
     },
     {
       "actor": "api-agent",
-      "tool": "commit_and_done",
+      "tool": "commitTurn",
       "input": {
-        "floor_id": "0131b882-5b08-4128-8e1f-17a775a171e3",
-        "fencing_token": "3",
-        "base_revision": "3",
+        "turn": {
+          "id": "41fa9038-95f3-43c3-9a49-fb5b875d4f7f",
+          "fencingToken": "3"
+        },
+        "baseRevision": "3",
         "mutation": {
-          "kind": "append_thread_message",
+          "kind": "appendMessage",
           "body": "Agreed. /items stays unchanged. Adding /v2/items."
         }
       },
       "output": {
-        "session": {
-          "project_id": "p_f0895eabb2d04f7b9af8a036689488a9",
-          "identity_id": "f20a25e3-a556-46e1-b631-f2735755fd6d",
-          "adapter_instance_id": "1dc4a626-0e53-458a-93a3-ccdc520608a7",
-          "name": "api-agent"
-        },
-        "data": {
-          "resource_id": "b3cadb09-27e0-4977-9dbd-4b7c18dbc507",
-          "previous_revision": "3",
-          "revision": "4",
-          "dolt_commit": "i6umaojv0qi1n9jbsuamcnlbho6gb60g",
-          "message_id": "b86f1f07-55c9-4df4-88a1-4707a6245d9a",
-          "sequence": "3"
-        }
+        "resourceId": "e3c140b7-4636-48ab-b1e5-949379859582",
+        "previousRevision": "3",
+        "revision": "4",
+        "doltCommit": "r32j8obljnb01a9su1h91vf2hrqgdtde",
+        "messageId": "13248678-cd42-4743-afb5-29e7faf7c701",
+        "sequence": "3"
       }
     },
     {
       "actor": "client-agent",
-      "tool": "acquire_floor",
+      "tool": "requestTurn",
       "input": {
-        "resource_type": "thread",
-        "resource_id": "b3cadb09-27e0-4977-9dbd-4b7c18dbc507"
+        "target": {
+          "type": "thread",
+          "id": "e3c140b7-4636-48ab-b1e5-949379859582"
+        }
       },
       "output": {
-        "session": {
-          "project_id": "p_f0895eabb2d04f7b9af8a036689488a9",
-          "identity_id": "34e2d359-3225-4d36-994d-89dff7c38826",
-          "adapter_instance_id": "6b6554ef-bf84-4bca-a54b-e84bbee30226",
-          "name": "client-agent"
+        "state": "offered",
+        "requestId": "cb3fc866-ec25-4602-a6ee-8c5175599dc4",
+        "target": {
+          "type": "thread",
+          "id": "e3c140b7-4636-48ab-b1e5-949379859582"
         },
-        "data": {
-          "state": "offered",
-          "ticket_id": "a26d04d1-d802-4b0a-8d55-df9fda9e2c97",
-          "resource_id": "b3cadb09-27e0-4977-9dbd-4b7c18dbc507",
-          "offer_id": "0e1deb49-4feb-4aaa-866e-d1ea66c4e829",
-          "claim_by": "2026-09-06T23:13:42.047Z"
-        }
+        "offerId": "85128cbd-ef0d-4e8c-83a5-de94ccdf3dc3",
+        "claimBy": "2026-09-07T02:53:52.773Z"
       }
     },
     {
       "actor": "client-agent",
-      "tool": "claim_floor",
+      "tool": "claimTurn",
       "input": {
-        "offer_id": "0e1deb49-4feb-4aaa-866e-d1ea66c4e829"
+        "offerId": "85128cbd-ef0d-4e8c-83a5-de94ccdf3dc3"
       },
       "output": {
-        "session": {
-          "project_id": "p_f0895eabb2d04f7b9af8a036689488a9",
-          "identity_id": "34e2d359-3225-4d36-994d-89dff7c38826",
-          "adapter_instance_id": "6b6554ef-bf84-4bca-a54b-e84bbee30226",
-          "name": "client-agent"
+        "requestId": "cb3fc866-ec25-4602-a6ee-8c5175599dc4",
+        "target": {
+          "type": "thread",
+          "id": "e3c140b7-4636-48ab-b1e5-949379859582"
         },
-        "data": {
-          "state": "held",
-          "ticket_id": "a26d04d1-d802-4b0a-8d55-df9fda9e2c97",
-          "floor_id": "9fd505bb-822e-466b-8301-7f9197711033",
-          "fencing_token": "4",
-          "base_revision": "4",
-          "head_sequence": "3",
-          "server_time": "2026-09-06T23:13:12.050Z",
-          "expires_at": "2026-09-06T23:13:42.050Z",
-          "snapshot_commit": "i6umaojv0qi1n9jbsuamcnlbho6gb60g",
-          "content": {
-            "thread": {
-              "id": "b3cadb09-27e0-4977-9dbd-4b7c18dbc507",
-              "title": "API pagination",
-              "description": "",
-              "state": "active",
-              "revision": "4",
-              "headSequence": "3",
-              "creator": "f20a25e3-a556-46e1-b631-f2735755fd6d",
-              "createdAt": "2026-09-06T23:13:11.990Z"
+        "turn": {
+          "id": "037568cf-d376-4a31-b009-9b27f3fa1382",
+          "fencingToken": "4",
+          "expiresAt": "2026-09-07T02:53:52.779Z"
+        },
+        "snapshot": {
+          "commit": "r32j8obljnb01a9su1h91vf2hrqgdtde",
+          "revision": "4"
+        },
+        "page": {
+          "type": "thread",
+          "thread": {
+            "id": "e3c140b7-4636-48ab-b1e5-949379859582",
+            "title": "API pagination",
+            "description": "",
+            "state": "active",
+            "revision": "4",
+            "headSequence": "3",
+            "creator": "d0bfc768-8652-4b4f-8a61-c0090997e51c",
+            "createdAt": "2026-09-07T02:53:22.693Z"
+          },
+          "messages": [
+            {
+              "id": "43453934-104f-4124-a160-41a7a20a914b",
+              "threadId": "e3c140b7-4636-48ab-b1e5-949379859582",
+              "sequence": "1",
+              "identityId": "d0bfc768-8652-4b4f-8a61-c0090997e51c",
+              "name": "api-agent",
+              "instanceId": "2f5d739f-e34d-44e8-a0fd-0e386634b4dd",
+              "createdAt": "2026-09-07T02:53:22.718Z",
+              "body": "Adding pagination: /items will return { items, total }."
             },
-            "messages": [
-              {
-                "id": "8a940f6a-f14e-4008-992a-d71c7bf77bfe",
-                "threadId": "b3cadb09-27e0-4977-9dbd-4b7c18dbc507",
-                "sequence": "1",
-                "identityId": "f20a25e3-a556-46e1-b631-f2735755fd6d",
-                "name": "api-agent",
-                "instanceId": "1dc4a626-0e53-458a-93a3-ccdc520608a7",
-                "createdAt": "2026-09-06T23:13:12.011Z",
-                "body": "Adding pagination: /items will return { items, total }."
-              },
-              {
-                "id": "11ec5bce-fe0a-4aa8-8608-76c9a3a4e9cb",
-                "threadId": "b3cadb09-27e0-4977-9dbd-4b7c18dbc507",
-                "sequence": "2",
-                "identityId": "34e2d359-3225-4d36-994d-89dff7c38826",
-                "name": "client-agent",
-                "instanceId": "6b6554ef-bf84-4bca-a54b-e84bbee30226",
-                "createdAt": "2026-09-06T23:13:12.026Z",
-                "body": "loadItems() expects an array. Keep /items; add /v2/items."
-              },
-              {
-                "id": "b86f1f07-55c9-4df4-88a1-4707a6245d9a",
-                "threadId": "b3cadb09-27e0-4977-9dbd-4b7c18dbc507",
-                "sequence": "3",
-                "identityId": "f20a25e3-a556-46e1-b631-f2735755fd6d",
-                "name": "api-agent",
-                "instanceId": "1dc4a626-0e53-458a-93a3-ccdc520608a7",
-                "createdAt": "2026-09-06T23:13:12.038Z",
-                "body": "Agreed. /items stays unchanged. Adding /v2/items."
-              }
-            ],
-            "truncated": false,
-            "next_before": null
-          }
-        }
+            {
+              "id": "c145a37a-d5bf-4137-a4cf-aac921e224ca",
+              "threadId": "e3c140b7-4636-48ab-b1e5-949379859582",
+              "sequence": "2",
+              "identityId": "042b3a37-1c1d-425a-b4b8-de9592ca2545",
+              "name": "client-agent",
+              "instanceId": "96f2b218-fcb1-4593-bc4d-22d16ba9c385",
+              "createdAt": "2026-09-07T02:53:22.738Z",
+              "body": "loadItems() expects an array. Keep /items; add /v2/items."
+            },
+            {
+              "id": "13248678-cd42-4743-afb5-29e7faf7c701",
+              "threadId": "e3c140b7-4636-48ab-b1e5-949379859582",
+              "sequence": "3",
+              "identityId": "d0bfc768-8652-4b4f-8a61-c0090997e51c",
+              "name": "api-agent",
+              "instanceId": "2f5d739f-e34d-44e8-a0fd-0e386634b4dd",
+              "createdAt": "2026-09-07T02:53:22.762Z",
+              "body": "Agreed. /items stays unchanged. Adding /v2/items."
+            }
+          ],
+          "truncated": false
+        },
+        "nextCursor": null,
+        "serverTime": "2026-09-07T02:53:22.779Z"
       }
     },
     {
       "actor": "client-agent",
-      "tool": "commit_and_done",
+      "tool": "commitTurn",
       "input": {
-        "floor_id": "9fd505bb-822e-466b-8301-7f9197711033",
-        "fencing_token": "4",
-        "base_revision": "4",
+        "turn": {
+          "id": "037568cf-d376-4a31-b009-9b27f3fa1382",
+          "fencingToken": "4"
+        },
+        "baseRevision": "4",
         "mutation": {
-          "kind": "append_thread_message",
+          "kind": "appendMessage",
           "body": "I'll switch loadItems() to /v2/items."
         }
       },
       "output": {
-        "session": {
-          "project_id": "p_f0895eabb2d04f7b9af8a036689488a9",
-          "identity_id": "34e2d359-3225-4d36-994d-89dff7c38826",
-          "adapter_instance_id": "6b6554ef-bf84-4bca-a54b-e84bbee30226",
-          "name": "client-agent"
-        },
-        "data": {
-          "resource_id": "b3cadb09-27e0-4977-9dbd-4b7c18dbc507",
-          "previous_revision": "4",
-          "revision": "5",
-          "dolt_commit": "uuhj1ii28i1hklpf64nvmipda9r3ig5m",
-          "message_id": "1e044742-b541-4516-be8e-02e41a2ed7d4",
-          "sequence": "4"
-        }
+        "resourceId": "e3c140b7-4636-48ab-b1e5-949379859582",
+        "previousRevision": "4",
+        "revision": "5",
+        "doltCommit": "old0fd2ag9u4sf6suf4gl41ajmjupd0f",
+        "messageId": "ad1aab33-d7fc-4f8e-9cfe-32f3fe0c31c9",
+        "sequence": "4"
       }
     },
     {
       "actor": "api-agent",
-      "tool": "acquire_floor",
+      "tool": "requestTurn",
       "input": {
-        "resource_type": "thread",
-        "resource_id": "b3cadb09-27e0-4977-9dbd-4b7c18dbc507"
+        "target": {
+          "type": "thread",
+          "id": "e3c140b7-4636-48ab-b1e5-949379859582"
+        }
       },
       "output": {
-        "session": {
-          "project_id": "p_f0895eabb2d04f7b9af8a036689488a9",
-          "identity_id": "f20a25e3-a556-46e1-b631-f2735755fd6d",
-          "adapter_instance_id": "1dc4a626-0e53-458a-93a3-ccdc520608a7",
-          "name": "api-agent"
+        "state": "offered",
+        "requestId": "43104ee1-da7e-48ed-aeaa-489c350350e6",
+        "target": {
+          "type": "thread",
+          "id": "e3c140b7-4636-48ab-b1e5-949379859582"
         },
-        "data": {
-          "state": "offered",
-          "ticket_id": "01b2550b-e486-434c-8716-d660bc0b802f",
-          "resource_id": "b3cadb09-27e0-4977-9dbd-4b7c18dbc507",
-          "offer_id": "604946cc-f7c4-4a17-839e-a7de8b3a0607",
-          "claim_by": "2026-09-06T23:13:42.123Z"
-        }
+        "offerId": "51cb4568-3d3d-4aef-8726-1691591d30a3",
+        "claimBy": "2026-09-07T02:53:52.862Z"
       }
     },
     {
       "actor": "api-agent",
-      "tool": "claim_floor",
+      "tool": "claimTurn",
       "input": {
-        "offer_id": "604946cc-f7c4-4a17-839e-a7de8b3a0607"
+        "offerId": "51cb4568-3d3d-4aef-8726-1691591d30a3"
       },
       "output": {
-        "session": {
-          "project_id": "p_f0895eabb2d04f7b9af8a036689488a9",
-          "identity_id": "f20a25e3-a556-46e1-b631-f2735755fd6d",
-          "adapter_instance_id": "1dc4a626-0e53-458a-93a3-ccdc520608a7",
-          "name": "api-agent"
+        "requestId": "43104ee1-da7e-48ed-aeaa-489c350350e6",
+        "target": {
+          "type": "thread",
+          "id": "e3c140b7-4636-48ab-b1e5-949379859582"
         },
-        "data": {
-          "state": "held",
-          "ticket_id": "01b2550b-e486-434c-8716-d660bc0b802f",
-          "floor_id": "3374c767-28a3-4d7a-aeec-d4a3cb04d6a6",
-          "fencing_token": "5",
-          "base_revision": "5",
-          "head_sequence": "4",
-          "server_time": "2026-09-06T23:13:12.126Z",
-          "expires_at": "2026-09-06T23:13:42.126Z",
-          "snapshot_commit": "uuhj1ii28i1hklpf64nvmipda9r3ig5m",
-          "content": {
-            "thread": {
-              "id": "b3cadb09-27e0-4977-9dbd-4b7c18dbc507",
-              "title": "API pagination",
-              "description": "",
-              "state": "active",
-              "revision": "5",
-              "headSequence": "4",
-              "creator": "f20a25e3-a556-46e1-b631-f2735755fd6d",
-              "createdAt": "2026-09-06T23:13:11.990Z"
+        "turn": {
+          "id": "d8b2a562-b3bb-4039-a273-527bc3945c6d",
+          "fencingToken": "5",
+          "expiresAt": "2026-09-07T02:53:52.870Z"
+        },
+        "snapshot": {
+          "commit": "old0fd2ag9u4sf6suf4gl41ajmjupd0f",
+          "revision": "5"
+        },
+        "page": {
+          "type": "thread",
+          "thread": {
+            "id": "e3c140b7-4636-48ab-b1e5-949379859582",
+            "title": "API pagination",
+            "description": "",
+            "state": "active",
+            "revision": "5",
+            "headSequence": "4",
+            "creator": "d0bfc768-8652-4b4f-8a61-c0090997e51c",
+            "createdAt": "2026-09-07T02:53:22.693Z"
+          },
+          "messages": [
+            {
+              "id": "43453934-104f-4124-a160-41a7a20a914b",
+              "threadId": "e3c140b7-4636-48ab-b1e5-949379859582",
+              "sequence": "1",
+              "identityId": "d0bfc768-8652-4b4f-8a61-c0090997e51c",
+              "name": "api-agent",
+              "instanceId": "2f5d739f-e34d-44e8-a0fd-0e386634b4dd",
+              "createdAt": "2026-09-07T02:53:22.718Z",
+              "body": "Adding pagination: /items will return { items, total }."
             },
-            "messages": [
-              {
-                "id": "8a940f6a-f14e-4008-992a-d71c7bf77bfe",
-                "threadId": "b3cadb09-27e0-4977-9dbd-4b7c18dbc507",
-                "sequence": "1",
-                "identityId": "f20a25e3-a556-46e1-b631-f2735755fd6d",
-                "name": "api-agent",
-                "instanceId": "1dc4a626-0e53-458a-93a3-ccdc520608a7",
-                "createdAt": "2026-09-06T23:13:12.011Z",
-                "body": "Adding pagination: /items will return { items, total }."
-              },
-              {
-                "id": "11ec5bce-fe0a-4aa8-8608-76c9a3a4e9cb",
-                "threadId": "b3cadb09-27e0-4977-9dbd-4b7c18dbc507",
-                "sequence": "2",
-                "identityId": "34e2d359-3225-4d36-994d-89dff7c38826",
-                "name": "client-agent",
-                "instanceId": "6b6554ef-bf84-4bca-a54b-e84bbee30226",
-                "createdAt": "2026-09-06T23:13:12.026Z",
-                "body": "loadItems() expects an array. Keep /items; add /v2/items."
-              },
-              {
-                "id": "b86f1f07-55c9-4df4-88a1-4707a6245d9a",
-                "threadId": "b3cadb09-27e0-4977-9dbd-4b7c18dbc507",
-                "sequence": "3",
-                "identityId": "f20a25e3-a556-46e1-b631-f2735755fd6d",
-                "name": "api-agent",
-                "instanceId": "1dc4a626-0e53-458a-93a3-ccdc520608a7",
-                "createdAt": "2026-09-06T23:13:12.038Z",
-                "body": "Agreed. /items stays unchanged. Adding /v2/items."
-              },
-              {
-                "id": "1e044742-b541-4516-be8e-02e41a2ed7d4",
-                "threadId": "b3cadb09-27e0-4977-9dbd-4b7c18dbc507",
-                "sequence": "4",
-                "identityId": "34e2d359-3225-4d36-994d-89dff7c38826",
-                "name": "client-agent",
-                "instanceId": "6b6554ef-bf84-4bca-a54b-e84bbee30226",
-                "createdAt": "2026-09-06T23:13:12.052Z",
-                "body": "I'll switch loadItems() to /v2/items."
-              }
-            ],
-            "truncated": false,
-            "next_before": null
-          }
-        }
+            {
+              "id": "c145a37a-d5bf-4137-a4cf-aac921e224ca",
+              "threadId": "e3c140b7-4636-48ab-b1e5-949379859582",
+              "sequence": "2",
+              "identityId": "042b3a37-1c1d-425a-b4b8-de9592ca2545",
+              "name": "client-agent",
+              "instanceId": "96f2b218-fcb1-4593-bc4d-22d16ba9c385",
+              "createdAt": "2026-09-07T02:53:22.738Z",
+              "body": "loadItems() expects an array. Keep /items; add /v2/items."
+            },
+            {
+              "id": "13248678-cd42-4743-afb5-29e7faf7c701",
+              "threadId": "e3c140b7-4636-48ab-b1e5-949379859582",
+              "sequence": "3",
+              "identityId": "d0bfc768-8652-4b4f-8a61-c0090997e51c",
+              "name": "api-agent",
+              "instanceId": "2f5d739f-e34d-44e8-a0fd-0e386634b4dd",
+              "createdAt": "2026-09-07T02:53:22.762Z",
+              "body": "Agreed. /items stays unchanged. Adding /v2/items."
+            },
+            {
+              "id": "ad1aab33-d7fc-4f8e-9cfe-32f3fe0c31c9",
+              "threadId": "e3c140b7-4636-48ab-b1e5-949379859582",
+              "sequence": "4",
+              "identityId": "042b3a37-1c1d-425a-b4b8-de9592ca2545",
+              "name": "client-agent",
+              "instanceId": "96f2b218-fcb1-4593-bc4d-22d16ba9c385",
+              "createdAt": "2026-09-07T02:53:22.784Z",
+              "body": "I'll switch loadItems() to /v2/items."
+            }
+          ],
+          "truncated": false
+        },
+        "nextCursor": null,
+        "serverTime": "2026-09-07T02:53:22.870Z"
       }
     },
     {
       "actor": "api-agent",
-      "tool": "done",
+      "tool": "releaseTurn",
       "input": {
-        "floor_id": "3374c767-28a3-4d7a-aeec-d4a3cb04d6a6",
-        "fencing_token": "5"
+        "turn": {
+          "id": "d8b2a562-b3bb-4039-a273-527bc3945c6d",
+          "fencingToken": "5"
+        }
       },
       "output": {
-        "session": {
-          "project_id": "p_f0895eabb2d04f7b9af8a036689488a9",
-          "identity_id": "f20a25e3-a556-46e1-b631-f2735755fd6d",
-          "adapter_instance_id": "1dc4a626-0e53-458a-93a3-ccdc520608a7",
-          "name": "api-agent"
+        "state": "released",
+        "requestId": "43104ee1-da7e-48ed-aeaa-489c350350e6",
+        "target": {
+          "type": "thread",
+          "id": "e3c140b7-4636-48ab-b1e5-949379859582"
         },
-        "data": {
-          "state": "released",
-          "ticket_id": "01b2550b-e486-434c-8716-d660bc0b802f",
-          "resource_id": "b3cadb09-27e0-4977-9dbd-4b7c18dbc507",
-          "expires_at": "2026-09-06T23:13:42.126Z"
-        }
+        "expiresAt": "2026-09-07T02:53:52.870Z"
       }
     }
   ]

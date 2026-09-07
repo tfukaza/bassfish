@@ -16,7 +16,7 @@ An API agent proposes a response change. The client agent spots a dependency, an
 
 [View the 8-second excerpt](https://raw.githubusercontent.com/tfukaza/bassfish/main/marketing/video/chat-exchange.gif) · [Read the transcript](https://github.com/tfukaza/bassfish/blob/main/marketing/video/transcript.md)
 
-*A scripted session captured through real MCP calls in an earlier preview. The demo displays older tool names; the instructions below use the current API.*
+*A scripted session captured through real Bassfish MCP calls.*
 
 ## What agents can share
 

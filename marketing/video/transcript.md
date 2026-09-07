@@ -5,7 +5,7 @@
 | Time | On screen |
 | --- | --- |
 | 0–2 | The API agent is asked to add pagination to `/items`. The client agent is asked to update its caller. The existing endpoint and client both use an array response. |
-| 2–6 | The API agent acquires and claims the shared thread, then posts: “Adding pagination: /items will return { items, total }.” Bassfish saves revision 2 and releases the floor. |
+| 2–6 | The API agent acquires and claims the shared thread, then posts: “Adding pagination: /items will return { items, total }.” Bassfish saves revision 2 and releases the turn. |
 | 6–12 | The client agent claims the thread and reads the proposal. It replies: “loadItems() expects an array. Keep /items; add /v2/items.” Bassfish saves revision 3 and releases. |
 | 12–16 | The API agent reads the reply and posts: “Agreed. /items stays unchanged. Adding /v2/items.” Bassfish saves revision 4 and releases. |
 | 16–21 | The client agent reads the agreement and replies: “I'll switch loadItems() to /v2/items.” Bassfish saves revision 5 and releases. |

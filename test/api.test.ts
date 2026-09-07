@@ -4,7 +4,7 @@ import { schemas } from '../src/api.js';
 
 const tools = [
   'getSession','setAgentName','listAgents','createThread','listThreads','getThread','searchThreads','createNote','listNotes','searchNotes',
-  'requestFloor','getFloorRequest','waitForFloor','cancelFloorRequest','claimFloor','readFloor','releaseFloor','commitFloor',
+  'requestTurn','getTurnRequest','waitForTurn','cancelTurnRequest','claimTurn','readTurn','releaseTurn','commitTurn',
   'listHistory','readRevision','diffRevision','previewRestore','restoreRevision','getNoteOutline','findInNote',
   'inspectSnapshot','searchProjectNotes','searchProjectNoteHistory','exportSnapshot',
   'listSnapshotHistory','previewSnapshotRestore','restoreSnapshot',
@@ -15,20 +15,20 @@ test('v0 exposes one clean camelCase tool surface', () => {
   assert.ok(tools.every(name => !name.includes('_')));
 });
 
-test('v0 rejects superseded flat and snake_case floor contracts', () => {
-  assert.equal(schemas.requestFloor.safeParse({ resourceType: 'thread', resourceId: 'thread' }).success,false);
-  assert.equal(schemas.requestFloor.safeParse({ target: { type: 'thread', id: 'thread' } }).success,true);
-  assert.equal(schemas.releaseFloor.safeParse({ floorId: 'floor', fencingToken: '1' }).success,false);
-  assert.equal(schemas.releaseFloor.safeParse({ floor: { id: 'floor', fencingToken: '1' } }).success,true);
-  assert.equal(schemas.commitFloor.safeParse({ floor: { id: 'floor', fencingToken: '1' }, baseRevision: '1',
+test('v0 rejects superseded flat and snake_case turn contracts', () => {
+  assert.equal(schemas.requestTurn.safeParse({ resourceType: 'thread', resourceId: 'thread' }).success,false);
+  assert.equal(schemas.requestTurn.safeParse({ target: { type: 'thread', id: 'thread' } }).success,true);
+  assert.equal(schemas.releaseTurn.safeParse({ turnId: 'turn', fencingToken: '1' }).success,false);
+  assert.equal(schemas.releaseTurn.safeParse({ turn: { id: 'turn', fencingToken: '1' } }).success,true);
+  assert.equal(schemas.commitTurn.safeParse({ turn: { id: 'turn', fencingToken: '1' }, baseRevision: '1',
     mutation: { kind: 'append_thread_message', body: 'legacy' } }).success,false);
 });
 
 test('thread metadata tools and mutations validate their inputs', () => {
-  assert.equal(schemas.commitFloor.safeParse({ floor: { id: 'f', fencingToken: '1' }, baseRevision: '1', mutation: { kind: 'setThreadDescription', description: 'topic' } }).success, true);
-  assert.equal(schemas.commitFloor.safeParse({ floor: { id: 'f', fencingToken: '1' }, baseRevision: '1', mutation: { kind: 'setThreadDescription', description: '' } }).success, true);
-  assert.equal(schemas.commitFloor.safeParse({ floor: { id: 'f', fencingToken: '1' }, baseRevision: '1', mutation: { kind: 'setThreadDescription', description: 'x'.repeat(2001) } }).success, false);
-  assert.equal(schemas.commitFloor.safeParse({ floor: { id: 'f', fencingToken: '1' }, baseRevision: '1', mutation: { kind: 'deleteThread' } }).success, true);
+  assert.equal(schemas.commitTurn.safeParse({ turn: { id: 'f', fencingToken: '1' }, baseRevision: '1', mutation: { kind: 'setThreadDescription', description: 'topic' } }).success, true);
+  assert.equal(schemas.commitTurn.safeParse({ turn: { id: 'f', fencingToken: '1' }, baseRevision: '1', mutation: { kind: 'setThreadDescription', description: '' } }).success, true);
+  assert.equal(schemas.commitTurn.safeParse({ turn: { id: 'f', fencingToken: '1' }, baseRevision: '1', mutation: { kind: 'setThreadDescription', description: 'x'.repeat(2001) } }).success, false);
+  assert.equal(schemas.commitTurn.safeParse({ turn: { id: 'f', fencingToken: '1' }, baseRevision: '1', mutation: { kind: 'deleteThread' } }).success, true);
   assert.equal(schemas.listThreads.safeParse({ state: 'deleted', limit: 1, cursor: 'abc', creatorIdentityId: 'i', titlePrefix: 'T' }).success, true);
   assert.deepEqual(schemas.listThreads.parse({}), { state: 'active', limit: 100 });
   assert.equal(schemas.listThreads.safeParse({ foo: 1 }).success, false);

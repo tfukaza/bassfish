@@ -1,5 +1,5 @@
 {
-  "checkedAt": "2026-09-07T02:22:47.435Z",
+  "checkedAt": "2026-09-07T03:05:17.157Z",
   "checks": [
     "brand-sheet.svg: dimensions and PNG/source parity passed",
     "readme-banner.svg: dimensions and PNG/source parity passed",
@@ -20,6 +20,7 @@
     "mint on canvas: 5.84:1 text contrast",
     "muted on canvas: 4.92:1 text contrast",
     "Video: 1792 × 748, H.264 yuv420p, 750 frames, 25 seconds",
-    "GIF: 896 × 374, 96 frames, 8 seconds, infinite loop"
+    "GIF: 896 × 374, 96 frames, 8 seconds, infinite loop",
+    "README GIF: 768 × 321, 150 frames, 25 seconds, transparent canvas"
   ]
 }

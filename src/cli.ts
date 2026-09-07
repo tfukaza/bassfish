@@ -21,11 +21,11 @@ bassfish config show|reset
 bassfish config set KEY MILLISECONDS              Validate config; applies after restart
 bassfish data reset --yes                         Move preview data to a timestamped backup
 bassfish doctor                                 Current state and recovery diagnostics
-bassfish floor list                             List current floor/control metadata
-bassfish floor release FLOOR_ID --force          Revoke HELD, never COMMITTING
+bassfish turn list                             List current turn/control metadata
+bassfish turn release TURN_ID --force          Revoke CLAIMED, never COMMITTING
 bassfish thread list [--archived|--deleted] [--limit N] [--cursor C] [--creator ID] [--title-prefix TEXT]
 bassfish thread create TITLE [--description TEXT]
-bassfish thread get THREAD_ID                   Thread metadata without a floor
+bassfish thread get THREAD_ID                   Thread metadata without a turn
 bassfish thread show THREAD_ID                  Acquire once, read messages, then release
 bassfish thread search QUERY [--archived|--deleted] [--limit N]
 bassfish thread describe THREAD_ID (--description TEXT | --clear)
@@ -38,8 +38,8 @@ bassfish note move|metadata|links|replace-text|section NOTE_ID [options]
 bassfish note archive|delete|activate|history NOTE_ID
 bassfish note restore NOTE_ID REVISION --yes
 
-Human CLI commands use the same floor checks as MCP. A busy show cancels its
-ticket and reports FLOOR_BUSY; it never retries. Agents should use MCP.
+Human CLI commands use the same turn checks as MCP. A busy show cancels its
+ticket and reports TURN_BUSY; it never retries. Agents should use MCP.
 Environment: BASSFISH_DATA_DIR, BASSFISH_DOLT_BIN (Dolt 2.3.2).
 `;
 function flag(args: string[], name: string): string | undefined {
@@ -86,7 +86,7 @@ async function main(): Promise<void> {
   if (command === 'mcp') { requireThat(args.length === 0, 'INVALID_ARGUMENT', 'Unknown MCP argument.'); await runMcp(workspace, data, binary, name); return; }
   const action = args.shift();
   const valid = (command === 'daemon' && ['start', 'status', 'stop'].includes(action ?? '')) || command === 'doctor' ||
-    (command === 'floor' && ['list', 'release'].includes(action ?? '')) || (command === 'thread' && ['list', 'create', 'get', 'show', 'search', 'describe', 'delete'].includes(action ?? '')) ||
+    (command === 'turn' && ['list', 'release'].includes(action ?? '')) || (command === 'thread' && ['list', 'create', 'get', 'show', 'search', 'describe', 'delete'].includes(action ?? '')) ||
     (command === 'note' && ['list','create','show','edit','append','prepend','patch','move','metadata','links','replace-text','section','archive','delete','activate','history','restore'].includes(action ?? ''));
   requireThat(valid, 'INVALID_ARGUMENT', help);
   if (command === 'doctor') {
@@ -101,17 +101,17 @@ async function main(): Promise<void> {
     if (dolt.state !== 'ready') process.exitCode = 1;
     return;
   }
-  if (command !== 'floor' && !(command === 'daemon' && action !== 'start')) await ensureDaemon(data, binary);
+  if (command !== 'turn' && !(command === 'daemon' && action !== 'start')) await ensureDaemon(data, binary);
   const client = await connectDaemon(data);
   let opened = false;
   let heartbeat: NodeJS.Timeout | undefined;
   try {
     let result: unknown;
     if (command === 'daemon') result = await client.call(action === 'stop' ? 'stopDaemon' : 'getHealth');
-    else if (command === 'floor' && action === 'list') result = await client.call('getHealth');
-    else if (command === 'floor') {
-      requireThat(args.length === 2 && args[1] === '--force', 'INVALID_ARGUMENT', 'Use floor release FLOOR_ID --force.');
-      result = await client.call('forceRelease', { floorId: args[0], force: true });
+    else if (command === 'turn' && action === 'list') result = await client.call('getHealth');
+    else if (command === 'turn') {
+      requireThat(args.length === 2 && args[1] === '--force', 'INVALID_ARGUMENT', 'Use turn release TURN_ID --force.');
+      result = await client.call('forceRelease', { turnId: args[0], force: true });
     } else {
       await client.call('openSession', { workspace, name }); opened = true;
       heartbeat = setInterval(() => { void client.call('heartbeatSession').catch(() => {}); }, 5000); heartbeat.unref();

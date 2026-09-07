@@ -28,8 +28,8 @@ export async function runThreadCli(action: string | undefined, args: string[], c
   const id = args.shift(); requireThat(id,'INVALID_ARGUMENT','Pass a thread ID.');
   if (action === 'get') { requireThat(args.length === 0,'INVALID_ARGUMENT','Unknown thread get argument.'); return call('getThread',{ threadId: id }); }
   if (action === 'show') {
-    requireThat(args.length === 0,'INVALID_ARGUMENT','Unknown thread show argument.'); const floor = await acquire(call,'thread',id);
-    try { return floor; } finally { await release(call,floor); }
+    requireThat(args.length === 0,'INVALID_ARGUMENT','Unknown thread show argument.'); const turn = await acquire(call,'thread',id);
+    try { return turn; } finally { await release(call,turn); }
   }
   if (action === 'describe') {
     const description = take(args,'--description'); const clear = booleanFlag(args,'--clear');

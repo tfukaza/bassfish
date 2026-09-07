@@ -2,9 +2,9 @@ import { DatabaseSync } from 'node:sqlite';
 import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { BassfishError } from '../domain.js';
-import type { Actor, ControlState, ControlStore, DurableTask, FloorRequest, Identity, Instance, PendingCommit, Project, Resource } from '../domain.js';
+import type { Actor, ControlState, ControlStore, DurableTask, TurnRequest, Identity, Instance, PendingCommit, Project, Resource } from '../domain.js';
 
-const schemaVersion = 3;
+const schemaVersion = 4;
 
 /** Durable current coordination state. Content and semantic history never live here. */
 export class SqliteControl implements ControlStore {
@@ -39,28 +39,28 @@ export class SqliteControl implements ControlStore {
         id TEXT PRIMARY KEY, projectId TEXT NOT NULL, type TEXT NOT NULL CHECK(type IN ('thread','note','project')),
         fence TEXT NOT NULL, queueSequence TEXT NOT NULL, present INTEGER NOT NULL CHECK(present IN (0,1)), FOREIGN KEY(projectId) REFERENCES projects(id)
       );
-      CREATE TABLE IF NOT EXISTS floorRequests (
+      CREATE TABLE IF NOT EXISTS turnRequests (
         id TEXT PRIMARY KEY, projectId TEXT NOT NULL, resourceId TEXT NOT NULL,
         resourceType TEXT NOT NULL CHECK(resourceType IN ('thread','note','project')),
         identityId TEXT NOT NULL, instanceId TEXT NOT NULL, sequence TEXT NOT NULL,
-        state TEXT NOT NULL CHECK(state IN ('QUEUED','READY','OFFERED','HELD','COMMITTING','COMMITTED','RELEASED','EXPIRED','CANCELLED','FAILED')),
+        state TEXT NOT NULL CHECK(state IN ('QUEUED','READY','OFFERED','CLAIMED','COMMITTING','COMMITTED','RELEASED','EXPIRED','CANCELLED','FAILED')),
         createdAt INTEGER NOT NULL, updatedAt INTEGER NOT NULL, queueUntil INTEGER NOT NULL, reconnectUntil INTEGER,
-        offerId TEXT UNIQUE, claimBy INTEGER, floorId TEXT UNIQUE, fence TEXT, baseRevision TEXT,
+        offerId TEXT UNIQUE, claimBy INTEGER, turnId TEXT UNIQUE, fence TEXT, baseRevision TEXT,
         snapshotCommit TEXT, expiresAt INTEGER, finishedAt INTEGER, resultJson TEXT CHECK(resultJson IS NULL OR json_valid(resultJson)),
         purpose TEXT CHECK(purpose IS NULL OR purpose IN ('snapshot','export','search','restore')),
         deliveryMode TEXT NOT NULL CHECK(deliveryMode IN ('ticket','task')),
         FOREIGN KEY(projectId) REFERENCES projects(id), FOREIGN KEY(resourceId) REFERENCES resources(id),
         FOREIGN KEY(identityId) REFERENCES identities(id), FOREIGN KEY(instanceId) REFERENCES instances(id)
       );
-      CREATE UNIQUE INDEX IF NOT EXISTS reserved_resource ON floorRequests(projectId,resourceId)
-        WHERE state IN ('READY','OFFERED','HELD','COMMITTING');
-      CREATE UNIQUE INDEX IF NOT EXISTS one_request_per_instance ON floorRequests(instanceId)
-        WHERE state IN ('QUEUED','READY','OFFERED','HELD','COMMITTING');
+      CREATE UNIQUE INDEX IF NOT EXISTS reserved_resource ON turnRequests(projectId,resourceId)
+        WHERE state IN ('READY','OFFERED','CLAIMED','COMMITTING');
+      CREATE UNIQUE INDEX IF NOT EXISTS one_request_per_instance ON turnRequests(instanceId)
+        WHERE state IN ('QUEUED','READY','OFFERED','CLAIMED','COMMITTING');
       CREATE TABLE IF NOT EXISTS pendingCommits (
         id TEXT PRIMARY KEY, projectId TEXT NOT NULL, resourceId TEXT NOT NULL,
-        resourceType TEXT NOT NULL CHECK(resourceType IN ('thread','note','project')), floorRequestId TEXT,
+        resourceType TEXT NOT NULL CHECK(resourceType IN ('thread','note','project')), turnRequestId TEXT,
         startingHead TEXT NOT NULL, kind TEXT NOT NULL, actorJson TEXT NOT NULL CHECK(json_valid(actorJson)),
-        FOREIGN KEY(projectId) REFERENCES projects(id), FOREIGN KEY(floorRequestId) REFERENCES floorRequests(id)
+        FOREIGN KEY(projectId) REFERENCES projects(id), FOREIGN KEY(turnRequestId) REFERENCES turnRequests(id)
       );
       CREATE TABLE IF NOT EXISTS tasks (
         id TEXT PRIMARY KEY, projectId TEXT NOT NULL, identityId TEXT NOT NULL, requestId TEXT NOT NULL UNIQUE,
@@ -68,7 +68,7 @@ export class SqliteControl implements ControlStore {
         statusMessage TEXT, createdAt INTEGER NOT NULL, updatedAt INTEGER NOT NULL, discardAt INTEGER NOT NULL,
         resultJson TEXT CHECK(resultJson IS NULL OR json_valid(resultJson)),
         errorJson TEXT CHECK(errorJson IS NULL OR json_valid(errorJson)),
-        FOREIGN KEY(projectId) REFERENCES projects(id), FOREIGN KEY(identityId) REFERENCES identities(id), FOREIGN KEY(requestId) REFERENCES floorRequests(id)
+        FOREIGN KEY(projectId) REFERENCES projects(id), FOREIGN KEY(identityId) REFERENCES identities(id), FOREIGN KEY(requestId) REFERENCES turnRequests(id)
       );
       CREATE TABLE IF NOT EXISTS controlMeta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
       INSERT OR IGNORE INTO controlMeta(key,value) VALUES('wallClockHighWaterMs','0');
@@ -87,17 +87,17 @@ export class SqliteControl implements ControlStore {
       state.instances[row.id] = { ...row, active: row.active === 1 };
     }
     for (const row of this.db.prepare('SELECT * FROM resources').all() as unknown as (Omit<Resource,'present'> & { present: number })[]) state.resources[row.id] = { ...row, present: row.present === 1 };
-    for (const row of this.db.prepare('SELECT * FROM floorRequests').all() as Record<string, unknown>[]) {
-      const request = { ...row } as unknown as FloorRequest & { resultJson?: string | null };
+    for (const row of this.db.prepare('SELECT * FROM turnRequests').all() as Record<string, unknown>[]) {
+      const request = { ...row } as unknown as TurnRequest & { resultJson?: string | null };
       if (request.resultJson) request.result = JSON.parse(request.resultJson);
       delete request.resultJson;
-      for (const key of Object.keys(request) as (keyof FloorRequest)[]) if (request[key] === null) delete request[key];
+      for (const key of Object.keys(request) as (keyof TurnRequest)[]) if (request[key] === null) delete request[key];
       state.requests[request.id] = request;
     }
     for (const row of this.db.prepare('SELECT * FROM pendingCommits').all() as Record<string, unknown>[]) {
       const pending = { ...row, actor: JSON.parse(String(row.actorJson)) as Actor } as unknown as PendingCommit & { actorJson?: string };
       delete pending.actorJson;
-      if (pending.floorRequestId === null) delete pending.floorRequestId;
+      if (pending.turnRequestId === null) delete pending.turnRequestId;
       state.pending[pending.id] = pending;
     }
     for (const row of this.db.prepare('SELECT * FROM tasks').all() as Record<string, unknown>[]) {
@@ -118,7 +118,7 @@ export class SqliteControl implements ControlStore {
     try {
       const state = this.load();
       const result = fn(state);
-      this.db.exec('DELETE FROM tasks; DELETE FROM pendingCommits; DELETE FROM floorRequests; DELETE FROM resources; DELETE FROM instances; DELETE FROM identities; DELETE FROM projects;');
+      this.db.exec('DELETE FROM tasks; DELETE FROM pendingCommits; DELETE FROM turnRequests; DELETE FROM resources; DELETE FROM instances; DELETE FROM identities; DELETE FROM projects;');
       const project = this.db.prepare('INSERT INTO projects(id,commonDir,recovering) VALUES(?,?,?)');
       for (const value of Object.values(state.projects)) project.run(value.id,value.commonDir,value.recovering ? 1 : 0);
       const identity = this.db.prepare('INSERT INTO identities(id,projectId,name) VALUES(?,?,?)');
@@ -127,13 +127,13 @@ export class SqliteControl implements ControlStore {
       for (const value of Object.values(state.instances)) instance.run(value.id,value.projectId,value.identityId,value.handle,value.epoch,value.active ? 1 : 0,value.lastSeen);
       const resource = this.db.prepare('INSERT INTO resources(id,projectId,type,fence,queueSequence,present) VALUES(?,?,?,?,?,?)');
       for (const value of Object.values(state.resources)) resource.run(value.id,value.projectId,value.type,value.fence,value.queueSequence,value.present ? 1 : 0);
-      const request = this.db.prepare(`INSERT INTO floorRequests(id,projectId,resourceId,resourceType,identityId,instanceId,sequence,state,createdAt,updatedAt,queueUntil,
-        reconnectUntil,offerId,claimBy,floorId,fence,baseRevision,snapshotCommit,expiresAt,finishedAt,resultJson,purpose,deliveryMode) VALUES(${Array(23).fill('?').join(',')})`);
+      const request = this.db.prepare(`INSERT INTO turnRequests(id,projectId,resourceId,resourceType,identityId,instanceId,sequence,state,createdAt,updatedAt,queueUntil,
+        reconnectUntil,offerId,claimBy,turnId,fence,baseRevision,snapshotCommit,expiresAt,finishedAt,resultJson,purpose,deliveryMode) VALUES(${Array(23).fill('?').join(',')})`);
       for (const value of Object.values(state.requests)) request.run(value.id,value.projectId,value.resourceId,value.resourceType,value.identityId,value.instanceId,
-        value.sequence,value.state,value.createdAt,value.updatedAt,value.queueUntil,value.reconnectUntil ?? null,value.offerId ?? null,value.claimBy ?? null,value.floorId ?? null,
+        value.sequence,value.state,value.createdAt,value.updatedAt,value.queueUntil,value.reconnectUntil ?? null,value.offerId ?? null,value.claimBy ?? null,value.turnId ?? null,
         value.fence ?? null,value.baseRevision ?? null,value.snapshotCommit ?? null,value.expiresAt ?? null,value.finishedAt ?? null,value.result ? JSON.stringify(value.result) : null,value.purpose ?? null,value.deliveryMode);
-      const pending = this.db.prepare('INSERT INTO pendingCommits(id,projectId,resourceId,resourceType,floorRequestId,startingHead,kind,actorJson) VALUES(?,?,?,?,?,?,?,?)');
-      for (const value of Object.values(state.pending)) pending.run(value.id,value.projectId,value.resourceId,value.resourceType,value.floorRequestId ?? null,value.startingHead,value.kind,JSON.stringify(value.actor));
+      const pending = this.db.prepare('INSERT INTO pendingCommits(id,projectId,resourceId,resourceType,turnRequestId,startingHead,kind,actorJson) VALUES(?,?,?,?,?,?,?,?)');
+      for (const value of Object.values(state.pending)) pending.run(value.id,value.projectId,value.resourceId,value.resourceType,value.turnRequestId ?? null,value.startingHead,value.kind,JSON.stringify(value.actor));
       const task = this.db.prepare('INSERT INTO tasks(id,projectId,identityId,requestId,status,statusMessage,createdAt,updatedAt,discardAt,resultJson,errorJson) VALUES(?,?,?,?,?,?,?,?,?,?,?)');
       for (const value of Object.values(state.tasks)) task.run(value.id,value.projectId,value.identityId,value.requestId,value.status,value.statusMessage ?? null,
         value.createdAt,value.updatedAt,value.discardAt,value.result ? JSON.stringify(value.result) : null,value.error ? JSON.stringify(value.error) : null);

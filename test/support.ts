@@ -127,10 +127,10 @@ export class FakeContent implements ContentStore {
 }
 export interface Session { projectId: string; identityId: string; adapterInstanceId: string; name: string; pendingRequests: Ticket[] }
 export interface Ticket { state: string; requestId: string; offerId: string; position?: number; result?: MutationResult }
-export interface Floor {
+export interface Turn {
   requestId: string;
   target: { type: 'thread' | 'note' | 'project'; id?: string; purpose?: 'snapshot' | 'export' | 'search' | 'restore' };
-  floor: { id: string; fencingToken: string; expiresAt: string };
+  turn: { id: string; fencingToken: string; expiresAt: string };
   snapshot: { commit: string; revision: string };
   page: { type: 'thread'; thread: Thread; messages: Message[]; truncated: boolean };
   nextCursor: string | null;
@@ -140,7 +140,7 @@ export async function fixture() {
   const dir = await mkdtemp(join(tmpdir(), 'bf-unit-'));
   const control = new SqliteControl(join(dir, 'control.sqlite'));
   const content = new FakeContent(), clock = new FakeClock(), search = new NoteSearchIndex(join(dir,'search.sqlite'));
-  // Most domain tests isolate floor expiry from adapter liveness; separate tests exercise both.
+  // Most domain tests isolate turn expiry from adapter liveness; separate tests exercise both.
   const service = new Bassfish(control, content, clock, { instanceMs: defaultLimits.queueMs },search,dir);
   await service.initialize();
   const a = await service.open('/repo/.git', 'Alice'), b = await service.open('/repo/.git', 'Bob');
@@ -148,8 +148,8 @@ export async function fixture() {
   return { dir, control, content, clock, service, a, b, thread: create.threadId,
     close: async () => { search.close(); control.close(); await rm(dir, { recursive: true, force: true }); } };
 }
-export async function hold(service: Bassfish, handle: string, thread: string): Promise<Floor> {
-  const ticket = await service.requestResourceFloor(handle, thread);
-  return await service.claimFloor(handle, ticket.offerId as string, 20) as Floor;
+export async function hold(service: Bassfish, handle: string, thread: string): Promise<Turn> {
+  const ticket = await service.requestResourceTurn(handle, thread);
+  return await service.claimTurn(handle, ticket.offerId as string, 20) as Turn;
 }
 export const errorCode = (code: string) => (error: unknown): boolean => error instanceof BassfishError && error.code === code;

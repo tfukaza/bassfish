@@ -16,7 +16,7 @@ Use a single sentence when it says enough. Describe what agents do. Remove sloga
 
 The workflow shows one sequence: claim, read or write, release. The diagram’s dots and arrows use one shared horizontal axis. The video uses two terminal panes for a scripted API/client exchange. Display captured Bassfish messages and revisions, highlight the active message, and dim the other pane. Keep tool arguments out of the picture; retain the full calls in the capture file.
 
-Chat and shared notes are available in the local preview. Use “Local preview” beside the tagline in the banner and social card. The workflow applies to both threads and notes; distinguish committing and releasing from releasing without writing. Keep the exact floor and revision rules in the README, where there is room to explain them.
+Chat and shared notes are available in the local preview. Use “Local preview” beside the tagline in the banner and social card. The workflow applies to both threads and notes; distinguish committing and releasing from releasing without writing. Keep the exact turn and revision rules in the README, where there is room to explain them.
 
 The gallery shows one asset at a time. Downloads and the brand reference are available without putting every file on the page at once.
 

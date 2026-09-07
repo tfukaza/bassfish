@@ -3,9 +3,9 @@ import assert from 'node:assert/strict';
 import { fixture, errorCode } from './support.js';
 
 async function holdNote(service: Awaited<ReturnType<typeof fixture>>['service'], handle: string, noteId: string) {
-  const ticket = await service.call(handle, 'requestFloor', { target: { type: 'note', id: noteId } }) as { offerId: string };
-  return service.call(handle, 'claimFloor', { offerId: ticket.offerId }) as Promise<{
-    floor: { id: string; fencingToken: string }; snapshot: { revision: string };
+  const ticket = await service.call(handle, 'requestTurn', { target: { type: 'note', id: noteId } }) as { offerId: string };
+  return service.call(handle, 'claimTurn', { offerId: ticket.offerId }) as Promise<{
+    turn: { id: string; fencingToken: string }; snapshot: { revision: string };
     page: { type: string; note: { body?: string; path: string }; text: string; truncated: boolean }; nextCursor: string | null;
   }>;
 }
@@ -13,36 +13,36 @@ const credential = (value: { id: string; fencingToken: string }) => ({ id: value
 
 test('notes expose metadata freely but serialize bounded body reads and edits', async t => {
   const f = await fixture(); t.after(f.close);
-  const created = await f.service.call(f.a.agentHandle, 'createNote', { path: 'architecture/floor-control', title: 'Floor', body: 'one\ntwo', labels: ['plan'], noteKind: 'design', links: [] }) as { noteId: string };
+  const created = await f.service.call(f.a.agentHandle, 'createNote', { path: 'architecture/turn-control', title: 'Turn', body: 'one\ntwo', labels: ['plan'], noteKind: 'design', links: [] }) as { noteId: string };
   const listed = await f.service.call(f.b.agentHandle, 'listNotes', {}) as { notes: Record<string, unknown>[] };
-  assert.equal(listed.notes.length, 1); assert.equal(listed.notes[0]!.path, 'architecture/floor-control'); assert.equal('body' in listed.notes[0]!, false);
-  const floor = await holdNote(f.service, f.a.agentHandle, created.noteId);
-  assert.equal(floor.page.type, 'note'); assert.equal(floor.page.text, 'one\ntwo'); assert.equal(floor.page.note.body, undefined);
-  const waiting = await f.service.call(f.b.agentHandle, 'requestFloor', { target: { type: 'note', id: created.noteId } }) as { state: string; requestId: string };
+  assert.equal(listed.notes.length, 1); assert.equal(listed.notes[0]!.path, 'architecture/turn-control'); assert.equal('body' in listed.notes[0]!, false);
+  const turn = await holdNote(f.service, f.a.agentHandle, created.noteId);
+  assert.equal(turn.page.type, 'note'); assert.equal(turn.page.text, 'one\ntwo'); assert.equal(turn.page.note.body, undefined);
+  const waiting = await f.service.call(f.b.agentHandle, 'requestTurn', { target: { type: 'note', id: created.noteId } }) as { state: string; requestId: string };
   assert.equal(waiting.state, 'queued');
-  await f.service.call(f.a.agentHandle, 'commitFloor', { floor: credential(floor.floor), baseRevision: floor.snapshot.revision,
+  await f.service.call(f.a.agentHandle, 'commitTurn', { turn: credential(turn.turn), baseRevision: turn.snapshot.revision,
     mutation: { kind: 'appendNoteBody', body: '\nthree' } });
-  const offered = await f.service.call(f.b.agentHandle, 'getFloorRequest', { requestId: waiting.requestId }) as { offerId: string };
-  const next = await f.service.call(f.b.agentHandle, 'claimFloor', { offerId: offered.offerId }) as Awaited<ReturnType<typeof holdNote>>;
+  const offered = await f.service.call(f.b.agentHandle, 'getTurnRequest', { requestId: waiting.requestId }) as { offerId: string };
+  const next = await f.service.call(f.b.agentHandle, 'claimTurn', { offerId: offered.offerId }) as Awaited<ReturnType<typeof holdNote>>;
   assert.equal(next.page.text, 'one\ntwo\nthree');
-  await f.service.call(f.b.agentHandle, 'releaseFloor', { floor: credential(next.floor) });
+  await f.service.call(f.b.agentHandle, 'releaseTurn', { turn: credential(next.turn) });
 });
 
 test('note patch is exact and historical restore creates a new revision', async t => {
   const f = await fixture(); t.after(f.close);
   const created = await f.service.call(f.a.agentHandle, 'createNote', { path: 'handoff/api', title: 'API', body: 'alpha\nbeta', labels: [], noteKind: null, links: [] }) as { noteId: string };
-  let floor = await holdNote(f.service, f.a.agentHandle, created.noteId);
-  await assert.rejects(f.service.call(f.a.agentHandle, 'commitFloor', { floor: credential(floor.floor), baseRevision: floor.snapshot.revision,
+  let turn = await holdNote(f.service, f.a.agentHandle, created.noteId);
+  await assert.rejects(f.service.call(f.a.agentHandle, 'commitTurn', { turn: credential(turn.turn), baseRevision: turn.snapshot.revision,
     mutation: { kind: 'patchNoteBody', patch: '@@ -1,1 +1,1 @@\n-wrong\n+right' } }), errorCode('PATCH_REJECTED'));
-  await f.service.call(f.a.agentHandle, 'commitFloor', { floor: credential(floor.floor), baseRevision: floor.snapshot.revision,
+  await f.service.call(f.a.agentHandle, 'commitTurn', { turn: credential(turn.turn), baseRevision: turn.snapshot.revision,
     mutation: { kind: 'replaceNoteText', find: 'beta', replace: 'gamma', expectedOccurrences: 1 } });
-  floor = await holdNote(f.service, f.a.agentHandle, created.noteId);
-  const preview = await f.service.call(f.a.agentHandle, 'previewRestore', { floor: credential(floor.floor), revision: '1' }) as { previewToken: string };
-  const restored = await f.service.call(f.a.agentHandle, 'restoreRevision', { floor: credential(floor.floor), previewToken: preview.previewToken }) as { revision: string };
+  turn = await holdNote(f.service, f.a.agentHandle, created.noteId);
+  const preview = await f.service.call(f.a.agentHandle, 'previewRestore', { turn: credential(turn.turn), revision: '1' }) as { previewToken: string };
+  const restored = await f.service.call(f.a.agentHandle, 'restoreRevision', { turn: credential(turn.turn), previewToken: preview.previewToken }) as { revision: string };
   assert.equal(restored.revision, '3');
-  floor = await holdNote(f.service, f.a.agentHandle, created.noteId);
-  assert.equal(floor.page.text, 'alpha\nbeta');
-  const history = await f.service.call(f.a.agentHandle, 'listHistory', { floor: credential(floor.floor) }) as { entries: unknown[] };
+  turn = await holdNote(f.service, f.a.agentHandle, created.noteId);
+  assert.equal(turn.page.text, 'alpha\nbeta');
+  const history = await f.service.call(f.a.agentHandle, 'listHistory', { turn: credential(turn.turn) }) as { entries: unknown[] };
   assert.equal(history.entries.length, 3);
 });
 

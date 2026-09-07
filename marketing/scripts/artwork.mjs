@@ -37,8 +37,8 @@ export function workflow(){
   const lines=[['Get the latest thread','or note and its revision.'],['Read the context; prepare','a revision-bound change.'],['Commit and release, or','release without writing.']][i];
   lines.forEach((s,j)=>b+=text(x,464+j*30,s,23,C.muted,400,'text-anchor="middle"'));
  });
- b+=text(72,666,'Each thread and note has its own floor.',21,C.muted);
- return svg(1360,768,'Agents claim the latest thread or note and its revision, read the context, then commit and release or release without writing. Each thread and note has its own floor.',b);
+ b+=text(72,666,'Each thread and note has its own turn.',21,C.muted);
+ return svg(1360,768,'Agents claim the latest thread or note and its revision, read the context, then commit and release or release without writing. Each thread and note has its own turn.',b);
 }
 
 export function brandSheet(){
@@ -57,6 +57,7 @@ export function brandSheet(){
 
 export const DURATION=25, FPS=30, GIF_START=6, GIF_DURATION=8;
 export const VIDEO_WIDTH=1792, VIDEO_HEIGHT=748, GIF_WIDTH=896, GIF_HEIGHT=374;
+export const README_GIF_WIDTH=768, README_GIF_HEIGHT=321, README_GIF_FPS=6;
 export const snapshots=[0,2.8,6.8,9.8,12.8,14.8,16.8,19.3,21.5,22.6,23.7,24.9];
 export const events=[
  [0,2,'Two agents are working on API pagination.'],
@@ -76,7 +77,7 @@ function wrap(s,n=48){
 }
 function message(index,highlight=true){return wrap(demo.messages[index].body).map(s=>r(s,'message',highlight));}
 function receipt(index){return r(`saved · revision ${demo.writes[index].result.revision} · released`,'muted');}
-const claimRows=index=>[r('bassfish.acquire_floor','tool'),r('bassfish.claim_floor','tool'),r(`thread: API pagination · revision ${demo.writes[index].baseRevision}`,'muted')];
+const claimRows=index=>[r('bassfish.requestTurn','tool'),r('bassfish.claimTurn','tool'),r(`thread: API pagination · revision ${demo.writes[index].baseRevision}`,'muted')];
 function pane(x,name,rows,active,t){
  const y=0,w=880,h=VIDEO_HEIGHT;
  let b=rect(x,y,w,h,terminal.bg,10)+rect(x,y,w,64,terminal.bar,10)+rect(x,y+40,w,24,terminal.bar);
@@ -92,10 +93,10 @@ function pane(x,name,rows,active,t){
 }
 function leftRows(t){
  if(t<2)return [r('> Add pagination to /items.'),blank(),r('Read api.mjs','muted'),r("  if (path === '/items') return items;"),blank(),r('Checking with the client agent.','muted')];
- if(t<12)return [r('> Add pagination to /items.','muted'),blank(),...claimRows(0),blank(),r('bassfish.commit_and_done','tool'),...message(0,t<6),blank(),receipt(0)];
+ if(t<12)return [r('> Add pagination to /items.','muted'),blank(),...claimRows(0),blank(),r('bassfish.commitTurn','tool'),...message(0,t<6),blank(),receipt(0)];
  if(t<21){
   const rows=[r('> Add pagination to /items.','muted'),blank(),...claimRows(2),blank(),r('client-agent:','muted'),...message(1,t<14)];
-  if(t>=14)rows.push(blank(),r('bassfish.commit_and_done','tool'),...message(2),receipt(2));
+  if(t>=14)rows.push(blank(),r('bassfish.commitTurn','tool'),...message(2),receipt(2));
   return rows;
  }
  return [r('Edit api.mjs','tool'),blank(),r('  /items stays unchanged.','muted'),blank(),r("+ if (path === '/v2/items')",'add'),r('+   return { items, total: items.length };','add'),blank(),r('Existing callers keep the array response.','muted')];
@@ -104,22 +105,22 @@ function rightRows(t){
  if(t<6)return [r('> Update the client for pagination.'),blank(),r('Read client.mjs','muted'),r("  return request('/items');"),blank(),r('loadItems() expects an array.','muted')];
  if(t<16){
   const rows=[r('> Update the client for pagination.','muted'),blank(),...claimRows(1),blank(),r('api-agent:','muted'),...message(0,t<9)];
-  if(t>=9)rows.push(blank(),r('bassfish.commit_and_done','tool'),...message(1),receipt(1));
+  if(t>=9)rows.push(blank(),r('bassfish.commitTurn','tool'),...message(1),receipt(1));
   return rows;
  }
  if(t<21){
   const rows=[r('> Update the client for pagination.','muted'),blank(),...claimRows(3),blank(),r('api-agent:','muted'),...message(2,t<18.5)];
-  if(t>=18.5)rows.push(blank(),r('bassfish.commit_and_done','tool'),...message(3),receipt(3));
+  if(t>=18.5)rows.push(blank(),r('bassfish.commitTurn','tool'),...message(3),receipt(3));
   return rows;
  }
  const rows=[r('Edit client.mjs','tool'),blank(),r("- return request('/items');",'remove'),r("+ return request('/v2/items').items;",'add')];
  if(t>=22.5)rows.push(blank(),r('$ node --test demo.test.mjs'),blank(),r(`tests ${demo.tests.passed}`,'muted'),r(`pass  ${demo.tests.passed}`,'pass'),r(`fail  ${demo.tests.failed}`,'muted'));
  return rows;
 }
-export function frame(t){
+export function frame(t,transparent=false){
  t=Math.max(0,Math.min(DURATION-.001,t));
  const active=t<6?'left':t<12?'right':t<16?'left':t<21?'right':'both';
  const description=events.find(([a,b])=>t>=a&&t<b)[2];
  const body=pane(0,'api-agent',leftRows(t),active==='left'||active==='both',t)+pane(912,'client-agent',rightRows(t),active==='right'||active==='both',t);
- return svg(VIDEO_WIDTH,VIDEO_HEIGHT,`Bassfish terminal demo. ${description} Scripted agent session using captured real MCP calls.`,body);
+ return svg(VIDEO_WIDTH,VIDEO_HEIGHT,`Bassfish terminal demo. ${description} Scripted agent session using captured real MCP calls.`,body,transparent?null:C.white);
 }

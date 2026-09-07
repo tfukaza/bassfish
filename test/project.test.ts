@@ -8,24 +8,24 @@ import { NoteSearchIndex } from '../src/storage/search.js';
 import { exportProject } from '../src/export.js';
 
 test('a durable project drain waits for holders and blocks new resource claims', async t => {
-  const f = await fixture(); t.after(f.close); const held = await hold(f.service,f.a.agentHandle,f.thread);
-  const draining = await f.service.call(f.b.agentHandle,'requestFloor',{ target: { type: 'project', purpose: 'snapshot' } }) as { state: string; requestId: string };
+  const f = await fixture(); t.after(f.close); const claimed = await hold(f.service,f.a.agentHandle,f.thread);
+  const draining = await f.service.call(f.b.agentHandle,'requestTurn',{ target: { type: 'project', purpose: 'snapshot' } }) as { state: string; requestId: string };
   assert.equal(draining.state,'queued');
-  await f.service.call(f.a.agentHandle,'releaseFloor',{ floor: { id: held.floor.id, fencingToken: held.floor.fencingToken } });
-  const offered = await f.service.call(f.b.agentHandle,'getFloorRequest',{ requestId: draining.requestId }) as { state: string; offerId: string };
+  await f.service.call(f.a.agentHandle,'releaseTurn',{ turn: { id: claimed.turn.id, fencingToken: claimed.turn.fencingToken } });
+  const offered = await f.service.call(f.b.agentHandle,'getTurnRequest',{ requestId: draining.requestId }) as { state: string; offerId: string };
   assert.equal(offered.state,'offered');
-  const project = await f.service.call(f.b.agentHandle,'claimFloor',{ offerId: offered.offerId }) as { floor: { id: string; fencingToken: string } };
-  const resource = await f.service.call(f.a.agentHandle,'requestFloor',{ target: { type: 'thread', id: f.thread } }) as { state: string; requestId: string };
+  const project = await f.service.call(f.b.agentHandle,'claimTurn',{ offerId: offered.offerId }) as { turn: { id: string; fencingToken: string } };
+  const resource = await f.service.call(f.a.agentHandle,'requestTurn',{ target: { type: 'thread', id: f.thread } }) as { state: string; requestId: string };
   assert.equal(resource.state,'queued');
-  await f.service.call(f.b.agentHandle,'releaseFloor',{ floor: { id: project.floor.id, fencingToken: project.floor.fencingToken } });
-  assert.equal((await f.service.call(f.a.agentHandle,'getFloorRequest',{ requestId: resource.requestId }) as { state: string }).state,'offered');
+  await f.service.call(f.b.agentHandle,'releaseTurn',{ turn: { id: project.turn.id, fencingToken: project.turn.fencingToken } });
+  assert.equal((await f.service.call(f.a.agentHandle,'getTurnRequest',{ requestId: resource.requestId }) as { state: string }).state,'offered');
 });
 
-test('a queued project floor also blocks floorless resource creation', async t => {
-  const f = await fixture(); t.after(f.close); const held = await hold(f.service,f.a.agentHandle,f.thread);
-  await f.service.call(f.b.agentHandle,'requestFloor',{ target: { type: 'project', purpose: 'restore' } });
-  await assert.rejects(f.service.call(f.a.agentHandle,'createNote',{ path: 'blocked', title: 'Blocked', body: 'x', labels: [], noteKind: null, links: [] }), errorCode('PROJECT_FLOOR_PENDING'));
-  await f.service.call(f.a.agentHandle,'releaseFloor',{ floor: { id: held.floor.id, fencingToken: held.floor.fencingToken } });
+test('a queued project turn also blocks resource creation without a turn', async t => {
+  const f = await fixture(); t.after(f.close); const claimed = await hold(f.service,f.a.agentHandle,f.thread);
+  await f.service.call(f.b.agentHandle,'requestTurn',{ target: { type: 'project', purpose: 'restore' } });
+  await assert.rejects(f.service.call(f.a.agentHandle,'createNote',{ path: 'blocked', title: 'Blocked', body: 'x', labels: [], noteKind: null, links: [] }), errorCode('PROJECT_TURN_PENDING'));
+  await f.service.call(f.a.agentHandle,'releaseTurn',{ turn: { id: claimed.turn.id, fencingToken: claimed.turn.fencingToken } });
 });
 
 test('the FTS index is rebuilt by Dolt head and returns bounded current snippets', async t => {
@@ -50,48 +50,48 @@ test('whole-project restore recreates target-visible content with fresh monotoni
   const projectId = (f.a.session as { projectId: string }).projectId;
   const created = await f.service.call(f.a.agentHandle,'createNote',{ path: 'plans/original', title: 'Original', body: 'first body', labels: [], noteKind: null, links: [] }) as { noteId: string };
   const targetCommit = await f.content.head(projectId);
-  const noteFloor = await f.service.call(f.a.agentHandle,'requestFloor',{ target: { type: 'note', id: created.noteId } }) as { offerId: string };
-  const claimed = await f.service.call(f.a.agentHandle,'claimFloor',{ offerId: noteFloor.offerId }) as { floor: { id: string; fencingToken: string }; snapshot: { revision: string } };
-  await f.service.call(f.a.agentHandle,'commitFloor',{ floor: { id: claimed.floor.id, fencingToken: claimed.floor.fencingToken }, baseRevision: claimed.snapshot.revision, mutation: { kind: 'replaceNoteBody', body: 'later body' } });
+  const noteRequest = await f.service.call(f.a.agentHandle,'requestTurn',{ target: { type: 'note', id: created.noteId } }) as { offerId: string };
+  const claimed = await f.service.call(f.a.agentHandle,'claimTurn',{ offerId: noteRequest.offerId }) as { turn: { id: string; fencingToken: string }; snapshot: { revision: string } };
+  await f.service.call(f.a.agentHandle,'commitTurn',{ turn: { id: claimed.turn.id, fencingToken: claimed.turn.fencingToken }, baseRevision: claimed.snapshot.revision, mutation: { kind: 'replaceNoteBody', body: 'later body' } });
   const later = await f.service.call(f.a.agentHandle,'createNote',{ path: 'plans/later', title: 'Later', body: 'remove me', labels: [], noteKind: null, links: [] }) as { noteId: string };
-  const threadFloor = await hold(f.service,f.a.agentHandle,f.thread);
-  await f.service.call(f.a.agentHandle,'commitFloor',{ floor: { id: threadFloor.floor.id, fencingToken: threadFloor.floor.fencingToken }, baseRevision: threadFloor.snapshot.revision, mutation: { kind: 'appendMessage', body: 'later message' } });
-  const request = await f.service.call(f.a.agentHandle,'requestFloor',{ target: { type: 'project', purpose: 'restore' } }) as { offerId: string };
-  const floor = await f.service.call(f.a.agentHandle,'claimFloor',{ offerId: request.offerId }) as { floor: { id: string; fencingToken: string } };
-  const credential = { id: floor.floor.id, fencingToken: floor.floor.fencingToken };
-  const preview = await f.service.call(f.a.agentHandle,'previewSnapshotRestore',{ floor: credential, targetCommit }) as { previewToken: string };
-  const restored = await f.service.call(f.a.agentHandle,'restoreSnapshot',{ floor: credential, previewToken: preview.previewToken }) as { changes: unknown[] };
+  const threadTurn = await hold(f.service,f.a.agentHandle,f.thread);
+  await f.service.call(f.a.agentHandle,'commitTurn',{ turn: { id: threadTurn.turn.id, fencingToken: threadTurn.turn.fencingToken }, baseRevision: threadTurn.snapshot.revision, mutation: { kind: 'appendMessage', body: 'later message' } });
+  const request = await f.service.call(f.a.agentHandle,'requestTurn',{ target: { type: 'project', purpose: 'restore' } }) as { offerId: string };
+  const turn = await f.service.call(f.a.agentHandle,'claimTurn',{ offerId: request.offerId }) as { turn: { id: string; fencingToken: string } };
+  const credential = { id: turn.turn.id, fencingToken: turn.turn.fencingToken };
+  const preview = await f.service.call(f.a.agentHandle,'previewSnapshotRestore',{ turn: credential, targetCommit }) as { previewToken: string };
+  const restored = await f.service.call(f.a.agentHandle,'restoreSnapshot',{ turn: credential, previewToken: preview.previewToken }) as { changes: unknown[] };
   assert.ok(restored.changes.length >= 2);
   const snapshot = await f.content.projectSnapshot(projectId); assert.equal(snapshot.notes.find(note => note.id === created.noteId)?.body,'first body');
   assert.equal(snapshot.notes.some(note => note.id === later.noteId),false); assert.equal(snapshot.messages.length,0);
   assert.equal(snapshot.threads[0]!.headSequence,'1'); assert.ok(BigInt(snapshot.notes[0]!.revision) > 2n);
 });
 
-test('historical note FTS returns prior semantic revisions under a search floor', async t => {
+test('historical note FTS returns prior semantic revisions under a search turn', async t => {
   const f = await fixture(); t.after(f.close);
   const created = await f.service.call(f.a.agentHandle,'createNote',{ path: 'research/history', title: 'History', body: 'fencing narwhal', labels: [], noteKind: null, links: [] }) as { noteId: string };
-  const request = await f.service.call(f.a.agentHandle,'requestFloor',{ target: { type: 'note', id: created.noteId } }) as { offerId: string };
-  const floor = await f.service.call(f.a.agentHandle,'claimFloor',{ offerId: request.offerId }) as { floor: { id: string; fencingToken: string }; snapshot: { revision: string } };
-  await f.service.call(f.a.agentHandle,'commitFloor',{ floor: { id: floor.floor.id, fencingToken: floor.floor.fencingToken }, baseRevision: floor.snapshot.revision, mutation: { kind: 'replaceNoteBody', body: 'new body' } });
-  const searchRequest = await f.service.call(f.a.agentHandle,'requestFloor',{ target: { type: 'project', purpose: 'search' } }) as { offerId: string };
-  const searchFloor = await f.service.call(f.a.agentHandle,'claimFloor',{ offerId: searchRequest.offerId }) as { floor: { id: string; fencingToken: string } };
-  const searchCredential = { id: searchFloor.floor.id, fencingToken: searchFloor.floor.fencingToken };
-  const result = await f.service.call(f.a.agentHandle,'searchProjectNoteHistory',{ floor: searchCredential, query: 'narwhal', noteId: created.noteId }) as { matches: { revision: string }[] };
-  assert.deepEqual(result.matches.map(value => value.revision),['1']); await f.service.call(f.a.agentHandle,'releaseFloor',{ floor: searchCredential });
+  const request = await f.service.call(f.a.agentHandle,'requestTurn',{ target: { type: 'note', id: created.noteId } }) as { offerId: string };
+  const turn = await f.service.call(f.a.agentHandle,'claimTurn',{ offerId: request.offerId }) as { turn: { id: string; fencingToken: string }; snapshot: { revision: string } };
+  await f.service.call(f.a.agentHandle,'commitTurn',{ turn: { id: turn.turn.id, fencingToken: turn.turn.fencingToken }, baseRevision: turn.snapshot.revision, mutation: { kind: 'replaceNoteBody', body: 'new body' } });
+  const searchRequest = await f.service.call(f.a.agentHandle,'requestTurn',{ target: { type: 'project', purpose: 'search' } }) as { offerId: string };
+  const searchTurn = await f.service.call(f.a.agentHandle,'claimTurn',{ offerId: searchRequest.offerId }) as { turn: { id: string; fencingToken: string } };
+  const searchCredential = { id: searchTurn.turn.id, fencingToken: searchTurn.turn.fencingToken };
+  const result = await f.service.call(f.a.agentHandle,'searchProjectNoteHistory',{ turn: searchCredential, query: 'narwhal', noteId: created.noteId }) as { matches: { revision: string }[] };
+  assert.deepEqual(result.matches.map(value => value.revision),['1']); await f.service.call(f.a.agentHandle,'releaseTurn',{ turn: searchCredential });
 });
 
 test('whole-project restore to a pre-deletion commit reactivates a deleted thread', async t => {
   const f = await fixture(); t.after(f.close);
   const projectId = (f.a.session as { projectId: string }).projectId;
   const targetCommit = await f.content.head(projectId);
-  const threadFloor = await hold(f.service,f.a.agentHandle,f.thread);
-  await f.service.call(f.a.agentHandle,'commitFloor',{ floor: { id: threadFloor.floor.id, fencingToken: threadFloor.floor.fencingToken }, baseRevision: threadFloor.snapshot.revision, mutation: { kind: 'deleteThread' } });
+  const threadTurn = await hold(f.service,f.a.agentHandle,f.thread);
+  await f.service.call(f.a.agentHandle,'commitTurn',{ turn: { id: threadTurn.turn.id, fencingToken: threadTurn.turn.fencingToken }, baseRevision: threadTurn.snapshot.revision, mutation: { kind: 'deleteThread' } });
   assert.equal((await f.service.call(f.a.agentHandle,'getThread',{ threadId: f.thread }) as { state: string }).state,'deleted');
-  const request = await f.service.call(f.a.agentHandle,'requestFloor',{ target: { type: 'project', purpose: 'restore' } }) as { offerId: string };
-  const floor = await f.service.call(f.a.agentHandle,'claimFloor',{ offerId: request.offerId }) as { floor: { id: string; fencingToken: string } };
-  const credential = { id: floor.floor.id, fencingToken: floor.floor.fencingToken };
-  const preview = await f.service.call(f.a.agentHandle,'previewSnapshotRestore',{ floor: credential, targetCommit }) as { previewToken: string };
-  const restored = await f.service.call(f.a.agentHandle,'restoreSnapshot',{ floor: credential, previewToken: preview.previewToken }) as { changes: { resourceType: string; resourceId: string; action: string }[] };
+  const request = await f.service.call(f.a.agentHandle,'requestTurn',{ target: { type: 'project', purpose: 'restore' } }) as { offerId: string };
+  const turn = await f.service.call(f.a.agentHandle,'claimTurn',{ offerId: request.offerId }) as { turn: { id: string; fencingToken: string } };
+  const credential = { id: turn.turn.id, fencingToken: turn.turn.fencingToken };
+  const preview = await f.service.call(f.a.agentHandle,'previewSnapshotRestore',{ turn: credential, targetCommit }) as { previewToken: string };
+  const restored = await f.service.call(f.a.agentHandle,'restoreSnapshot',{ turn: credential, previewToken: preview.previewToken }) as { changes: { resourceType: string; resourceId: string; action: string }[] };
   assert.deepEqual(restored.changes.map(change => [change.resourceType,change.resourceId,change.action]),[['thread',f.thread,'update']]);
   const after = await f.service.call(f.a.agentHandle,'getThread',{ threadId: f.thread }) as { state: string; revision: string };
   assert.equal(after.state,'active'); assert.ok(BigInt(after.revision) > 2n);

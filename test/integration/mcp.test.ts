@@ -12,7 +12,7 @@ import { StdioClientTransport } from '@modelcontextprotocol/client/stdio';
 import { connectDaemon, ensureDaemon } from '../../src/daemon.js';
 import { doltBinary, packageRoot, socketPath } from '../../src/config.js';
 import { createTaskResult, tasksExtensionId } from '../../src/tasks.js';
-import type { Floor, Session, Ticket } from '../support.js';
+import type { Turn, Session, Ticket } from '../support.js';
 const exec = promisify(execFile);
 
 test('two actual stdio MCP clients: lazy shared daemon, FIFO, durable content, SIGKILL recovery and CLI parity', { timeout: 90_000 }, async t => {
@@ -50,17 +50,17 @@ test('two actual stdio MCP clients: lazy shared daemon, FIFO, durable content, S
   const created = await call<{ threadId: string }>(alice, 'createThread', { title: 'MCP roundtrip', description: 'Protected content' });
   const fetched = await call<{ description: string; state: string }>(bob, 'getThread', { threadId: created.threadId });
   assert.equal(fetched.description, 'Protected content'); assert.equal(fetched.state, 'active');
-  const offered = await call<Ticket>(alice, 'requestFloor', { target: { type: 'thread', id: created.threadId } });
-  const queued = await call<Ticket>(bob, 'requestFloor', { target: { type: 'thread', id: created.threadId } });
+  const offered = await call<Ticket>(alice, 'requestTurn', { target: { type: 'thread', id: created.threadId } });
+  const queued = await call<Ticket>(bob, 'requestTurn', { target: { type: 'thread', id: created.threadId } });
   assert.equal(queued.state, 'queued'); assert.ok(!JSON.stringify(offered).includes('Protected'));
-  const floor = await call<Floor>(alice, 'claimFloor', { offerId: offered.offerId });
-  const denied = await bob.callTool({ name: 'readFloor', arguments: { floor: { id: floor.floor.id, fencingToken: floor.floor.fencingToken } } });
+  const turn = await call<Turn>(alice, 'claimTurn', { offerId: offered.offerId });
+  const denied = await bob.callTool({ name: 'readTurn', arguments: { turn: { id: turn.turn.id, fencingToken: turn.turn.fencingToken } } });
   assert.equal(denied.isError, true); assert.ok(!JSON.stringify(denied).includes('Protected'));
-  const waiter = call<Ticket>(bob, 'waitForFloor', { requestId: queued.requestId, timeoutMs: 3000 });
-  await call(alice, 'commitFloor', { floor: { id: floor.floor.id, fencingToken: floor.floor.fencingToken }, baseRevision: floor.snapshot.revision,
+  const waiter = call<Ticket>(bob, 'waitForTurn', { requestId: queued.requestId, timeoutMs: 3000 });
+  await call(alice, 'commitTurn', { turn: { id: turn.turn.id, fencingToken: turn.turn.fencingToken }, baseRevision: turn.snapshot.revision,
     mutation: { kind: 'appendMessage', body: 'Hello from real MCP' } });
   const ready = await waiter; assert.equal(ready.state, 'offered');
-  const read = await call<Floor>(bob, 'claimFloor', { offerId: ready.offerId });
+  const read = await call<Turn>(bob, 'claimTurn', { offerId: ready.offerId });
   assert.equal(read.page.messages[0]!.body, 'Hello from real MCP');
   const modern = new Client({ name: 'bassfish-tasks-integration', version: '1.0.0' }, { capabilities: { extensions: { [tasksExtensionId]: {} } } as never,
     versionNegotiation: { mode: { pin: '2026-07-28' } } }); clients.push(modern);
@@ -69,31 +69,31 @@ test('two actual stdio MCP clients: lazy shared daemon, FIFO, durable content, S
   // The pinned SDK client does not yet decode this external extension's open
   // resultType, so its typed client rejects after receiving the valid task wire
   // result. The transport conformance test validates that complete shape.
-  await assert.rejects(modern.request({ method: 'tools/call', params: { name: 'requestFloor', arguments: { target: { type: 'thread', id: created.threadId } } } } as never,createTaskResult),
+  await assert.rejects(modern.request({ method: 'tools/call', params: { name: 'requestTurn', arguments: { target: { type: 'thread', id: created.threadId } } } } as never,createTaskResult),
     (error: unknown) => (error as { code?: string; data?: { resultType?: string } }).code === 'UNSUPPORTED_RESULT_TYPE' && (error as { data?: { resultType?: string } }).data?.resultType === 'task');
-  const taskAdmin = await connectDaemon(data); const inspected = await taskAdmin.call<{ floors: { requestId: string; state: string }[] }>('inspectDaemon'); taskAdmin.close();
-  const taskId = inspected.floors.find(value => value.state === 'queued')!.requestId;
-  await call(bob,'releaseFloor',{ floor: { id: read.floor.id, fencingToken: read.floor.fencingToken } });
+  const taskAdmin = await connectDaemon(data); const inspected = await taskAdmin.call<{ turns: { requestId: string; state: string }[] }>('inspectDaemon'); taskAdmin.close();
+  const taskId = inspected.turns.find(value => value.state === 'queued')!.requestId;
+  await call(bob,'releaseTurn',{ turn: { id: read.turn.id, fencingToken: read.turn.fencingToken } });
   // Ticket polling remains the compatibility path for SDKs/hosts that have not
   // registered the extension methods even if their envelope can advertise it.
-  const completedTicket = await call<Ticket>(modern,'getFloorRequest',{ requestId: taskId }); assert.equal(completedTicket.state,'offered');
-  const taskFloor = await call<Floor>(modern,'claimFloor',{ offerId: completedTicket.offerId });
-  await call(modern,'releaseFloor',{ floor: { id: taskFloor.floor.id, fencingToken: taskFloor.floor.fencingToken } });
-  const crashOffer = await call<Ticket>(bob,'requestFloor',{ target: { type: 'thread', id: created.threadId } });
-  const crashHolder = await call<Floor>(bob,'claimFloor',{ offerId: crashOffer.offerId });
-  const pending = await call<Ticket>(alice, 'requestFloor', { target: { type: 'thread', id: created.threadId } });
+  const completedTicket = await call<Ticket>(modern,'getTurnRequest',{ requestId: taskId }); assert.equal(completedTicket.state,'offered');
+  const taskTurn = await call<Turn>(modern,'claimTurn',{ offerId: completedTicket.offerId });
+  await call(modern,'releaseTurn',{ turn: { id: taskTurn.turn.id, fencingToken: taskTurn.turn.fencingToken } });
+  const crashOffer = await call<Ticket>(bob,'requestTurn',{ target: { type: 'thread', id: created.threadId } });
+  const crashHolder = await call<Turn>(bob,'claimTurn',{ offerId: crashOffer.offerId });
+  const pending = await call<Ticket>(alice, 'requestTurn', { target: { type: 'thread', id: created.threadId } });
   const admin = await connectDaemon(data); const health = await admin.call<{ pid: number; epoch: string }>('getHealth');
   const disconnected = once(admin.socket, 'close'); process.kill(health.pid, 'SIGKILL'); await disconnected;
   // New daemon waits on SQL guardian ownership; no old SQL writer can survive into recovery.
   await ensureDaemon(data, doltBinary());
   const resumed = await call<Session>(alice, 'getSession'); assert.equal(resumed.identityId, a.identityId); assert.notEqual(resumed.adapterInstanceId, a.adapterInstanceId);
-  const retained = await call<Ticket>(alice, 'getFloorRequest', { requestId: pending.requestId }); assert.equal(retained.state, 'offered');
-  const stale = await bob.callTool({ name: 'readFloor', arguments: { floor: { id: crashHolder.floor.id, fencingToken: crashHolder.floor.fencingToken } } });
+  const retained = await call<Ticket>(alice, 'getTurnRequest', { requestId: pending.requestId }); assert.equal(retained.state, 'offered');
+  const stale = await bob.callTool({ name: 'readTurn', arguments: { turn: { id: crashHolder.turn.id, fencingToken: crashHolder.turn.fencingToken } } });
   assert.equal(stale.isError, true);
-  const final = await call<Floor>(alice, 'claimFloor', { offerId: retained.offerId }); assert.equal(final.page.messages.length, 1);
-  await call(alice, 'releaseFloor', { floor: { id: final.floor.id, fencingToken: final.floor.fencingToken } });
+  const final = await call<Turn>(alice, 'claimTurn', { offerId: retained.offerId }); assert.equal(final.page.messages.length, 1);
+  await call(alice, 'releaseTurn', { turn: { id: final.turn.id, fencingToken: final.turn.fencingToken } });
   const cli = await exec(process.execPath, [join(packageRoot, 'dist/cli.js'), 'thread', 'show', created.threadId, '--workspace', repo], { env });
-  const shown = JSON.parse(cli.stdout) as Floor; assert.equal(shown.page.messages[0]!.body, 'Hello from real MCP');
+  const shown = JSON.parse(cli.stdout) as Turn; assert.equal(shown.page.messages[0]!.body, 'Hello from real MCP');
   await exec(process.execPath, [join(packageRoot, 'dist/cli.js'), 'thread', 'describe', created.threadId, '--description', 'CLI topic', '--workspace', repo, '--name', 'Human'], { env });
   const got = await exec(process.execPath, [join(packageRoot, 'dist/cli.js'), 'thread', 'get', created.threadId, '--workspace', repo, '--name', 'Human'], { env });
   assert.equal((JSON.parse(got.stdout) as { description: string }).description, 'CLI topic');

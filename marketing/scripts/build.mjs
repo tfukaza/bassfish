@@ -4,7 +4,7 @@ import { spawn } from 'node:child_process';
 import { once } from 'node:events';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
-import { C, svg, fish, logo, overview, workflow, brandSheet, frame, events, DURATION, FPS, GIF_START, GIF_DURATION, VIDEO_WIDTH, VIDEO_HEIGHT, GIF_WIDTH, snapshots } from './artwork.mjs';
+import { C, svg, fish, logo, overview, workflow, brandSheet, frame, events, DURATION, FPS, GIF_START, GIF_DURATION, VIDEO_WIDTH, VIDEO_HEIGHT, GIF_WIDTH, README_GIF_WIDTH, README_GIF_FPS, snapshots } from './artwork.mjs';
 const require=createRequire(import.meta.url);
 const sharp=process.env.BASSFISH_SHARP_MODULE ? require(process.env.BASSFISH_SHARP_MODULE) : require('sharp');
 const root=fileURLToPath(new URL('../',import.meta.url));
@@ -54,6 +54,15 @@ for(let i=0;i<DURATION*FPS;i++){
 }
 encode.stdin.end();
 const [code]=await completion;if(code!==0)throw new Error(`FFmpeg exited ${code}`);
+const readmeGif=spawn('ffmpeg',['-y','-hide_banner','-loglevel','error','-f','image2pipe','-framerate',String(README_GIF_FPS),'-i','pipe:0','-filter_complex',`scale=${README_GIF_WIDTH}:-1:flags=lanczos,split[a][b];[a]palettegen=reserve_transparent=1:stats_mode=diff[p];[b][p]paletteuse=alpha_threshold=128:dither=bayer:bayer_scale=3`,'-loop','0',path.join(root,'video/bassfish-preview.gif')],{stdio:['pipe','inherit','inherit']});
+const readmeGifCompletion=once(readmeGif,'close');
+readmeGif.stdin.on('error',error=>{console.error(error);process.exitCode=1;});
+for(let i=0;i<DURATION*README_GIF_FPS;i++){
+ const png=await sharp(Buffer.from(frame(i/README_GIF_FPS,true))).png().toBuffer();
+ if(!readmeGif.stdin.write(png))await once(readmeGif.stdin,'drain');
+}
+readmeGif.stdin.end();
+const [readmeGifCode]=await readmeGifCompletion;if(readmeGifCode!==0)throw new Error(`README GIF encoder exited ${readmeGifCode}`);
 const gif=spawn('ffmpeg',['-y','-hide_banner','-loglevel','error','-ss',String(GIF_START),'-t',String(GIF_DURATION),'-i',path.join(root,'video/bassfish-preview.mp4'),'-filter_complex',`fps=12,scale=${GIF_WIDTH}:-1:flags=lanczos,split[a][b];[a]palettegen=stats_mode=diff[p];[b][p]paletteuse=dither=bayer:bayer_scale=3`,'-loop','0',path.join(root,'video/chat-exchange.gif')],{stdio:'inherit'});
 const [gifCode]=await once(gif,'close');if(gifCode!==0)throw new Error(`GIF encoder exited ${gifCode}`);
 console.log('All Bassfish assets exported.');

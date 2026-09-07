@@ -24,12 +24,12 @@ export interface Instance {
 export type ContentResourceType = 'thread' | 'note';
 export type ResourceType = ContentResourceType | 'project';
 export interface Resource { id: string; projectId: string; type: ResourceType; fence: string; queueSequence: string; present: boolean }
-export type FloorState = 'QUEUED' | 'READY' | 'OFFERED' | 'HELD' | 'COMMITTING' | 'COMMITTED' | 'RELEASED' | 'EXPIRED' | 'CANCELLED' | 'FAILED';
-export interface FloorRequest {
+export type TurnState = 'QUEUED' | 'READY' | 'OFFERED' | 'CLAIMED' | 'COMMITTING' | 'COMMITTED' | 'RELEASED' | 'EXPIRED' | 'CANCELLED' | 'FAILED';
+export interface TurnRequest {
   id: string; projectId: string; resourceId: string; resourceType: ResourceType; identityId: string; instanceId: string;
-  sequence: string; state: FloorState; createdAt: number; queueUntil: number;
+  sequence: string; state: TurnState; createdAt: number; queueUntil: number;
   reconnectUntil?: number; offerId?: string; claimBy?: number;
-  floorId?: string; fence?: string; baseRevision?: string; snapshotCommit?: string;
+  turnId?: string; fence?: string; baseRevision?: string; snapshotCommit?: string;
   expiresAt?: number; finishedAt?: number; result?: StorageResult;
   purpose?: 'snapshot' | 'export' | 'search' | 'restore';
   deliveryMode: 'ticket' | 'task';
@@ -42,7 +42,7 @@ export interface DurableTask {
   result?: Record<string, unknown>; error?: { code: number; message: string; data?: Record<string, unknown> };
 }
 export interface PendingCommit {
-  id: string; projectId: string; resourceId: string; resourceType: ResourceType; floorRequestId?: string;
+  id: string; projectId: string; resourceId: string; resourceType: ResourceType; turnRequestId?: string;
   startingHead: string; kind: string; actor: Actor;
 }
 export interface ControlState {
@@ -50,7 +50,7 @@ export interface ControlState {
   identities: Record<string, Identity>;
   instances: Record<string, Instance>;
   resources: Record<string, Resource>;
-  requests: Record<string, FloorRequest>;
+  requests: Record<string, TurnRequest>;
   pending: Record<string, PendingCommit>;
   tasks: Record<string, DurableTask>;
   wallClockHighWaterMs: number;
@@ -167,8 +167,8 @@ export interface ContentStore {
   close(): Promise<void>;
 }
 export interface HistoricalNote { note: Note; doltCommit: string; changedAt: string }
-export const activeStates: FloorState[] = ['QUEUED', 'READY', 'OFFERED', 'HELD', 'COMMITTING'];
-export const reservedStates: FloorState[] = ['READY', 'OFFERED', 'HELD', 'COMMITTING'];
+export const activeStates: TurnState[] = ['QUEUED', 'READY', 'OFFERED', 'CLAIMED', 'COMMITTING'];
+export const reservedStates: TurnState[] = ['READY', 'OFFERED', 'CLAIMED', 'COMMITTING'];
 export const increment = (value: string): string => (BigInt(value) + 1n).toString();
 
 export function prepareMutation(thread: Thread, mutation: ThreadMutation): Thread {

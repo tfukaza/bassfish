@@ -21,7 +21,7 @@ const openSchema = z.object({ workspace: z.string().min(1), name: nameSchema.opt
 const callSchema = z.object({ name: z.string(), args: z.unknown().default({}), taskCapable: z.boolean().default(false) }).strict();
 const taskSchema = z.object({ taskId: z.string().min(1).max(200) }).strict();
 const waitTaskSchema = z.object({ taskId: z.string().min(1).max(200), updatedAfter: z.number().int().nonnegative(), timeoutMs: z.number().int().min(0).max(20_000) }).strict();
-const releaseSchema = z.object({ floorId: z.string().min(1), force: z.literal(true) }).strict();
+const releaseSchema = z.object({ turnId: z.string().min(1), force: z.literal(true) }).strict();
 function parse<T>(schema: z.ZodType<T>, value: unknown): T {
   const result = schema.safeParse(value);
   requireThat(result.success, 'INVALID_ARGUMENT', 'Invalid backend request.');
@@ -65,10 +65,10 @@ export async function runDaemon(dataDir: string, binary: string): Promise<void> 
       lastActivity = Date.now();
       requireThat(!closing, 'DAEMON_STOPPING', 'The daemon is stopping.');
       switch (method) {
-        case 'getHealth': return { apiVersion: 2, pid: process.pid, epoch: service.epoch, dataDir, state: sql?.alive() ? 'ready' : 'sqlUnavailable', control: service.inspect() };
+        case 'getHealth': return { apiVersion: 3, pid: process.pid, epoch: service.epoch, dataDir, state: sql?.alive() ? 'ready' : 'sqlUnavailable', control: service.inspect() };
         case 'stopDaemon': setTimeout(() => { void stop().catch(fatal); }, 25); return { stopping: true };
         case 'inspectDaemon': return service.inspect();
-        case 'forceRelease': service.forceRelease(parse(releaseSchema, params).floorId); return { released: true };
+        case 'forceRelease': service.forceRelease(parse(releaseSchema, params).turnId); return { released: true };
         case 'openSession': {
           requireThat(!sessions.has(socket) && !opening.has(socket), 'SESSION_EXISTS', 'One instance is allowed per adapter connection.');
           const args = parse(openSchema, params); opening.add(socket);
@@ -114,7 +114,7 @@ export async function connectDaemon(dataDir: string): Promise<RpcClient> {
 }
 async function probe(dataDir: string): Promise<boolean> {
   let client;
-    try { client = await connectDaemon(dataDir); const result = await client.call<{ apiVersion: number }>('getHealth'); requireThat(result.apiVersion === 2, 'API_VERSION', 'Incompatible daemon API.'); return true; }
+    try { client = await connectDaemon(dataDir); const result = await client.call<{ apiVersion: number }>('getHealth'); requireThat(result.apiVersion === 3, 'API_VERSION', 'Incompatible daemon API.'); return true; }
   catch (error) {
     if (['ENOENT', 'ECONNREFUSED'].includes((error as NodeJS.ErrnoException).code ?? '')) return false;
     throw error;

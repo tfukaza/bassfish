@@ -40,30 +40,30 @@ try {
   const body=result.structuredContent??JSON.parse(result.content.find(x=>x.type==='text').text);
   trace.push({actor:agent.name,tool:name,input:args,output:body});
   assert(!result.isError,JSON.stringify(body));
-  return body.data;
+  return body;
  }
- const sa=await call(a,'session_info'),sb=await call(b,'session_info');
- assert.equal(sa.project_id,sb.project_id);
- assert.notEqual(sa.identity_id,sb.identity_id);
- const thread=await call(a,'create_thread',{title:'API pagination'});
+ const sa=await call(a,'getSession'),sb=await call(b,'getSession');
+ assert.equal(sa.projectId,sb.projectId);
+ assert.notEqual(sa.identityId,sb.identityId);
+ const thread=await call(a,'createThread',{title:'API pagination',description:''});
  async function claim(agent){
-  const offer=await call(agent,'acquire_floor',{resource_type:'thread',resource_id:thread.thread_id});
+  const offer=await call(agent,'requestTurn',{target:{type:'thread',id:thread.threadId}});
   assert.equal(offer.state,'offered');
-  return call(agent,'claim_floor',{offer_id:offer.offer_id});
+  return call(agent,'claimTurn',{offerId:offer.offerId});
  }
- async function post(agent,floor,body){
-  const result=await call(agent,'commit_and_done',{floor_id:floor.floor_id,fencing_token:floor.fencing_token,base_revision:floor.base_revision,mutation:{kind:'append_thread_message',body}});
-  return {body,baseRevision:floor.base_revision,result};
+ async function post(agent,turn,body){
+  const result=await call(agent,'commitTurn',{turn:{id:turn.turn.id,fencingToken:turn.turn.fencingToken},baseRevision:turn.snapshot.revision,mutation:{kind:'appendMessage',body}});
+  return {body,baseRevision:turn.snapshot.revision,result};
  }
  const proposal=await post(a,await claim(a),'Adding pagination: /items will return { items, total }.');
  const bFirst=await claim(b);
- assert.equal(bFirst.content.messages.at(-1).body,proposal.body);
+ assert.equal(bFirst.page.messages.at(-1).body,proposal.body);
  const objection=await post(b,bFirst,'loadItems() expects an array. Keep /items; add /v2/items.');
  const aSecond=await claim(a);
- assert.equal(aSecond.content.messages.at(-1).body,objection.body);
+ assert.equal(aSecond.page.messages.at(-1).body,objection.body);
  const agreement=await post(a,aSecond,'Agreed. /items stays unchanged. Adding /v2/items.');
  const bSecond=await claim(b);
- assert.equal(bSecond.content.messages.at(-1).body,agreement.body);
+ assert.equal(bSecond.page.messages.at(-1).body,agreement.body);
  const followup=await post(b,bSecond,"I'll switch loadItems() to /v2/items.");
  // Scripted coding activity in the disposable fixture, after both clients agree.
  await writeFile(join(repo,'api.mjs'),apiAfter);
@@ -72,12 +72,12 @@ try {
  assert.match(tests.stdout,/pass 3/);
  assert.match(tests.stdout,/fail 0/);
  const final=await claim(a);
- assert.deepEqual(final.content.messages.map(m=>m.body),[proposal,objection,agreement,followup].map(m=>m.body));
- await call(a,'done',{floor_id:final.floor_id,fencing_token:final.fencing_token});
+ assert.deepEqual(final.page.messages.map(m=>m.body),[proposal,objection,agreement,followup].map(m=>m.body));
+ await call(a,'releaseTurn',{turn:{id:final.turn.id,fencingToken:final.turn.fencingToken}});
  const demo={
   kind:'Scripted terminal session with captured real Bassfish MCP calls',capturedAt:new Date().toISOString(),
-  agents:[a.name,b.name],thread:'API pagination',messages:final.content.messages.map(m=>({name:m.name,body:m.body,sequence:m.sequence})),
-  reads:{clientFirst:bFirst.content.messages.map(m=>m.body),apiSecond:aSecond.content.messages.map(m=>m.body),clientSecond:bSecond.content.messages.map(m=>m.body)},
+  agents:[a.name,b.name],thread:'API pagination',messages:final.page.messages.map(m=>({name:m.name,body:m.body,sequence:m.sequence})),
+  reads:{clientFirst:bFirst.page.messages.map(m=>m.body),apiSecond:aSecond.page.messages.map(m=>m.body),clientSecond:bSecond.page.messages.map(m=>m.body)},
   writes:[proposal,objection,agreement,followup].map(p=>({baseRevision:p.baseRevision,result:p.result})),
   files:{apiBefore,apiAfter,clientBefore,clientAfter,testSource},tests:{passed:3,failed:0,stdout:tests.stdout},
   transcript:trace
@@ -91,8 +91,8 @@ try {
  await Promise.allSettled(clients.map(c=>c.close()));
  try {
   const admin=await connectDaemon(data);
-  const health=await admin.call('health');
-  await admin.call('stop');admin.close();
+  const health=await admin.call('getHealth');
+  await admin.call('stopDaemon');admin.close();
   const until=performance.now()+10000;
   while(performance.now()<until){try{process.kill(health.pid,0);}catch{break;}await delay(50);}
  } catch { /* No daemon to stop if startup failed. */ }

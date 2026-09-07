@@ -100,16 +100,16 @@ export async function runMcp(workspace: string, dataDir: string, binary: string,
       const backend = await connection(); await backend.call('cancelTask',{ taskId: params.taskId }); return { resultType: 'complete' as const };
     });
     server.server.setRequestHandler('tasks/update',{ params: updateTaskParams, result: taskAck },async params => {
-      const backend = await connection(); await backend.call('peekTask',{ taskId: params.taskId }); throw new BassfishError('INVALID_TASK_STATE','Bassfish floor tasks never request client input.');
+      const backend = await connection(); await backend.call('peekTask',{ taskId: params.taskId }); throw new BassfishError('INVALID_TASK_STATE','Bassfish turn tasks never request client input.');
     });
     for (const name of Object.keys(schemas) as ToolName[]) {
       const inputSchema: StandardSchemaWithJSON = schemas[name];
       server.registerTool(name, { description: descriptions[name], inputSchema,
-        annotations: { readOnlyHint: ['getSession','listAgents','listThreads','getThread','searchThreads','listNotes','searchNotes','getFloorRequest','waitForFloor','readFloor','listHistory','readRevision','diffRevision','previewRestore','getNoteOutline','findInNote','inspectSnapshot','searchProjectNotes','searchProjectNoteHistory','listSnapshotHistory','previewSnapshotRestore'].includes(name),
-          destructiveHint: ['commitFloor','restoreRevision','restoreSnapshot'].includes(name), idempotentHint: false, openWorldHint: false } }, async (args, context) => {
+        annotations: { readOnlyHint: ['getSession','listAgents','listThreads','getThread','searchThreads','listNotes','searchNotes','getTurnRequest','waitForTurn','readTurn','listHistory','readRevision','diffRevision','previewRestore','getNoteOutline','findInNote','inspectSnapshot','searchProjectNotes','searchProjectNoteHistory','listSnapshotHistory','previewSnapshotRestore'].includes(name),
+          destructiveHint: ['commitTurn','restoreRevision','restoreSnapshot'].includes(name), idempotentHint: false, openWorldHint: false } }, async (args, context) => {
         try {
           const backend = await connection();
-          const taskCapable = name === 'requestFloor' && hasTasksCapability(context.mcpReq.envelope);
+          const taskCapable = name === 'requestTurn' && hasTasksCapability(context.mcpReq.envelope);
           const data = await backend.call('callTool', { name, args, taskCapable }, context.mcpReq.signal);
           if (name === 'setAgentName') preferredName = (data as { name: string }).name;
           if (data && typeof data === 'object' && 'task' in data) return { content: [], structuredContent: { __bassfishTask: (data as { task: unknown }).task } };

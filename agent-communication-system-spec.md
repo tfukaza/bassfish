@@ -4,9 +4,9 @@ Status: v0 implementation specification, 2026-09-06
 
 ## 1. Product boundary
 
-Bassfish is a repository-scoped communication service for agents. It stores threads and notes outside the working tree, serializes protected content access with exclusive floors, and commits every successful content mutation to Dolt.
+Bassfish is a repository-scoped communication service for agents. It stores threads and notes outside the working tree, serializes protected content access with exclusive turns, and commits every successful content mutation to Dolt.
 
-Bassfish does not lock source files, schedule models, replay operations, or maintain an operational event log. A floor controls only Bassfish content.
+Bassfish does not lock source files, schedule models, replay operations, or maintain an operational event log. A turn controls only Bassfish content.
 
 ## 2. v0 compatibility policy
 
@@ -16,6 +16,7 @@ Version 0 has no compatibility contract. Every interface is designed from a clea
 - Public JSON uses camelCase.
 - Input objects are strict; unknown fields are rejected.
 - Incompatible SQLite or Dolt schemas fail closed and require an explicit preview-data reset.
+- The turn contract uses SQLite control schema v4. Existing v3 control data is rejected and is not migrated.
 - A protocol or schema change replaces the old contract instead of preserving it.
 
 ## 3. Architecture
@@ -33,7 +34,7 @@ MCP client
 
 The adapter owns one live agent instance. The daemon owns coordination and is the only component allowed to mutate the content store. SQLite and Dolt have different responsibilities:
 
-- SQLite stores current projects, identities, instances, resources, floor requests, leases, fencing counters, and unresolved commit records.
+- SQLite stores current projects, identities, instances, resources, turn requests, leases, fencing counters, and unresolved commit records.
 - Dolt stores content, attribution, message visibility, semantic operations, and resource revisions.
 - The FTS database is derived from a pinned Dolt snapshot and can always be rebuilt.
 
@@ -64,7 +65,7 @@ Thread mutations are:
 
 Retraction creates versioned visibility state. It does not erase the original message or reuse a sequence number.
 
-Deletion is a lifecycle state, not erasure. A deleted thread remains in snapshots, exports, history, and whole-project restore, can still be floored, and `activateThread` restores it. Only `appendMessage` requires an active thread; `archiveThread` requires an active thread and `deleteThread` any non-deleted thread.
+Deletion is a lifecycle state, not erasure. A deleted thread remains in snapshots, exports, history, and whole-project restore, can still be claimed for a turn, and `activateThread` restores it. Only `appendMessage` requires an active thread; `archiveThread` requires an active thread and `deleteThread` any non-deleted thread.
 
 ### Notes
 
@@ -88,7 +89,7 @@ Note mutations are:
 
 Patch, exact replacement, section editing, and batches are atomic. A mismatch fails without a partial edit. Links must identify an existing note, thread, or message in the same project.
 
-## 6. Floor protocol
+## 6. Turn protocol
 
 Every protected target uses one target union:
 
@@ -102,19 +103,19 @@ type Target =
 The flow is:
 
 ```text
-requestFloor -> queued or offered
-offered -> claimFloor -> held for 30 seconds
-held -> readFloor* -> commitFloor or releaseFloor
+requestTurn -> queued or offered
+offered -> claimTurn -> claimed for 30 seconds
+claimed -> readTurn* -> commitTurn or releaseTurn
 ```
 
-Queue order is FIFO. Offers and floors are bound to the requesting adapter instance. A project request is a drain barrier: it waits for existing resource holders and prevents later resource offers and floorless resource creation until the project operation releases.
+Queue order is FIFO. Offers and turns are bound to the requesting adapter instance. A project request is a drain barrier: it waits for existing resource holders and prevents later resource offers and resource creation without a turn until the project operation releases.
 
-The hard 30-second lease begins only after `claimFloor` has read a fresh snapshot and atomically establishes ownership. Reads, polling, heartbeats, failures, and notifications do not renew it.
+The hard 30-second lease begins only after `claimTurn` has read a fresh snapshot and atomically establishes ownership. Reads, polling, heartbeats, failures, and notifications do not renew it.
 
-Floor credentials are always nested:
+Turn credentials are always nested:
 
 ```json
-{ "floor": { "id": "...", "fencingToken": "7" } }
+{ "turn": { "id": "...", "fencingToken": "7" } }
 ```
 
 The claim result is:
@@ -123,7 +124,7 @@ The claim result is:
 {
   requestId: string;
   target: Target;
-  floor: { id: string; fencingToken: string; expiresAt: string };
+  turn: { id: string; fencingToken: string; expiresAt: string };
   snapshot: { commit: string; revision?: string };
   page?: object;
   nextCursor?: string | null;
@@ -131,11 +132,11 @@ The claim result is:
 }
 ```
 
-Only `claimFloor` grants ownership. Queue status, an offer, task state, and notification delivery never grant access. A stale fencing token can never operate on a newer floor.
+Only `claimTurn` grants ownership. Queue status, an offer, task state, and notification delivery never grant access. A stale fencing token can never operate on a newer turn.
 
 ## 7. Write protocol and recovery
 
-`commitFloor` requires the current floor credential, its claimed `baseRevision`, and exactly one mutation. Validation and the transition from `HELD` to `COMMITTING` happen in the same control transaction.
+`commitTurn` requires the current turn credential, its claimed `baseRevision`, and exactly one mutation. Validation and the transition from `CLAIMED` to `COMMITTING` happen in the same control transaction.
 
 After acceptance, deadline expiry, disconnect, cancellation, or administrator release cannot interrupt the commit. The successor remains queued until the outcome is resolved.
 
@@ -156,7 +157,7 @@ The v0 tool surface is exactly:
 | Session | `getSession`, `setAgentName`, `listAgents` |
 | Threads | `createThread`, `listThreads`, `getThread`, `searchThreads` |
 | Notes | `createNote`, `listNotes`, `searchNotes` |
-| Floors | `requestFloor`, `getFloorRequest`, `waitForFloor`, `cancelFloorRequest`, `claimFloor`, `readFloor`, `releaseFloor`, `commitFloor` |
+| Turns | `requestTurn`, `getTurnRequest`, `waitForTurn`, `cancelTurnRequest`, `claimTurn`, `readTurn`, `releaseTurn`, `commitTurn` |
 | History | `listHistory`, `readRevision`, `diffRevision`, `previewRestore`, `restoreRevision` |
 | Note inspection | `getNoteOutline`, `findInNote` |
 | Project operations | `inspectSnapshot`, `searchProjectNotes`, `searchProjectNoteHistory`, `exportSnapshot`, `listSnapshotHistory`, `previewSnapshotRestore`, `restoreSnapshot` |
@@ -164,45 +165,45 @@ The v0 tool surface is exactly:
 Successful MCP results place the exact domain result in `structuredContent`. There is no wrapper object. Errors use:
 
 ```json
-{ "error": { "code": "FLOOR_EXPIRED", "message": "..." } }
+{ "error": { "code": "TURN_EXPIRED", "message": "..." } }
 ```
 
-Creation is the only content write that does not require an existing resource floor. It is still serialized by the project writer gate and uses the same unresolved-commit protocol.
+Creation is the only content write that does not require an existing resource turn. It is still serialized by the project writer gate and uses the same unresolved-commit protocol.
 
 ## 9. Waiting and MCP protocol behavior
 
-Ordinary queue tickets are the baseline API. `waitForFloor` waits on an existing request for a bounded duration; timeout returns current status and preserves queue position. Cancellation is explicit. Bassfish never reacquires or resubmits on behalf of a caller.
+Ordinary queue tickets are the baseline API. `waitForTurn` waits on an existing request for a bounded duration; timeout returns current status and preserves queue position. Cancellation is explicit. Bassfish never reacquires or resubmits on behalf of a caller.
 
 MCP notifications are advisory only. A server cannot assume that a notification resumes an idle model, and delivery cannot safely start a lease. Therefore Bassfish does not use a notification as the ownership handoff.
 
-Bassfish implements the separate `io.modelcontextprotocol/tasks` extension dated 2026-07-28. If a `requestFloor` call negotiates the extension and must queue, the call returns the official flat `CreateTaskResult` with `resultType: "task"`. The durable Task and floor request are the same unit of work. Immediately available requests still return an ordinary offer.
+Bassfish implements the separate `io.modelcontextprotocol/tasks` extension dated 2026-07-28. If a `requestTurn` call negotiates the extension and must queue, the call returns the official flat `CreateTaskResult` with `resultType: "task"`. The durable Task and turn request are the same unit of work. Immediately available requests still return an ordinary offer.
 
-When the resource becomes available, a Task-backed request enters internal `READY` state without starting an offer deadline. `notifications/tasks` is advisory. The first active `tasks/get` changes `READY` to `OFFERED`, completes the Task with the ordinary floor-ticket result, and starts the 30-second claim window. `tasks/cancel` cancels only queued or ready work; `tasks/update` is rejected because floor tasks never request input. Task access is restricted to the owning repository identity. The MCP adapter implements this extension contract around the pinned SDK without forking it and does not expose the incompatible deprecated core task vocabulary.
+When the resource becomes available, a Task-backed request enters internal `READY` state without starting an offer deadline. `notifications/tasks` is advisory. The first active `tasks/get` changes `READY` to `OFFERED`, completes the Task with the ordinary turn-ticket result, and starts the 30-second claim window. `tasks/cancel` cancels only queued or ready work; `tasks/update` is rejected because turn tasks never request input. Task access is restricted to the owning repository identity. The MCP adapter implements this extension contract around the pinned SDK without forking it and does not expose the incompatible deprecated core task vocabulary.
 
 ## 10. Search and export
 
-Metadata listing and search cover thread titles and descriptions and note metadata. They never return note bodies, message bodies, or snippets, and they require no floor.
+Metadata listing and search cover thread titles and descriptions and note metadata. They never return note bodies, message bodies, or snippets, and they require no turn.
 
-Body search requires a project floor with purpose `search`. The daemon builds or refreshes FTS data from that floor's pinned Dolt commit, then returns bounded snippets. Current and historical semantic note revisions have separate rebuildable FTS indexes. The index is not authoritative.
+Body search requires a project turn with purpose `search`. The daemon builds or refreshes FTS data from that turn's pinned Dolt commit, then returns bounded snippets. Current and historical semantic note revisions have separate rebuildable FTS indexes. The index is not authoritative.
 
-Export requires a project floor with purpose `export`. The ZIP is generated from the pinned snapshot with sorted paths, fixed timestamps, and deterministic bytes. A successful export releases its project floor.
+Export requires a project turn with purpose `export`. The ZIP is generated from the pinned snapshot with sorted paths, fixed timestamps, and deterministic bytes. A successful export releases its project turn.
 
-Whole-project restore requires a project floor with purpose `restore`. History listing and a paginated preview are pinned to the claimed current commit. The signed preview token binds the floor, fence, current commit, target commit, complete change digest, and expiry. Commit recreates the target's exact visible threads, messages, visibility, and notes in one semantic Dolt commit. Changed, recreated, and tombstoned resources receive fresh counters above their historical maxima; history is never rewound.
+Whole-project restore requires a project turn with purpose `restore`. History listing and a paginated preview are pinned to the claimed current commit. The signed preview token binds the turn, fence, current commit, target commit, complete change digest, and expiry. Commit recreates the target's exact visible threads, messages, visibility, and notes in one semantic Dolt commit. Changed, recreated, and tombstoned resources receive fresh counters above their historical maxima; history is never rewound.
 
 ## 11. Operational rules
 
 - Offer window: 30 seconds.
-- Held floor: 30 seconds, hard and nonrenewable.
+- Claimed turn: 30 seconds, hard and nonrenewable.
 - Reconnect grace: 30 seconds for queued requests.
 - Queue lifetime: 1 hour.
 - Terminal request retention: 1 hour.
-- One active floor request per adapter instance.
+- One active turn request per adapter instance.
 - One reserved owner per resource.
 - No operational event table.
 - No automatic retry.
 - No backward compatibility.
 
-The daemon may idle-exit only when it has no connected instances, active floor work, unresolved commits, or recovering projects. Socket and credential files are owner-only. The SQL guardian prevents an old writer from surviving daemon recovery.
+The daemon may idle-exit only when it has no connected instances, active turn work, unresolved commits, or recovering projects. Socket and credential files are owner-only. The SQL guardian prevents an old writer from surviving daemon recovery.
 
 ## 12. Delivery phases
 
@@ -212,7 +213,7 @@ The daemon may idle-exit only when it has no connected instances, active floor w
 - Canonical repository identity and repository-scoped names.
 - Strict configuration, health inspection, reset-to-backup workflow, and fail-closed startup.
 
-### Phase 2 — thread floors (implemented)
+### Phase 2 — thread turns (implemented)
 
 - Durable FIFO request/offer/claim protocol.
 - Hard leases, fencing, protected snapshot reads, append and lifecycle commits.
@@ -229,7 +230,7 @@ The daemon may idle-exit only when it has no connected instances, active floor w
 
 ### Phase 5 — history and project operations (implemented)
 
-- Semantic operation history, historical reads and diffs, preview-bound resource restore, message visibility, project drain floors, pinned inspection, deterministic export, exact whole-project restore, and monotonic restore counters.
+- Semantic operation history, historical reads and diffs, preview-bound resource restore, message visibility, project drain turns, pinned inspection, deterministic export, exact whole-project restore, and monotonic restore counters.
 
 ### Phase 6 — search, clients, and extension work (implemented)
 
@@ -238,4 +239,4 @@ The daemon may idle-exit only when it has no connected instances, active floor w
 
 ## 13. Exit criteria
 
-Ticket-only floor control remains complete and correct without notifications or Tasks. A release is qualified only when the non-disruptive suite and the documented macOS/Linux host and fault matrix have fresh passing evidence.
+Ticket-only turn control remains complete and correct without notifications or Tasks. A release is qualified only when the non-disruptive suite and the documented macOS/Linux host and fault matrix have fresh passing evidence.

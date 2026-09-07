@@ -4,8 +4,8 @@ import { join } from 'node:path';
 import { BassfishError, requireThat } from './domain.js';
 
 export type Call = <T = unknown>(name: string, args?: unknown) => Promise<T>;
-export type Floor = { floor: { id: string; fencingToken: string }; snapshot: { revision: string }; page: { text?: string; note?: unknown }; nextCursor?: string | null };
-export const credential = (floor: Floor) => ({ id: floor.floor.id, fencingToken: floor.floor.fencingToken });
+export type Turn = { turn: { id: string; fencingToken: string }; snapshot: { revision: string }; page: { text?: string; note?: unknown }; nextCursor?: string | null };
+export const credential = (turn: Turn) => ({ id: turn.turn.id, fencingToken: turn.turn.fencingToken });
 
 export function take(args: string[], name: string): string | undefined {
   const index = args.indexOf(name); if (index < 0) return undefined; const value = args[index+1];
@@ -28,21 +28,21 @@ async function source(args: string[], dataDir: string, initial = ''): Promise<st
   requireThat((file === undefined ? 0 : 1) + (useEditor ? 1 : 0) === 1,'INVALID_ARGUMENT','Choose exactly one of --file PATH, --file -, or --editor.');
   if (useEditor) return edit(dataDir,initial); return file === '-' ? stdin() : readFile(file!,'utf8');
 }
-export async function acquire(call: Call, type: 'note'|'thread', id: string): Promise<Floor> {
-  const ticket = await call<{ state: string; requestId: string; offerId?: string }>('requestFloor',{ target: { type, id } });
-  if (ticket.state !== 'offered') { await call('cancelFloorRequest',{ requestId: ticket.requestId }); throw new BassfishError('FLOOR_BUSY',`${type === 'note' ? 'Note' : 'Thread'} is busy. This request was cancelled, not retried.`); }
-  return call<Floor>('claimFloor',{ offerId: ticket.offerId });
+export async function acquire(call: Call, type: 'note'|'thread', id: string): Promise<Turn> {
+  const ticket = await call<{ state: string; requestId: string; offerId?: string }>('requestTurn',{ target: { type, id } });
+  if (ticket.state !== 'offered') { await call('cancelTurnRequest',{ requestId: ticket.requestId }); throw new BassfishError('TURN_BUSY',`${type === 'note' ? 'Note' : 'Thread'} is busy. This request was cancelled, not retried.`); }
+  return call<Turn>('claimTurn',{ offerId: ticket.offerId });
 }
-export async function release(call: Call, floor: Floor): Promise<void> { await call('releaseFloor',{ floor: credential(floor) }); }
-async function fullNote(call: Call, floor: Floor): Promise<{ text: string; note: unknown }> {
-  let text = floor.page.text ?? ''; let cursor = floor.nextCursor; const note = floor.page.note;
-  while (cursor) { const page = await call<Floor>('readFloor',{ floor: credential(floor), cursor }); text += page.page.text ?? ''; cursor = page.nextCursor; }
+export async function release(call: Call, turn: Turn): Promise<void> { await call('releaseTurn',{ turn: credential(turn) }); }
+async function fullNote(call: Call, turn: Turn): Promise<{ text: string; note: unknown }> {
+  let text = turn.page.text ?? ''; let cursor = turn.nextCursor; const note = turn.page.note;
+  while (cursor) { const page = await call<Turn>('readTurn',{ turn: credential(turn), cursor }); text += page.page.text ?? ''; cursor = page.nextCursor; }
   return { text, note };
 }
 export async function mutation(call: Call, type: 'note'|'thread', id: string, value: Record<string,unknown>): Promise<unknown> {
-  const floor = await acquire(call,type,id); let consumed = false;
-  try { const result = await call('commitFloor',{ floor: credential(floor), baseRevision: floor.snapshot.revision, mutation: value }); consumed = true; return result; }
-  finally { if (!consumed) await release(call,floor).catch(() => {}); }
+  const turn = await acquire(call,type,id); let consumed = false;
+  try { const result = await call('commitTurn',{ turn: credential(turn), baseRevision: turn.snapshot.revision, mutation: value }); consumed = true; return result; }
+  finally { if (!consumed) await release(call,turn).catch(() => {}); }
 }
 
 export async function runNoteCli(action: string | undefined, args: string[], call: Call, dataDir: string): Promise<{ value?: unknown; raw?: string }> {
@@ -59,8 +59,8 @@ export async function runNoteCli(action: string | undefined, args: string[], cal
   }
   const id = args.shift(); requireThat(id,'INVALID_ARGUMENT','Pass a note ID.');
   if (action === 'show') {
-    const json = booleanFlag(args,'--json'); requireThat(args.length === 0,'INVALID_ARGUMENT','Unknown note show argument.'); const floor = await acquire(call,'note',id);
-    try { const note = await fullNote(call,floor); return json ? { value: note } : { raw: note.text }; } finally { await release(call,floor); }
+    const json = booleanFlag(args,'--json'); requireThat(args.length === 0,'INVALID_ARGUMENT','Unknown note show argument.'); const turn = await acquire(call,'note',id);
+    try { const note = await fullNote(call,turn); return json ? { value: note } : { raw: note.text }; } finally { await release(call,turn); }
   }
   if (action === 'edit' && args.includes('--editor')) {
     const first = await acquire(call,'note',id); const original = await fullNote(call,first); await release(call,first);
@@ -68,7 +68,7 @@ export async function runNoteCli(action: string | undefined, args: string[], cal
     const second = await acquire(call,'note',id); let consumed = false;
     try {
       const latest = await fullNote(call,second); requireThat(latest.text === original.text,'EDIT_CONFLICT','The note changed while the editor was open; no write was attempted.');
-      const value = await call('commitFloor',{ floor: credential(second), baseRevision: second.snapshot.revision, mutation: { kind: 'replaceNoteBody', body } }); consumed = true; return { value };
+      const value = await call('commitTurn',{ turn: credential(second), baseRevision: second.snapshot.revision, mutation: { kind: 'replaceNoteBody', body } }); consumed = true; return { value };
     } finally { if (!consumed) await release(call,second).catch(() => {}); }
   }
   if (['edit','append','prepend','patch'].includes(action ?? '')) {
@@ -96,12 +96,12 @@ export async function runNoteCli(action: string | undefined, args: string[], cal
   }
   if (['archive','delete','activate'].includes(action ?? '')) { requireThat(args.length === 0,'INVALID_ARGUMENT',`Unknown note ${action} argument.`); return { value: await mutation(call,'note',id,{ kind: `${action}Note` }) }; }
   if (action === 'history') {
-    requireThat(args.length === 0,'INVALID_ARGUMENT','Unknown note history argument.'); const floor = await acquire(call,'note',id); try { return { value: await call('listHistory',{ floor: credential(floor), limit: 100, offset: 0 }) }; } finally { await release(call,floor); }
+    requireThat(args.length === 0,'INVALID_ARGUMENT','Unknown note history argument.'); const turn = await acquire(call,'note',id); try { return { value: await call('listHistory',{ turn: credential(turn), limit: 100, offset: 0 }) }; } finally { await release(call,turn); }
   }
   if (action === 'restore') {
-    const revision = args.shift(); requireThat(revision && booleanFlag(args,'--yes') && args.length === 0,'INVALID_ARGUMENT','Use note restore NOTE_ID REVISION --yes.'); const floor = await acquire(call,'note',id); let consumed = false;
-    try { const preview = await call<{ previewToken: string }>('previewRestore',{ floor: credential(floor), revision }); const value = await call('restoreRevision',{ floor: credential(floor), previewToken: preview.previewToken }); consumed = true; return { value }; }
-    finally { if (!consumed) await release(call,floor).catch(() => {}); }
+    const revision = args.shift(); requireThat(revision && booleanFlag(args,'--yes') && args.length === 0,'INVALID_ARGUMENT','Use note restore NOTE_ID REVISION --yes.'); const turn = await acquire(call,'note',id); let consumed = false;
+    try { const preview = await call<{ previewToken: string }>('previewRestore',{ turn: credential(turn), revision }); const value = await call('restoreRevision',{ turn: credential(turn), previewToken: preview.previewToken }); consumed = true; return { value }; }
+    finally { if (!consumed) await release(call,turn).catch(() => {}); }
   }
   throw new BassfishError('INVALID_ARGUMENT','Unknown note command.');
 }

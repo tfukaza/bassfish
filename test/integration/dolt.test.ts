@@ -11,7 +11,7 @@ import { Bassfish } from '../../src/service.js';
 import { SystemClock } from '../../src/runtime.js';
 import { NoteSearchIndex } from '../../src/storage/search.js';
 import { hold, errorCode } from '../support.js';
-import type { Session, Floor } from '../support.js';
+import type { Session, Turn } from '../support.js';
 import mysql from 'mysql2/promise';
 
 test('an interrupted credential-file write fails closed before SQL starts', async t => {
@@ -46,10 +46,10 @@ test('real Dolt: credential isolation, semantic commits, rollback, atomicity and
   const a = await service.open('/test/.git', 'Alice'); const b = await service.open('/test/.git', 'Bob');
   const project = (a.session as Session).projectId;
   const created = await service.call(a.agentHandle, 'createThread', { title: 'Real SQL', description: 'Secret description' }) as { threadId: string; doltCommit: string };
-  const floor = await hold(service, a.agentHandle, created.threadId);
-  const queued = await service.requestResourceFloor(b.agentHandle, created.threadId);
-  const committed = await service.commitFloor(a.agentHandle, floor.floor.id, floor.floor.fencingToken, floor.snapshot.revision, { kind: 'appendMessage', body: 'Unicode 🎣 and SQL \' ? ; -- body' });
-  const next = await service.claimFloor(b.agentHandle, service.status(b.agentHandle, queued.requestId as string).offerId as string, 20) as Floor;
+  const turn = await hold(service, a.agentHandle, created.threadId);
+  const queued = await service.requestResourceTurn(b.agentHandle, created.threadId);
+  const committed = await service.commitTurn(a.agentHandle, turn.turn.id, turn.turn.fencingToken, turn.snapshot.revision, { kind: 'appendMessage', body: 'Unicode 🎣 and SQL \' ? ; -- body' });
+  const next = await service.claimTurn(b.agentHandle, service.status(b.agentHandle, queued.requestId as string).offerId as string, 20) as Turn;
   assert.equal(next.page.messages[0]!.body, 'Unicode 🎣 and SQL \' ? ; -- body');
   assert.equal(next.page.messages[0]!.name, 'Alice'); assert.equal(next.snapshot.revision, '2');
   const raw = await mysql.createConnection({ ...sql.endpoint, user: 'root', database: project });
@@ -62,21 +62,21 @@ test('real Dolt: credential isolation, semantic commits, rollback, atomicity and
     await raw.beginTransaction(); await raw.query('UPDATE threads SET title=? WHERE id=?', ['uncommitted', created.threadId]); await raw.rollback();
     assert.equal((await content.snapshot(project, created.threadId, 1)).thread.title, 'Real SQL');
   } finally { await raw.end(); }
-  service.releaseFloor(b.agentHandle, next.floor.id, next.floor.fencingToken);
+  service.releaseTurn(b.agentHandle, next.turn.id, next.turn.fencingToken);
   const describing = await hold(service, a.agentHandle, created.threadId);
-  await service.commitFloor(a.agentHandle, describing.floor.id, describing.floor.fencingToken, describing.snapshot.revision, { kind: 'setThreadDescription', description: 'Updated description' });
+  await service.commitTurn(a.agentHandle, describing.turn.id, describing.turn.fencingToken, describing.snapshot.revision, { kind: 'setThreadDescription', description: 'Updated description' });
   assert.equal((await content.snapshot(project, created.threadId, 1)).thread.description, 'Updated description');
   const deleting = await hold(service, a.agentHandle, created.threadId);
-  await service.commitFloor(a.agentHandle, deleting.floor.id, deleting.floor.fencingToken, deleting.snapshot.revision, { kind: 'deleteThread' });
+  await service.commitTurn(a.agentHandle, deleting.turn.id, deleting.turn.fencingToken, deleting.snapshot.revision, { kind: 'deleteThread' });
   assert.equal((await content.listThreads(project))[0]!.state, 'deleted');
   const activating = await hold(service, a.agentHandle, created.threadId);
-  await service.commitFloor(a.agentHandle, activating.floor.id, activating.floor.fencingToken, activating.snapshot.revision, { kind: 'activateThread' });
+  await service.commitTurn(a.agentHandle, activating.turn.id, activating.turn.fencingToken, activating.snapshot.revision, { kind: 'activateThread' });
   const lost = await hold(service, a.agentHandle, created.threadId);
   // Crash boundary fixture: commit real content, then simulate inability to acknowledge it in SQLite.
   const originalWrite = content.write.bind(content), originalResolve = content.resolve.bind(content);
   content.write = async op => { await originalWrite(op); throw new Error('lost reply'); };
   content.resolve = async () => ({ state: 'unknown' });
-  await assert.rejects(service.commitFloor(a.agentHandle, lost.floor.id, lost.floor.fencingToken, lost.snapshot.revision, { kind: 'appendMessage', body: 'committed but unacknowledged' }), errorCode('OUTCOME_UNKNOWN'));
+  await assert.rejects(service.commitTurn(a.agentHandle, lost.turn.id, lost.turn.fencingToken, lost.snapshot.revision, { kind: 'appendMessage', body: 'committed but unacknowledged' }), errorCode('OUTCOME_UNKNOWN'));
   assert.equal(control.view(s => Object.values(s.pending).length), 1);
   await content.close(); content = undefined; control.close(); control = undefined; await sql.close(); sql = undefined;
   sql = await startSql(dir, doltBinary()); content = new DoltContent(sql.endpoint); control = new SqliteControl(join(dir, 'control.sqlite'));
@@ -110,15 +110,15 @@ test('real Dolt: whole-project restore is one clean commit and prior note revisi
   const opened = await service.open('/restore/.git','Restorer'); const handle = opened.agentHandle; const project = (opened.session as Session).projectId;
   const created = await service.call(handle,'createNote',{ path: 'plans/original', title: 'Original', body: 'historic swordfish', labels: [], noteKind: null, links: [] }) as { noteId: string };
   const targetCommit = await content.head(project);
-  const request = await service.call(handle,'requestFloor',{ target: { type: 'note', id: created.noteId } }) as { offerId: string };
-  const note = await service.call(handle,'claimFloor',{ offerId: request.offerId }) as Floor;
-  await service.call(handle,'commitFloor',{ floor: { id: note.floor.id, fencingToken: note.floor.fencingToken }, baseRevision: note.snapshot.revision, mutation: { kind: 'replaceNoteBody', body: 'current body' } });
+  const request = await service.call(handle,'requestTurn',{ target: { type: 'note', id: created.noteId } }) as { offerId: string };
+  const note = await service.call(handle,'claimTurn',{ offerId: request.offerId }) as Turn;
+  await service.call(handle,'commitTurn',{ turn: { id: note.turn.id, fencingToken: note.turn.fencingToken }, baseRevision: note.snapshot.revision, mutation: { kind: 'replaceNoteBody', body: 'current body' } });
   const later = await service.call(handle,'createNote',{ path: 'plans/later', title: 'Later', body: 'delete on restore', labels: [], noteKind: null, links: [] }) as { noteId: string };
-  const restoreRequest = await service.call(handle,'requestFloor',{ target: { type: 'project', purpose: 'restore' } }) as { offerId: string };
-  const restoreFloor = await service.call(handle,'claimFloor',{ offerId: restoreRequest.offerId }) as Floor;
-  const floor = { id: restoreFloor.floor.id, fencingToken: restoreFloor.floor.fencingToken };
-  const preview = await service.call(handle,'previewSnapshotRestore',{ floor, targetCommit }) as { previewToken: string };
-  const restored = await service.call(handle,'restoreSnapshot',{ floor, previewToken: preview.previewToken }) as { doltCommit: string; changes: unknown[] };
+  const restoreRequest = await service.call(handle,'requestTurn',{ target: { type: 'project', purpose: 'restore' } }) as { offerId: string };
+  const restoreTurn = await service.call(handle,'claimTurn',{ offerId: restoreRequest.offerId }) as Turn;
+  const turn = { id: restoreTurn.turn.id, fencingToken: restoreTurn.turn.fencingToken };
+  const preview = await service.call(handle,'previewSnapshotRestore',{ turn, targetCommit }) as { previewToken: string };
+  const restored = await service.call(handle,'restoreSnapshot',{ turn, previewToken: preview.previewToken }) as { doltCommit: string; changes: unknown[] };
   const snapshot = await content.projectSnapshot(project); assert.equal(snapshot.notes.find(value => value.id === created.noteId)?.body,'historic swordfish');
   assert.equal(snapshot.notes.some(value => value.id === later.noteId),false); assert.ok(restored.changes.length >= 2);
   const history = await content.historicalNotes(project,snapshot.commit); assert.ok(history.some(value => value.note.id === created.noteId && value.note.body === 'current body'));

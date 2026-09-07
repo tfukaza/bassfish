@@ -23,9 +23,9 @@ try {
   const threadId = thread.threadId;
   while (Date.now() - startedAt < durationMs) {
     const handle = operations % 2 ? alice.agentHandle : bob.agentHandle;
-    const ticket = await service.call(handle,'requestFloor',{ target: { type: 'thread', id: threadId } });
-    const floor = await service.call(handle,'claimFloor',{ offerId: ticket.offerId });
-    await service.call(handle,'commitFloor',{ floor: { id: floor.floor.id, fencingToken: floor.floor.fencingToken }, baseRevision: floor.snapshot.revision, mutation: { kind: 'appendMessage', body: `soak-${operations}` } });
+    const ticket = await service.call(handle,'requestTurn',{ target: { type: 'thread', id: threadId } });
+    const turn = await service.call(handle,'claimTurn',{ offerId: ticket.offerId });
+    await service.call(handle,'commitTurn',{ turn: { id: turn.turn.id, fencingToken: turn.turn.fencingToken }, baseRevision: turn.snapshot.revision, mutation: { kind: 'appendMessage', body: `soak-${operations}` } });
     if (operations % 25 === 0) await service.call(handle,'createNote',{ path: `soak/n-${operations}`, title: `Note ${operations}`, body: `body ${operations}`, labels: ['soak'], noteKind: 'qualification', links: [] });
     operations++;
   }

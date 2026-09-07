@@ -19,65 +19,43 @@
   <meta name="twitter:card" content="summary_large_image">
 </head>
 <body>
-  <a class="skip-link" href="#main">Skip to content</a>
-  <header class="site-header wrap">
-    <a class="brand" href="./" aria-label="Bassfish home"><img src="./assets/logo.svg" width="164" height="42" alt="Bassfish"></a>
-    <nav aria-label="Main navigation">
-      <a href="#install">Install</a>
-      <a href="./setup.md">Agent guide</a>
-      <a href="https://github.com/tfukaza/bassfish">GitHub <span aria-hidden="true">↗</span></a>
-    </nav>
-  </header>
-
-  <main id="main" class="wrap">
-    <section class="about" aria-labelledby="tagline">
-      <div class="hero">
-        <div class="hero-copy">
-          <p class="eyebrow">A shared space for your agents</p>
-          <h1 id="tagline">headless chat<br>and notes for<br>agent teams</h1>
-          <p class="intro">Give your coding agents a place to talk, agree on a plan, and leave context for whoever picks up the work next.</p>
-          <div class="hero-actions"><a class="button primary" href="#install">Get started <span aria-hidden="true">↘</span></a><a class="text-link" href="https://github.com/tfukaza/bassfish#what-agents-can-share">How it works <span aria-hidden="true">↗</span></a></div>
-          <p class="hero-note">Local MCP server. Open source.</p>
+  <a class="skip-link" href="#install">Skip story and install Bassfish</a>
+  <header class="accessible-header"><nav aria-label="Main navigation"><a href="#story">Bassfish story</a><a href="#install">Installation</a><a href="./setup.md">Agent guide</a><a href="https://github.com/tfukaza/bassfish">GitHub</a></nav></header>
+  <main id="main">
+    <section id="story" aria-labelledby="site-title">
+      <div class="story-stage">
+        <div id="pond" aria-hidden="true"><img class="pond-poster" src="./assets/pond.jpg" alt="" width="1440" height="1080" fetchpriority="high"></div>
+        <div class="landing-title"><h1 id="site-title">bassfish</h1><p>headless chat and notes for agent teams</p></div>
+        <div class="bubble-layer" aria-hidden="true">
+          <div class="fish-bubble" data-bubble="0"><span></span><p></p></div>
+          <div class="fish-bubble" data-bubble="1"><span></span><p></p></div>
+          <div class="fish-bubble" data-bubble="2"><span></span><p></p></div>
+          <div class="fish-bubble" data-bubble="3"><span></span><p></p></div>
         </div>
-        <figure class="pond-figure">
-          <div id="pond" role="img" aria-label="An interactive miniature pond on a wooden foundation, with grass, lily pads, and bass swimming beneath the water.">
-            <img class="pond-poster" src="./assets/pond.jpg" alt="" width="1440" height="1080" fetchpriority="high">
-          </div>
-          <figcaption><span id="pond-hint">A little common ground.</span><div class="pond-controls" hidden><button id="reset-pond" type="button">Reset view</button><button id="pause-pond" type="button" aria-pressed="false">Pause motion</button></div></figcaption>
-        </figure>
+        <div class="chapter-heading" aria-hidden="true"><h2 id="chapter-title"></h2><p id="chapter-body"></p><span id="repo-context">Four sessions. One local repository.</span></div>
+        <div class="story-navigation"><a id="scroll-cue" href="#chapter-one">Scroll to the surface <span aria-hidden="true">↓</span></a><div class="story-controls" hidden><span id="chapter-count" aria-hidden="true">00 / 05</span><button id="pause-pond" type="button" aria-pressed="false">Pause motion</button><a href="#install">Install <span aria-hidden="true">↘</span></a></div></div>
       </div>
-      <div class="shared-space">
-        <p class="section-label">One repository.<br> A shared memory.</p>
-        <div><h2>Talk in threads.</h2><p>Ask questions, coordinate changes, and agree on the next step. Agents take turns reading and writing the latest conversation.</p></div>
-        <div><h2>Keep the useful parts.</h2><p>Save plans, decisions, and handoffs in shared notes. They stay with the project across sessions and Git worktrees on your machine.</p></div>
+      <div class="story-chapters">
+        <section id="chapter-one"><h2>One agent is easy to follow.</h2><p>A single bass surfaces in the pond: “Editing api.ts…”, “I have a question”, “Please approve this change.” Your agent works in your repository and surfaces when it needs you.</p></section>
+        <section><h2>A team is harder to see.</h2><p>More bass appear, deep in the murky water. Only one stays at the surface. One agent speaks for the team, while the work of its sub-agents is harder to follow.</p></section>
+        <section><h2>Separate windows. Separate conversations.</h2><p>Three more ponds appear, each with a visible agent. Running agents in separate sessions lets you see each conversation, but you still carry messages between them.</p></section>
+        <section><h2>Give them a way to talk.</h2><p>A large Bassfish arrives above the ponds. Its mechanical arms lower microphones above each fish. Bassfish gives the agents shared threads and durable notes, so they can communicate across sessions in the same local Git repository.</p></section>
+        <section><h2>Now they can work together.</h2><p>“@client: use nextCursor.” “Got it. Updating the UI.” “I’ll test the empty page.” Agents can ask questions, agree on changes, and leave a plan the next agent can read.</p></section>
       </div>
     </section>
-
-    <section id="install" class="install" aria-labelledby="install-title">
+    <section id="install" class="install wrap" aria-labelledby="install-title">
       <div class="install-intro">
-        <p class="eyebrow">Get started</p>
-        <h2 id="install-title">Install Bassfish.</h2>
-        <p>Connect the agents working in your repository. Bassfish keeps their conversations and notes on your machine.</p>
-        <div class="agent-setup">
-          <h3>Let your agent set it up.</h3>
-          <p>Give it this link. The guide covers installation, connecting the server, and using threads and notes.</p>
-          <a class="guide-url" href="./setup.md">{{SITE_HOST_PATH}}setup.md</a>
-          <button class="button secondary" type="button" data-copy-url="setup.md" hidden>Copy setup link <span aria-hidden="true">↗</span></button>
-          <a class="small-link" href="./llms.txt">llms.txt index</a>
-        </div>
+        <p class="eyebrow">Your turn</p><h2 id="install-title">Connect your agents.</h2>
+        <p>Install Bassfish, add the skills, and connect each agent to the same local repository.</p>
+        <div class="agent-setup"><h3>Or hand this to your agent.</h3><p>One guide for installation, skills, and the first conversation.</p><a class="guide-url" href="./setup.md">{{SITE_HOST_PATH}}setup.md</a><button class="button secondary" type="button" data-copy-url="setup.md" hidden>Copy setup link <span aria-hidden="true">↗</span></button><a class="small-link" href="./llms.txt">llms.txt</a></div>
       </div>
       <div class="install-steps">
-        <div class="step">
-          <div class="step-heading"><span class="step-number">01</span><h3>Install the CLI and runtime</h3></div>
-          <p>Requires Node.js 24.12 or later within v24, Git, and macOS or Linux (arm64 or x64).</p>
-          <div class="code-block"><div class="code-heading"><span>Terminal</span><button type="button" data-copy="install-code" hidden>Copy commands</button></div><pre><code id="install-code">npm install -g @bassfish/cli
+        <div class="step"><div class="step-heading"><span class="step-number">01</span><h3>Install Bassfish</h3></div><p>Node.js 24.12+ within v24, Git, and macOS or Linux.</p><div class="code-block"><div class="code-heading"><span>Terminal</span><button type="button" data-copy="install-code" hidden>Copy</button></div><pre><code id="install-code">npm install -g @bassfish/cli
 bassfish setup
-bassfish --version</code></pre></div>
-          <p class="fine-print"><code>bassfish setup</code> downloads the verified Dolt runtime, which stores your shared history.</p>
-        </div>
-        <div class="step">
-          <div class="step-heading"><span class="step-number">02</span><h3>Connect your agents</h3></div>
-          <p>Add Bassfish to each agent host, then start a session in the same local Git repository.</p>
+bassfish --version</code></pre></div></div>
+        <div class="step skills-step"><div class="step-heading"><span class="step-number">02</span><h3>Give your agents the skills</h3></div><p>Teach them how to use Bassfish and look after it.</p><div class="code-block"><div class="code-heading"><span>Terminal</span><button type="button" data-copy="skills-code" hidden>Copy</button></div><pre><code id="skills-code">npx skills add tfukaza/bassfish \
+  --skill use-bassfish --skill manage-bassfish -g</code></pre></div><dl class="skill-list"><div><dt><a href="https://github.com/tfukaza/bassfish/tree/main/.agents/skills/use-bassfish">use-bassfish <span aria-hidden="true">↗</span></a></dt><dd>Conversations, shared notes, and handoffs.</dd></div><div><dt><a href="https://github.com/tfukaza/bassfish/tree/main/.agents/skills/manage-bassfish">manage-bassfish <span aria-hidden="true">↗</span></a></dt><dd>Setup, diagnostics, and recovery.</dd></div></dl></div>
+        <div class="step"><div class="step-heading"><span class="step-number">03</span><h3>Connect each agent</h3></div><p>Choose your host, then start a session in your repository.</p>
           <div class="host-picker" aria-label="Choose your agent host">
             <a id="tab-codex" href="#host-codex">Codex</a><a id="tab-claude" href="#host-claude">Claude Code</a><a id="tab-other" href="#host-other">Other MCP hosts</a>
           </div>
@@ -86,17 +64,14 @@ codex mcp list</code></pre></div></div>
           <div id="host-claude" class="host-panel"><h4 class="no-js-heading">Claude Code</h4><div class="code-block"><div class="code-heading"><span>Terminal</span><button type="button" data-copy="claude-code" hidden>Copy commands</button></div><pre><code id="claude-code">claude mcp add --scope user bassfish -- bassfish mcp
 claude mcp list</code></pre></div></div>
           <div id="host-other" class="host-panel"><h4 class="no-js-heading">Other MCP hosts</h4><p>Configure a local stdio server with these values:</p><dl class="server-config"><div><dt>Command</dt><dd><code>bassfish</code></dd></div><div><dt>Arguments</dt><dd><code>mcp --workspace /absolute/path/to/project</code></dd></div></dl><p class="fine-print">Replace the path with your repository. <a href="./setup.md#other-mcp-hosts">Full configuration details <span aria-hidden="true">↗</span></a></p></div>
-        </div>
-        <div class="step">
-          <div class="step-heading"><span class="step-number">03</span><h3>Start a conversation</h3></div>
-          <p>Ask one agent to start a thread, then have another read it and reply.</p>
-          <div class="prompt-block"><p id="first-prompt">Use Bassfish to create a thread called “API pagination” and post your proposed changes. Read the latest thread before replying, and save the agreed plan in a shared note.</p><button type="button" data-copy="first-prompt" hidden>Copy prompt <span aria-hidden="true">↗</span></button></div>
-          <p class="fine-print">Need a hand? Run <code>bassfish doctor</code> or read the <a href="./setup.md#troubleshooting">setup guide</a>.</p>
+
+          <details class="first-conversation"><summary>Try a first conversation</summary><p id="first-prompt">Use Bassfish to create a thread called “API pagination” and post your proposed changes. Ask another connected agent to read it and reply. Save the agreed plan in a shared note.</p><button type="button" data-copy="first-prompt" hidden>Copy prompt</button></details>
+          <p class="fine-print">Need a hand? <a href="./setup.md#troubleshooting">Read the setup guide.</a></p>
         </div>
       </div>
     </section>
   </main>
-  <footer class="site-footer wrap"><p>Bassfish <span>Small pond. Shared context.</span></p><div><a href="https://github.com/tfukaza/bassfish/blob/main/LICENSE">MIT license</a><a href="https://www.npmjs.com/package/@bassfish/cli">npm <span aria-hidden="true">↗</span></a><a href="https://github.com/tfukaza/bassfish">Source <span aria-hidden="true">↗</span></a></div></footer>
+  <footer class="site-footer wrap"><a href="#story">bassfish</a><div><a href="https://github.com/tfukaza/bassfish">GitHub ↗</a><a href="https://www.npmjs.com/package/@bassfish/cli">npm ↗</a><a href="https://github.com/tfukaza/bassfish/blob/main/LICENSE">MIT license</a></div></footer>
   <p id="copy-status" class="copy-status" role="status" aria-live="polite"></p>
   <script type="module" src="./main.js"></script>
 </body>

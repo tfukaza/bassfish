@@ -13,6 +13,7 @@ export function mountPond(container,options={}){
   let reducedMotion=motion.matches,paused=options.paused??reducedMotion,disposed=false,visible=!document.hidden,texturesReady=false;
   let time=5,previous=0,raf=0,signalAge=20,frames=0;
   let yaw=.72,elevation=.56,targetYaw=.72,targetElevation=.56,width=1,height=1;
+  let story=null,storyProgress=0;
   const renderer=new THREE.WebGLRenderer({antialias:true,alpha:false,powerPreference:'low-power'});
   renderer.setPixelRatio(Math.min(devicePixelRatio||1,1.65));renderer.setClearColor(0xffffff);
   renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=.98;
@@ -71,7 +72,7 @@ export function mountPond(container,options={}){
     camera.position.set(Math.sin(yaw)*Math.cos(elevation)*r,Math.sin(elevation)*r+focusY,Math.cos(yaw)*Math.cos(elevation)*r);
     camera.lookAt(0,focusY,0);
     timeUniform.value=time;
-    fishes.forEach((f,i)=>{
+    if(!story)fishes.forEach((f,i)=>{
       const a=time*(.10+i*.013)+f.phase;
       let dx,dz;
       if(i===0){
@@ -85,6 +86,7 @@ export function mountPond(container,options={}){
       f.fish.rotation.set(0,Math.atan2(-dz*DEPTH_SCALE,dx),Math.sin(time*.7+f.phase)*.022);
     });
     habitat.update(time,signalAge);
+    story?.update({progress:storyProgress,time,width,height,paused});
     renderer.render(scene,camera);frames++;
   }
   function resize(){
@@ -102,7 +104,7 @@ export function mountPond(container,options={}){
     raf=requestAnimationFrame(tick);
   }
   let dragging=false,moved=0,lastX=0,lastY=0;
-  const onDown=e=>{if(e.button!==0)return;dragging=true;moved=0;lastX=e.clientX;lastY=e.clientY;container.setPointerCapture(e.pointerId);};
+  const onDown=e=>{if(options.createStory||e.button!==0)return;dragging=true;moved=0;lastX=e.clientX;lastY=e.clientY;container.setPointerCapture(e.pointerId);};
   const onMove=e=>{if(!dragging)return;const dx=e.clientX-lastX,dy=e.clientY-lastY;moved+=Math.abs(dx)+Math.abs(dy);lastX=e.clientX;lastY=e.clientY;targetYaw=clamp(targetYaw-dx*.005,.15,1.39);targetElevation=clamp(targetElevation+dy*.004,.25,.88);if(paused)draw();};
   function signal(){signalAge=paused?.5:0;draw();}
   const onUp=e=>{if(!dragging)return;dragging=false;if(container.hasPointerCapture(e.pointerId))container.releasePointerCapture(e.pointerId);if(moved<6)signal();};
@@ -114,15 +116,16 @@ export function mountPond(container,options={}){
   document.addEventListener('visibilitychange',onVisibility);motion.addEventListener('change',onMotion);renderer.domElement.addEventListener('webglcontextlost',onContextLost);
   const observer=new ResizeObserver(resize);observer.observe(container);resize();raf=requestAnimationFrame(tick);
   return {
-    ready:Promise.all([habitat.ready,bass.ready]).then(()=>{if(!disposed){texturesReady=true;draw();renderer.domElement.style.opacity='1';}}),
+    ready:Promise.all([habitat.ready,bass.ready]).then(()=>{if(!disposed){texturesReady=true;habitat.update(time,signalAge);story=options.createStory?.({scene,world,camera,fishes,timeUniform,renderer,light});draw();renderer.domElement.style.opacity='1';}}),
     get paused(){return paused;},get reducedMotion(){return reducedMotion;},
     setPaused(value){paused=Boolean(value);previous=0;draw();},signal,
+    setStoryProgress(value){storyProgress=clamp(value,0,5.8);if(!disposed)draw();},
     resetView(){targetYaw=.72;targetElevation=.56;draw();},
-    getStats(){return {frames,time,signalAge,paused,width,height,yaw,elevation,texturesReady,...habitat.getStats(),...bass.getStats(),drawCalls:renderer.info.render.calls,triangles:renderer.info.render.triangles,threeRevision:THREE.REVISION};},
+    getStats(){return {frames,time,signalAge,paused,width,height,yaw,elevation,texturesReady,...habitat.getStats(),...bass.getStats(),...story?.getStats(),drawCalls:renderer.info.render.calls,triangles:renderer.info.render.triangles,threeRevision:THREE.REVISION};},
     dispose(){
       if(disposed)return;disposed=true;cancelAnimationFrame(raf);observer.disconnect();
       container.removeEventListener('pointerdown',onDown);container.removeEventListener('pointermove',onMove);container.removeEventListener('pointerup',onUp);container.removeEventListener('pointercancel',onCancel);document.removeEventListener('visibilitychange',onVisibility);motion.removeEventListener('change',onMotion);renderer.domElement.removeEventListener('webglcontextlost',onContextLost);
-      const geometries=new Set(retiredGeometries),materials=new Set(materialCache.values());scene.traverse(obj=>{if(obj.geometry)geometries.add(obj.geometry);if(obj.material)materials.add(obj.material);});geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());habitat.dispose();bass.dispose();light.shadow.map?.dispose();renderer.dispose();renderer.domElement.remove();
+      story?.dispose();const geometries=new Set(retiredGeometries),materials=new Set(materialCache.values());scene.traverse(obj=>{if(obj.geometry)geometries.add(obj.geometry);if(obj.material)materials.add(obj.material);});geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());habitat.dispose();bass.dispose();light.shadow.map?.dispose();renderer.dispose();renderer.domElement.remove();
     },
   };
 }

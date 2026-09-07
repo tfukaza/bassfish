@@ -58,53 +58,90 @@ addEventListener('hashchange', () => {
   if (tab) selectTab(tab);
 });
 
-const container = document.querySelector('#pond');
-const controls = document.querySelector('.pond-controls');
-const hint = document.querySelector('#pond-hint');
-const pause = document.querySelector('#pause-pond');
-let pond, disposed = false, offscreen = false, userPaused = matchMedia('(prefers-reduced-motion: reduce)').matches;
-function syncMotion() {
-  pause.textContent = userPaused ? 'Play motion' : 'Pause motion';
-  pause.setAttribute('aria-pressed', String(userPaused));
-}
-const observer = new IntersectionObserver(entries => {
-  offscreen = !entries[0].isIntersecting;
-  pond?.setPaused(userPaused || offscreen);
-}, { threshold: 0 });
-observer.observe(container);
-pause.addEventListener('click', () => {
-  userPaused = !userPaused;
-  pond?.setPaused(userPaused || offscreen);
-  syncMotion();
-});
-document.querySelector('#reset-pond').addEventListener('click', () => pond?.resetView());
-container.addEventListener('pond:motionchange', () => {
-  userPaused = true;
-  syncMotion();
-});
-addEventListener('pagehide', event => {
-  if (event.persisted) return;
-  disposed = true; observer.disconnect(); pond?.dispose();
-}, { once: true });
+const storySection=document.querySelector('#story'), container=document.querySelector('#pond');
+const controls=document.querySelector('.story-controls'), pause=document.querySelector('#pause-pond');
+const bodyCopy=document.querySelector('#chapter-body'), chapterTitle=document.querySelector('#chapter-title'), count=document.querySelector('#chapter-count');
+const bubbles=[...document.querySelectorAll('.fish-bubble')];
+const motion=matchMedia('(prefers-reduced-motion: reduce)');
+let pond, disposed=false, userPaused=motion.matches, offscreen=false, scrollFrame=0;
+let currentProgress=0, currentChapter=-1;
+document.body.classList.add('story-enhanced');
 
-// Let the text and poster paint before fetching the optional interactive scene.
-async function loadPond() {
+function updateScroll() {
+  scrollFrame=0;
+  const rect=storySection.getBoundingClientRect();
+  currentProgress=Math.max(0,Math.min(5.6,-rect.top/(storySection.offsetHeight-innerHeight)*5.6));
+  const snapped=[0,1.1,2.1,3.25,4.5,5.25][Math.min(5,Math.floor(currentProgress+.4))];
+  pond?.setStoryProgress(motion.matches?snapped:currentProgress);
+}
+function scheduleScroll() { if(!scrollFrame)scrollFrame=requestAnimationFrame(updateScroll); }
+addEventListener('scroll',scheduleScroll,{passive:true});
+addEventListener('resize',scheduleScroll);
+function syncMotion() {
+  pause.textContent=userPaused?'Play motion':'Pause motion';
+  pause.setAttribute('aria-pressed',String(userPaused));
+}
+pause.addEventListener('click',()=>{userPaused=!userPaused;pond?.setPaused(userPaused||offscreen);syncMotion();});
+container.addEventListener('pond:motionchange',()=>{userPaused=true;syncMotion();});
+motion.addEventListener('change',scheduleScroll);
+document.querySelector('#scroll-cue').addEventListener('click',event=>{
+  if(!pond)return;
+  event.preventDefault();
+  window.scrollTo({top:storySection.offsetTop+(storySection.offsetHeight-innerHeight)*.92/5.6,behavior:motion.matches?'instant':'smooth'});
+});
+for(const link of document.querySelectorAll('a[href="#install"]'))link.addEventListener('click',event=>{
+  event.preventDefault();const target=document.querySelector('#install');
+  history.replaceState(null,'','#install');target.tabIndex=-1;
+  target.scrollIntoView({behavior:'instant'});target.focus({preventScroll:true});
+});
+const observer=new IntersectionObserver(entries=>{
+  offscreen=!entries[0].isIntersecting;pond?.setPaused(userPaused||offscreen);
+},{threshold:0});
+observer.observe(container);
+addEventListener('pagehide',event=>{
+  if(event.persisted)return;
+  disposed=true;cancelAnimationFrame(scrollFrame);observer.disconnect();pond?.dispose();
+  removeEventListener('scroll',scheduleScroll);removeEventListener('resize',scheduleScroll);motion.removeEventListener('change',scheduleScroll);
+},{once:true});
+
+async function loadStory() {
   try {
-    const { mountPond } = await import('./backdrop/pond/scene.js');
-    if (disposed) return;
-    pond = mountPond(container, { paused: userPaused || offscreen, pixelRatio: 1.5 });
-    await pond.ready;
-    if (disposed) return;
-    controls.hidden = false;
-    hint.textContent = 'Drag to turn the pond.';
-    syncMotion();
-    container.dataset.ready = 'true';
+    const [{mountPond},{createPondStory,chapters}]=await Promise.all([import('./backdrop/pond/scene.js'),import('./story-scene.js')]);
+    if(disposed)return;
+    pond=mountPond(container,{
+      paused:userPaused||offscreen,pixelRatio:1.35,
+      createStory:createPondStory(frame=>{
+        if(frame.chapter!==currentChapter) {
+          currentChapter=frame.chapter;
+          storySection.dataset.chapter=String(frame.chapter);
+          chapterTitle.textContent=frame.chapter?chapters[frame.chapter].title:'';
+          bodyCopy.textContent=frame.chapter?chapters[frame.chapter].body:'';
+          count.textContent=`0${frame.chapter} / 05`;
+        }
+        for(let i=0;i<bubbles.length;i++) {
+          const bubble=bubbles[i],data=frame.bubbles[i];
+          bubble.classList.toggle('visible',data.visible);
+          if(!data.visible)continue;
+          if(bubble.querySelector('p').textContent!==data.text||bubble.dataset.viewport!==String(innerWidth)) {
+            bubble.querySelector('p').textContent=data.text;bubble.querySelector('span').textContent=data.agent;
+            bubble.dataset.viewport=String(innerWidth);bubble.dataset.width=String(bubble.offsetWidth);
+          }
+          const width=Number(bubble.dataset.width), anchor=data.x*container.clientWidth;
+          const left=Math.max(width/2+16,Math.min(innerWidth-width/2-16,anchor));
+          bubble.style.left=`${left}px`;bubble.style.top=`${data.y*container.clientHeight}px`;
+          bubble.style.setProperty('--tail-x',`${Math.max(12,Math.min(width-12,anchor-left+width/2))-5}px`);
+        }
+      }),
+    });
+    updateScroll();await pond.ready;
+    if(disposed)return;
+    window.bassfishStory=pond;
+    document.body.classList.add('story-ready');container.dataset.ready='true';controls.hidden=false;syncMotion();
+    if(location.hash==='#install')document.querySelector('#install').scrollIntoView();
+    updateScroll();
   } catch {
-    pond?.dispose(); pond = undefined;
-    controls.hidden = true;
-    hint.textContent = 'A little common ground. Showing the still pond.';
-    container.dataset.ready = 'fallback';
+    pond?.dispose();pond=undefined;controls.hidden=true;observer.disconnect();
+    document.body.classList.remove('story-enhanced','story-ready');container.dataset.ready='fallback';
   }
 }
-if ('requestIdleCallback' in window) requestIdleCallback(loadPond, { timeout: 1500 });
-else setTimeout(loadPond, 100);
+if('requestIdleCallback' in window)requestIdleCallback(loadStory,{timeout:1000});else setTimeout(loadStory,60);

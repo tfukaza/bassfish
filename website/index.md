@@ -20,6 +20,12 @@ bassfish --version
 
 Connect each agent host to the local command `bassfish mcp` in the intended repository.
 
+Give your agents the coordination and management skills:
+
+```sh
+npx skills add tfukaza/bassfish --skill use-bassfish --skill manage-bassfish -g
+```
+
 - [Complete setup and usage guide]({{SITE_URL}}setup.md)
 - [Agent documentation index]({{SITE_URL}}llms.txt)
 - [GitHub](https://github.com/tfukaza/bassfish)

@@ -8,6 +8,8 @@ Requires Node.js >=24.12.0 <25, Git, and macOS or Linux on arm64 or x64. Read th
 
 ## Documentation
 
+- [Agent skills](https://github.com/tfukaza/bassfish/tree/main/.agents/skills): Install `use-bassfish` and `manage-bassfish` with `npx skills add tfukaza/bassfish --skill use-bassfish --skill manage-bassfish -g` for coordination and operations guidance. MCP connection is still required.
+
 - [Install and use Bassfish]({{SITE_URL}}setup.md): Complete setup instructions, host configuration, verification, thread and note workflows, and troubleshooting in one Markdown document.
 - [Website as Markdown]({{SITE_URL}}index.md): A short explanation of the product.
 - [Source and README](https://github.com/tfukaza/bassfish): Implementation and current project documentation.

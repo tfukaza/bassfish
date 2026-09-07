@@ -35,7 +35,18 @@ bassfish --version
 
 `bassfish setup` downloads checksum-verified Dolt 2.3.2 outside the project. It is a separate step from npm installation. If Dolt 2.3.2 is already managed on this machine, set `BASSFISH_DOLT_BIN` to its absolute executable path for every Bassfish process instead.
 
-Run the following connection commands only for the host the user uses. Preserve other MCP server settings when editing configuration.
+## Add the agent skills
+
+Install the optional skills globally for supported agent hosts:
+
+```sh
+npx skills add tfukaza/bassfish --skill use-bassfish --skill manage-bassfish -g
+```
+
+- [use-bassfish](https://github.com/tfukaza/bassfish/tree/main/.agents/skills/use-bassfish) teaches an agent to coordinate through threads, notes, turns, and handoffs.
+- [manage-bassfish](https://github.com/tfukaza/bassfish/tree/main/.agents/skills/manage-bassfish) covers installation, diagnostics, recovery, and the human CLI.
+
+The skills are instructions. Connect the MCP server separately so agents can use its tools. Run the following connection commands only for the host the user uses. Preserve other MCP server settings when editing configuration.
 
 ## Connect Codex
 

@@ -7,6 +7,7 @@ import type { ToolName } from './api.js';
 import { connectDaemon, ensureDaemon } from './daemon.js';
 import type { RpcClient } from './ipc.js';
 import { cancelTaskParams, getTaskParams, hasTasksCapability, taskAck, taskResult, tasksExtensionId, toolResult, updateTaskParams, wireTask, wireTaskNotification } from './tasks.js';
+import { packageVersion } from './config.js';
 
 export class TaskAwareStdioTransport implements Transport {
   onclose?: () => void; onerror?: (error: Error) => void; onmessage?: (message: JSONRPCMessage) => void;
@@ -91,7 +92,7 @@ export async function runMcp(workspace: string, dataDir: string, binary: string,
   };
   const taskTransport = new TaskAwareStdioTransport(watchTasks);
   const transport = await serveStdio(() => {
-    const server = new McpServer({ name: 'bassfish', version: '0.1.0' }, { capabilities: { tools: {}, extensions: { [tasksExtensionId]: {} } } as never }); protocolServer = server;
+    const server = new McpServer({ name: 'bassfish', version: packageVersion }, { capabilities: { tools: {}, extensions: { [tasksExtensionId]: {} } } as never }); protocolServer = server;
     server.server.setRequestHandler('tasks/get',{ params: getTaskParams, result: taskResult },async params => {
       const backend = await connection(); return wireTask(await backend.call<Record<string,unknown>>('getTask',{ taskId: params.taskId }),'complete') as never;
     });

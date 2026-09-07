@@ -1,10 +1,11 @@
 import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { chmod, mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { BassfishError } from './domain.js';
 import { z } from 'zod';
+import { managedDoltBinary } from './setup.js';
 
 export const runtimeConfigSchema = z.object({
   offerMs: z.number().int().min(5_000).max(300_000).default(30_000),
@@ -39,11 +40,15 @@ export function dataDirectory(): string {
   return join(process.env.XDG_DATA_HOME ?? join(homedir(), '.local', 'share'), 'bassfish');
 }
 export const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-export function doltBinary(): string {
+export const packageVersion = String((JSON.parse(readFileSync(join(packageRoot, 'package.json'), 'utf8')) as { version: unknown }).version);
+export function doltBinary(dataDir = dataDirectory()): string {
   if (process.env.BASSFISH_DOLT_BIN) return resolve(process.env.BASSFISH_DOLT_BIN);
+  const managed = managedDoltBinary(dataDir);
+  if (existsSync(managed)) return managed;
+  // Development checkouts created before `bassfish setup` used a repository-local tool.
   const arch = process.arch === 'x64' ? 'amd64' : process.arch;
-  const local = join(packageRoot, '.tools', `dolt-${process.platform}-${arch}`, 'bin', 'dolt');
-  if (existsSync(local)) return local;
+  const legacy = join(packageRoot, '.tools', `dolt-${process.platform}-${arch}`, 'bin', 'dolt');
+  if (existsSync(legacy)) return legacy;
   return 'dolt';
 }
 export function socketPath(dataDir: string): string {

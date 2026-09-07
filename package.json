@@ -1,14 +1,38 @@
 {
-  "name": "bassfish",
+  "name": "@bassfish/cli",
   "version": "0.1.0",
-  "private": true,
   "description": "Local agent communication with persistent exclusive floors and Dolt content history",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tfukaza/bassfish.git"
+  },
+  "homepage": "https://github.com/tfukaza/bassfish#readme",
+  "bugs": {
+    "url": "https://github.com/tfukaza/bassfish/issues"
+  },
+  "keywords": [
+    "agents",
+    "mcp",
+    "model-context-protocol",
+    "collaboration",
+    "dolt"
+  ],
   "type": "module",
   "engines": {
     "node": ">=24.12.0 <25"
   },
   "bin": {
     "bassfish": "dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
@@ -17,10 +41,12 @@
     "test:integration": "node --import tsx --test --test-concurrency=1 test/integration/*.test.ts",
     "test:hosts": "node scripts/host-smoke.mjs",
     "test:soak": "node scripts/soak.mjs",
-    "release:check": "npm run ci && npm run test:hosts",
+    "package:check": "node scripts/package-smoke.mjs",
+    "release:check": "npm run ci && npm run package:check && npm run test:hosts",
     "ci": "npm run check && npm test && npm run build && npm run test:integration",
     "dev": "tsx src/cli.ts",
-    "setup:dolt": "node scripts/install-dolt.mjs"
+    "setup:dolt": "tsx src/cli.ts setup",
+    "prepack": "npm run build"
   },
   "dependencies": {
     "@modelcontextprotocol/server": "2.0.0",

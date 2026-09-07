@@ -2,15 +2,19 @@
 import { resolve } from 'node:path';
 import { access, rename } from 'node:fs/promises';
 import { BassfishError, requireThat } from './domain.js';
-import { dataDirectory, defaultRuntimeConfig, doltBinary, loadRuntimeConfig, runtimeConfigSchema, saveRuntimeConfig } from './config.js';
+import { dataDirectory, defaultRuntimeConfig, doltBinary, loadRuntimeConfig, packageVersion, runtimeConfigSchema, saveRuntimeConfig } from './config.js';
 import { connectDaemon, ensureDaemon, runDaemon } from './daemon.js';
 import { runSqlWorker } from './sql-worker.js';
 import { runMcp } from './mcp.js';
 import { runNoteCli } from './note-cli.js';
+import { setupDolt } from './setup.js';
+import { requireDolt } from './supervisor.js';
 
 const help = `Bassfish — repo-local agent communication
 
 bassfish mcp [--workspace PATH] [--name NAME]     Agent-facing stdio MCP server
+bassfish setup                                    Install checksum-verified Dolt
+bassfish --version                                Print the installed version
 bassfish daemon start|status|stop|run             Shared per-user backend
 bassfish config show|reset
 bassfish config set KEY MILLISECONDS              Validate config; applies after restart
@@ -43,7 +47,12 @@ async function main(): Promise<void> {
   const args = process.argv.slice(2);
   const command = args.shift();
   if (!command || command === '--help' || command === 'help') { process.stdout.write(help); return; }
-  const data = dataDirectory(), binary = doltBinary();
+  if (command === '--version' || command === 'version') { requireThat(args.length === 0, 'INVALID_ARGUMENT', 'Version takes no arguments.'); process.stdout.write(`${packageVersion}\n`); return; }
+  const data = dataDirectory(), binary = doltBinary(data);
+  if (command === 'setup') {
+    requireThat(args.length === 0, 'INVALID_ARGUMENT', 'Setup takes no arguments.');
+    process.stdout.write(JSON.stringify(await setupDolt(data), null, 2) + '\n'); return;
+  }
   if (command === 'sql-worker') { requireThat(args.length === 2, 'INVALID_ARGUMENT', 'Internal SQL worker arguments missing.'); await runSqlWorker(args[0]!, args[1]!); return; }
   if (command === 'daemon' && args[0] === 'run') { await runDaemon(data, binary); return; }
   if (command === 'config') {
@@ -77,14 +86,26 @@ async function main(): Promise<void> {
     (command === 'floor' && ['list', 'release'].includes(action ?? '')) || (command === 'thread' && ['list', 'create', 'show'].includes(action ?? '')) ||
     (command === 'note' && ['list','create','show','edit','append','prepend','patch','move','metadata','links','replace-text','section','archive','delete','activate','history','restore'].includes(action ?? ''));
   requireThat(valid, 'INVALID_ARGUMENT', help);
-  if (command !== 'doctor' && command !== 'floor' && !(command === 'daemon' && action !== 'start')) await ensureDaemon(data, binary);
+  if (command === 'doctor') {
+    requireThat(action === undefined && args.length === 0, 'INVALID_ARGUMENT', 'Doctor takes no arguments.');
+    let dolt: Record<string, unknown>;
+    try { dolt = { state: 'ready', version: await requireDolt(binary), path: binary }; }
+    catch (error) { dolt = { state: 'unavailable', path: binary, error: error instanceof Error ? error.message : String(error) }; }
+    let daemon: unknown = { state: 'stopped' }; let probe;
+    try { probe = await connectDaemon(data); daemon = await probe.call('getHealth'); } catch {} finally { probe?.close(); }
+    const result = { version: packageVersion, node: process.versions.node, platform: `${process.platform}-${process.arch}`, dataDir: data, dolt, daemon };
+    process.stdout.write(JSON.stringify(result, null, 2) + '\n');
+    if (dolt.state !== 'ready') process.exitCode = 1;
+    return;
+  }
+  if (command !== 'floor' && !(command === 'daemon' && action !== 'start')) await ensureDaemon(data, binary);
   const client = await connectDaemon(data);
   let opened = false;
   let heartbeat: NodeJS.Timeout | undefined;
   try {
     let result: unknown;
     if (command === 'daemon') result = await client.call(action === 'stop' ? 'stopDaemon' : 'getHealth');
-    else if (command === 'doctor' || (command === 'floor' && action === 'list')) result = await client.call('getHealth');
+    else if (command === 'floor' && action === 'list') result = await client.call('getHealth');
     else if (command === 'floor') {
       requireThat(args.length === 2 && args[1] === '--force', 'INVALID_ARGUMENT', 'Use floor release FLOOR_ID --force.');
       result = await client.call('forceRelease', { floorId: args[0], force: true });

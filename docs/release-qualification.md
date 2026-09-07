@@ -19,7 +19,7 @@ The integration suite includes simultaneous ownership races, accepted-commit iso
 
 ## Host matrix
 
-The supported matrix and pinned release-candidate versions are listed in [compatibility.md](compatibility.md). Install all three, configure this checkout's stdio command as shown in the README, then run:
+The supported matrix and pinned release-candidate versions are listed in [compatibility.md](compatibility.md). Install all three, install `@bassfish/cli`, and configure the `bassfish mcp` stdio command as shown in the README, then run:
 
 ```sh
 npm run test:hosts

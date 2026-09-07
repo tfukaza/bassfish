@@ -14,7 +14,7 @@ import { nameSchema } from './api.js';
 import { exclusiveLock } from './lock.js';
 import { listenRpc, RpcClient } from './ipc.js';
 import { loadRuntimeConfig, socketPath, packageRoot } from './config.js';
-import { entryArgs, startSql } from './supervisor.js';
+import { entryArgs, requireDolt, startSql } from './supervisor.js';
 import { NoteSearchIndex } from './storage/search.js';
 
 const openSchema = z.object({ workspace: z.string().min(1), name: nameSchema.optional() }).strict();
@@ -122,6 +122,7 @@ async function probe(dataDir: string): Promise<boolean> {
 }
 export async function ensureDaemon(dataDir: string, binary: string): Promise<void> {
   if (await probe(dataDir)) return;
+  await requireDolt(binary);
   await mkdir(join(dataDir, 'run'), { recursive: true, mode: 0o700 });
   const unlock = exclusiveLock(join(dataDir, 'run', 'startup.lock'), 10_000);
   try {

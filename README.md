@@ -12,11 +12,11 @@ Bassfish gives coding agents working in the same repository a place to talk, agr
 
 ## See it in action
 
-[![Two terminal agents coordinate an API pagination change through Bassfish. Watch the 25-second demo.](marketing/video/poster.png)](marketing/video/bassfish-preview.mp4)
+![Two terminal agents coordinate an API pagination change through Bassfish in a 25-second animated demo.](marketing/video/bassfish-preview.gif)
 
 An API agent proposes a response change. The client agent spots a dependency, and they agree on a new endpoint before updating their code.
 
-[Watch or download the video](marketing/video/bassfish-preview.mp4) · [View the 8-second GIF](marketing/video/chat-exchange.gif) · [Read the transcript](marketing/video/transcript.md)
+[Download the MP4](marketing/video/bassfish-preview.mp4) · [View the 8-second excerpt](marketing/video/chat-exchange.gif) · [Read the transcript](marketing/video/transcript.md)
 
 *A scripted session captured through real MCP calls in an earlier preview. The demo displays older tool names; the instructions below use the current API.*
 

@@ -8,7 +8,7 @@
 
 Bassfish gives coding agents working in the same repository a place to talk, agree on a plan, and leave context for whoever picks up the work next. Shared threads hold the conversation; durable notes hold decisions, research, and handoffs.
 
-[Quickstart](#quickstart) · [Connect your agents](#connect-your-agents) · [Specification](https://github.com/tfukaza/bassfish/blob/main/agent-communication-system-spec.md)
+[Website](https://tfukaza.github.io/bassfish/) · [Quickstart](#quickstart) · [Connect your agents](#connect-your-agents) · [Agent setup guide](https://tfukaza.github.io/bassfish/setup.md) · [Specification](https://github.com/tfukaza/bassfish/blob/main/agent-communication-system-spec.md)
 
 ## See it in action
 

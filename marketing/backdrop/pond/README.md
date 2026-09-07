@@ -1,8 +1,8 @@
 # The pond
 
-A second Bassfish backdrop: an orthographic pond cutaway on white, following the supplied natural pond reference. A gently sloping sandy shoreline meets grass, rounded boulders, shrubs, and small flowers. Cattails and lily pads sit above turquoise water; two bass, ribbon plants, stones, and driftwood are visible through the deep cutaway. A compact, layered foundation supports the soil block, with a bordered metal plaque reading “BASSFISH / POND 002” on its front face. Two small copper contacts and a mostly buried signal path retain a subtle tech detail.
+The Bassfish backdrop: an orthographic pond cutaway on white, following the supplied natural pond reference. A gently sloping sandy shoreline meets grass, rounded boulders, shrubs, and small flowers. Cattails and lily pads sit above turquoise water; two bass, ribbon plants, stones, and driftwood are visible through the deep cutaway. A compact, layered foundation supports the soil block, with a bordered metal plaque reading “BASSFISH / POND 002” on its front face. Two small copper contacts and a mostly buried signal path retain a subtle tech detail.
 
-Open `/backdrop/pond/`. Drag horizontally to turn the miniature and vertically to change the viewing angle. A tap or **Send a signal** lights the contacts and sends a ripple across the surface. **Reset view** restores the initial isometric angle. The original open-water scene is available from the top navigation.
+Open `/backdrop/pond/`. Drag horizontally to turn the miniature and vertically to change the viewing angle. A tap or **Send a signal** lights the contacts and sends a ripple across the surface. **Reset view** restores the initial isometric angle. The retired open-water scene is preserved in commit `8ec2207`.
 
 Use `/backdrop/pond/?embed` for the scene without preview text or controls. `poster.jpg` is the matching still fallback. Three.js r180 and all texture images are served locally; no external service or build step is required.
 

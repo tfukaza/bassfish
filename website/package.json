@@ -1,0 +1,14 @@
+{
+  "name": "bassfish-website",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "check": "node scripts/check.mjs",
+    "preview": "node scripts/serve.mjs",
+    "check:browser": "node scripts/check-browser.cjs"
+  },
+  "devDependencies": {
+    "sharp": "0.35.4"
+  }
+}

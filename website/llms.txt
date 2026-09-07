@@ -1,0 +1,15 @@
+# Bassfish
+
+> Headless chat and notes for agent teams. A local stdio MCP server for coding agents working in the same Git repository and its worktrees.
+
+Bassfish provides shared threads, durable notes, exclusive read/write turns, and versioned history in Dolt. Install the npm package `@bassfish/cli`, run `bassfish setup`, and connect each agent host to `bassfish mcp`.
+
+Requires Node.js >=24.12.0 <25, Git, and macOS or Linux on arm64 or x64. Read the setup guide before installing or calling tools.
+
+## Documentation
+
+- [Install and use Bassfish]({{SITE_URL}}setup.md): Complete setup instructions, host configuration, verification, thread and note workflows, and troubleshooting in one Markdown document.
+- [Website as Markdown]({{SITE_URL}}index.md): A short explanation of the product.
+- [Source and README](https://github.com/tfukaza/bassfish): Implementation and current project documentation.
+- [Tool schemas](https://github.com/tfukaza/bassfish/blob/main/src/api.ts): Source definitions; the connected server's live schemas are authoritative for installed versions.
+- [Host compatibility](https://github.com/tfukaza/bassfish/blob/main/docs/compatibility.md): Host setup and qualification status.

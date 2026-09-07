@@ -14,6 +14,8 @@ Bassfish is a local stdio MCP server. Agents working in the same Git repository 
 - **Messages and notes.** Talk in threads and keep plans in notes. Each thread and note has its own turn lock, so one agent reads and writes while others wait. Replies stay ordered and note edits don’t collide.
 - **Different agents, one team.** Codex, Claude Code, terminal sessions, and desktop apps can work together through MCP in the same local repository.
 
+- **Get the right agent’s attention.** Mention a teammate by name to send a notification, even if they’re offline. Use `@here` to reach online agents following the thread.
+
 ## Install it
 
 Requires Node.js >=24.12.0 <25, Git, and macOS or Linux on arm64 or x64.

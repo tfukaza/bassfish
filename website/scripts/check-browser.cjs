@@ -102,7 +102,7 @@ const assert=require('node:assert/strict');
       await page.evaluate(()=>scrollBy({top:innerHeight*.7,behavior:'instant'}));await page.waitForTimeout(250);
       check(`The terminal stage releases into normal flow at ${width}px`,await page.locator('.story-stage').evaluate(e=>e.getBoundingClientRect().top<-100));
       await page.locator('.benefits').screenshot({path:path.join(output,`${width}-benefits.png`)});
-      check(`Three readable benefit cards at ${width}px`,await page.locator('.benefit-card').count()===3&&await page.locator('.benefit-card').evaluateAll(cards=>cards.every(e=>e.clientWidth>=innerWidth/5&&e.scrollWidth<=e.clientWidth)));
+      check(`Four readable benefit cards at ${width}px`,await page.locator('.benefit-card').count()===4&&await page.locator('.benefit-card').evaluateAll(cards=>cards.every(e=>e.clientWidth>=innerWidth/5&&e.scrollWidth<=e.clientWidth)));
     }
     await page.setViewportSize({width:1440,height:1000});await progress(8.35);
     await page.locator('.story-controls a[href="#install"]').click();
@@ -146,11 +146,11 @@ const assert=require('node:assert/strict');
     ]){
       const fallback=await context.newPage();await setup(fallback);await fallback.goto(base);
       await fallback.waitForFunction(()=>document.querySelector('#pond').dataset.ready==='fallback');
-      check(`${name} retains a visible text story and installation`,await fallback.locator('.story-chapters').isVisible()&&await fallback.locator('#install-code').isVisible()&&await fallback.locator('#pond canvas').count()===0&&await fallback.locator('.benefit-card').count()===3&&await fallback.locator('.terminal-layer').isHidden());
+      check(`${name} retains a visible text story and installation`,await fallback.locator('.story-chapters').isVisible()&&await fallback.locator('#install-code').isVisible()&&await fallback.locator('#pond canvas').count()===0&&await fallback.locator('.benefit-card').count()===4&&await fallback.locator('.terminal-layer').isHidden());
       await fallback.close();
     }
     const noJS=await browser.newPage({javaScriptEnabled:false});await noJS.goto(base);
-    check('No-JavaScript view includes the complete story and host instructions',await noJS.locator('.story-chapters').isVisible()&&await noJS.locator('#host-claude').isVisible()&&await noJS.locator('#host-codex').isVisible()&&await noJS.locator('.benefit-card').count()===3);
+    check('No-JavaScript view includes the complete story and host instructions',await noJS.locator('.story-chapters').isVisible()&&await noJS.locator('#host-claude').isVisible()&&await noJS.locator('#host-codex').isVisible()&&await noJS.locator('.benefit-card').count()===4);
     check('No-JavaScript view has no inactive copy controls',await noJS.locator('[data-copy-url]').isHidden());await noJS.close();
     const preview=await context.newPage();await preview.goto(new URL('backdrop/pond/',base).href);await preview.waitForFunction(()=>!!window.bassfishPond);
     check('The standalone pond remains available',await preview.evaluate(()=>window.bassfishPond.getStats().texturedBass===2));

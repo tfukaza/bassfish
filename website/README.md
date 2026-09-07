@@ -1,6 +1,6 @@
 # Bassfish website
 
-The homepage is a full-viewport pond followed by a scroll-driven story, three benefit cards, and a compact installation section.
+The homepage is a full-viewport pond followed by a scroll-driven story, four illustrated benefit cards, and a compact installation section.
 
 The website tagline is **Inter-Agent Communication for Agent Teams**. The hero, browser title, social metadata, and text endpoints use this wording.
 
@@ -26,7 +26,7 @@ The shared scroll range ends at `8.4`. Existing chapters retain their timing thr
 | 6.92–8.3 | Reveal one shared conversation across all four sessions; longer output scrolls within each window. |
 | 8.4 onward | Release the sticky stage into ordinary document flow. |
 
-The terminal conversation is driven by scroll position, including when reversing. It never contacts an agent, runs commands, or announces each decorative log line to assistive technology. Reduced motion switches directly to complete overhead and terminal poses. The three cards cover connected session membership, per-thread/per-note turn locks, and interoperability between MCP hosts in the same local repository. They remain visible without JavaScript or WebGL.
+The terminal conversation is driven by scroll position, including when reversing. It never contacts an agent, runs commands, or announces each decorative log line to assistive technology. Reduced motion switches directly to complete overhead and terminal poses. The four cards cover connected session membership, per-thread/per-note turn locks, interoperability between MCP hosts in the same local repository, and direct mentions versus `@here` for online thread followers. Each has a lightweight HTML/CSS illustration; the two-column grid stacks on phones. They remain visible without JavaScript or WebGL.
 
 The four ponds represent agent sessions in the same local Git repository, not networked machines. The story is an illustration of the product, not a recording of live tool traffic.
 

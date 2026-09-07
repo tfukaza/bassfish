@@ -137,10 +137,44 @@ button:hover,.text-link:hover,nav a:hover,.small-link:hover {
 .terminal-line.task{color:#e7ede5}
 .terminal-status{flex-shrink:0;font-size:9px;color:#a4b59f;padding:9px 17px;border-top:1px solid #354139;opacity:var(--terminal-ink,0)}
 .terminal-status>span{padding-inline:5px;color:#70866e}
-.benefits{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;padding-block:50px 100px}
+.benefits{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;padding-block:50px 100px}
 .benefit-card{min-width:0;padding:34px 30px 36px;background:var(--paper);border:1px solid var(--line);border-radius:9px}
 .benefit-card h2{font-size:clamp(24px,2.35vw,31px);font-weight:500;line-height:1.15;letter-spacing:-.04em;margin-bottom:24px}
 .benefit-card p{font-size:14px;color:var(--muted);line-height:1.75}
+.benefit-visual{height:184px;margin:0 0 32px;display:grid;align-content:center;font-family:"Geist Mono",monospace;user-select:none}
+.session-visual{grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.session-mini{height:125px;min-width:0;border:1px solid #d7ddd1;border-radius:6px;background:white;overflow:hidden}
+.mini-bar{display:flex;justify-content:space-between;padding:9px 11px;border-bottom:1px solid var(--line);color:var(--muted);font-size:10px}
+.mini-bar>span{color:#89947f}
+.session-mini code{display:block;font-size:11px;margin:15px 11px 12px}
+.session-mini>i,.note-mini>i{display:block;height:4px;border-radius:2px;background:#e4e9de;margin:8px 11px;width:60%}
+.session-mini>i:last-child{width:38%}
+.session-new{background:#edf3e7;border-color:#b8c9a8}
+.session-plus{display:block;text-align:center;font:300 32px/1 Geist,sans-serif;margin-top:12px;color:var(--olive)}
+.session-caption{display:block;text-align:center;font-size:9px;color:var(--olive);margin-top:9px}
+.notes-visual{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.note-mini{min-width:0;padding:14px;border:1px solid #d7ddd1;border-radius:6px;background:white}
+.note-mini>span{font-size:10px;color:var(--muted)}
+.benefit-card .note-mini>p{font-size:11px;margin-top:16px;color:#3e5036;line-height:1.4}
+.note-mini>i{margin:12px 0 0;width:65%}
+.turn-mini{grid-column:1/-1;display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 12px;border:1px solid #cddac1;border-radius:5px;background:#edf3e7;font-size:10px;color:#4e6340}
+.turn-mini i,.mention-audience i{display:inline-block;width:6px;height:6px;margin-right:7px;border-radius:50%;background:#75985b;vertical-align:1px}
+.turn-next{color:#75816d}
+.hosts-visual{grid-template-columns:minmax(0,1fr) 24px auto 24px minmax(0,1fr);align-items:center}
+.host-mini{background:white;border:1px solid #d7ddd1;border-radius:6px;padding:25px 8px;text-align:center;font-size:13px;line-height:1.4}
+.host-mini small,.host-hub small{display:block;font-size:10px;font-weight:400;color:var(--muted);margin-top:9px}
+.host-hub{text-align:center;padding:19px 16px;border:1px solid #bccdac;background:#edf3e7;border-radius:50%;font:500 15px/1.2 Geist,sans-serif}
+.host-hub small{font-family:"Geist Mono",monospace;margin-top:5px}
+.host-wire{height:1px;background:#b7c7a8;position:relative}
+.host-wire:before,.host-wire:after{content:'';position:absolute;top:-2px;width:5px;height:5px;background:#809872;border-radius:50%}
+.host-wire:before{left:0}.host-wire:after{right:0}
+.mentions-visual{gap:10px}
+.mention-mini{display:flex;gap:14px;align-items:center;padding:13px 15px;background:white;border:1px solid #d7ddd1;border-radius:6px}
+.mention-mini>span{font-size:11px;padding:4px 6px;background:#edf3e7;color:#4e6340;border-radius:3px}
+.benefit-card .mention-mini>p{font-size:12px;line-height:1.4;color:#45513f}
+.mention-audience{display:flex;align-items:center;gap:14px;font-size:10px;color:var(--muted);padding:5px 2px}
+.mention-audience>span:first-child{margin-right:auto;font-size:9px}
+.mention-audience i{margin-right:4px;width:5px;height:5px}
 .install.wrap{width:min(760px,calc(100% - 80px));padding-block:80px;border-top:1px solid var(--line)}
 .install-steps{list-style:none;margin:0;padding:0}
 .install-or{display:flex;align-items:center;gap:24px;margin:44px 0;font-size:clamp(36px,5vw,54px);font-weight:500;line-height:1;letter-spacing:-.05em}
@@ -326,6 +360,10 @@ button:hover,.text-link:hover,nav a:hover,.small-link:hover {
   .terminal-viewport{margin:11px 10px}.terminal-line{font-size:11px;line-height:1.6;margin-bottom:10px}.terminal-line.meta{font-size:9px}
   .terminal-status{font-size:8px;padding:8px 10px}.terminal-status>span{padding-inline:1px}
   .benefits{grid-template-columns:1fr;gap:14px;padding-block:28px 56px}.benefit-card{padding:28px}.benefit-card h2{font-size:28px;margin-bottom:18px}.benefit-card p{font-size:14px;max-width:540px}
+  .benefit-visual{margin-bottom:26px;height:170px}.session-caption{font-size:8px}.mini-bar{padding-inline:8px}.session-mini code{margin-inline:8px;font-size:10px}
+  .hosts-visual{grid-template-columns:minmax(0,1fr) 14px auto 14px minmax(0,1fr)}.host-mini{font-size:11px}.host-hub{font-size:13px;padding:18px 10px}
+  .note-mini{padding:10px}.benefit-card .note-mini>p{font-size:10px}.turn-mini{font-size:9px;padding-inline:8px}
+  .mention-mini{padding:12px 10px;gap:8px}.benefit-card .mention-mini>p{font-size:11px}.mention-mini>span{font-size:10px}.mention-audience{gap:8px;font-size:9px}.mention-audience>span:first-child{font-size:8px}
   .install.wrap{width:calc(100% - 40px);padding-block:52px}
   .handoff-link{gap:12px;padding:12px}.guide-url{font-size:10px}.handoff-link button{font-size:10px}
   .step h2{font-size:21px}.step>p{font-size:12px}.step+.step{margin-top:30px;padding-top:27px}

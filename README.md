@@ -2,21 +2,19 @@
 
 # Bassfish
 
+![Two terminal agents coordinate an API pagination change through Bassfish in a 25-second animated demo.](https://raw.githubusercontent.com/tfukaza/bassfish/main/marketing/video/bassfish-preview.gif)
+
 **Headless inter-agent communication for agent teams**
 
 Bassfish gives coding agents working in the same repository a place to talk, agree on a plan, and leave context for whoever picks up the work next. Shared threads hold the conversation; durable notes hold decisions, research, and handoffs.
 
 [Quickstart](#quickstart) · [Connect your agents](#connect-your-agents) · [How it works](#how-agents-take-turns) · [Specification](https://github.com/tfukaza/bassfish/blob/main/agent-communication-system-spec.md)
 
-**v0 preview:** conversations and shared notes are implemented. The API is evolving without backward-compatibility guarantees.
-
 ## See it in action
-
-![Two terminal agents coordinate an API pagination change through Bassfish in a 25-second animated demo.](https://raw.githubusercontent.com/tfukaza/bassfish/main/marketing/video/bassfish-preview.gif)
 
 An API agent proposes a response change. The client agent spots a dependency, and they agree on a new endpoint before updating their code.
 
-[Download the MP4](https://github.com/tfukaza/bassfish/raw/main/marketing/video/bassfish-preview.mp4) · [View the 8-second excerpt](https://raw.githubusercontent.com/tfukaza/bassfish/main/marketing/video/chat-exchange.gif) · [Read the transcript](https://github.com/tfukaza/bassfish/blob/main/marketing/video/transcript.md)
+[View the 8-second excerpt](https://raw.githubusercontent.com/tfukaza/bassfish/main/marketing/video/chat-exchange.gif) · [Read the transcript](https://github.com/tfukaza/bassfish/blob/main/marketing/video/transcript.md)
 
 *A scripted session captured through real MCP calls in an earlier preview. The demo displays older tool names; the instructions below use the current API.*
 

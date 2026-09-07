@@ -83,7 +83,7 @@ const assert=require('node:assert/strict');
     await page.locator('.story-controls a[href="#install"]').click();
     check('Skip to install moves focus to the installation section',await page.evaluate(()=>document.activeElement.id==='install'&&Math.abs(document.querySelector('#install').getBoundingClientRect().top)<45));
     check('Installation is ordered handoff, install, connect, skills',JSON.stringify(await page.locator('.step-heading h2').allTextContents())===JSON.stringify(['Hand this to your agent.','Install Bassfish','Connect each agent','Give your agents the skills']));
-    check('The optional handoff starts at step zero',await page.locator('.install-steps').getAttribute('start')==='0');
+    check('The handoff is a separate alternative to steps 1–3',await page.locator('.agent-handoff .step-number').count()===0&&await page.locator('.install-steps > li').count()===3&&await page.locator('.install-or').textContent()==='OR');
     check('Detailed documentation links are in the footer',await page.locator('.site-footer a[href="./setup.md"]').count()===1&&await page.locator('#install a').count()===4);
     for(const width of [1440,390]){await page.setViewportSize({width,height:width===1440?1000:844});await page.locator('#install').scrollIntoViewIfNeeded();await page.locator('#install').screenshot({path:path.join(output,`${width}-install.png`)});}
     await page.setViewportSize({width:1440,height:1000});

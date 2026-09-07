@@ -17,7 +17,7 @@ The title, chapter headings, and descriptions remain flat HTML. Chapter text scr
 
 ## Installation content
 
-The installation section is one numbered list. Step 0 offers an optional handoff with a copyable setup link. Steps 1–3 install the CLI/runtime, connect each agent host, and add `use-bassfish` and `manage-bassfish`. Detailed documentation and reference links live in the footer; the full guide includes the first conversation prompt.
+The installation section offers two alternatives: an unnumbered agent handoff with a copyable setup link, or a manual installation. A large “OR” separates them. Steps 1–3 install the CLI/runtime, connect each agent host, and add `use-bassfish` and `manage-bassfish`. Detailed documentation and reference links live in the footer; the full guide includes the first conversation prompt.
 
 `setup.md` is the complete installation, skills, and usage guide; `llms.txt` indexes it, and `index.md` supplies a text overview. These are static files an agent can fetch, not executable installers.
 

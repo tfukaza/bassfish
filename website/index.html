@@ -48,12 +48,12 @@
       </div>
     </section>
     <section id="install" class="install wrap" aria-label="Install Bassfish">
-      <ol class="install-steps" start="0" role="list">
-        <li class="step agent-handoff">
-          <div class="step-heading"><span class="step-number" aria-hidden="true">00</span><h2>Hand this to your agent.</h2></div>
-          <p>Or install it yourself with the steps below.</p>
-          <div class="handoff-link"><a class="guide-url" href="./setup.md">{{SITE_HOST_PATH}}setup.md</a><button type="button" data-copy-url="setup.md" hidden>Copy link</button></div>
-        </li>
+      <div class="step agent-handoff">
+        <div class="step-heading"><h2>Hand this to your agent.</h2></div>
+        <div class="handoff-link"><a class="guide-url" href="./setup.md">{{SITE_HOST_PATH}}setup.md</a><button type="button" data-copy-url="setup.md" hidden>Copy link</button></div>
+      </div>
+      <p class="install-or">OR</p>
+      <ol class="install-steps" role="list" aria-label="Install it yourself">
         <li class="step">
           <div class="step-heading"><span class="step-number" aria-hidden="true">01</span><h2>Install Bassfish</h2></div>
           <p>Node.js 24.12+ within v24, Git, and macOS or Linux.</p>

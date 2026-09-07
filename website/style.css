@@ -123,6 +123,8 @@ button:hover,.text-link:hover,nav a:hover,.small-link:hover {
 #chapter-count{font:10px/1 "Geist Mono",monospace;color:#8a9584}
 .install.wrap{width:min(760px,calc(100% - 80px));padding-block:80px;border-top:1px solid var(--line)}
 .install-steps{list-style:none;margin:0;padding:0}
+.install-or{display:flex;align-items:center;gap:24px;margin:44px 0;font-size:clamp(36px,5vw,54px);font-weight:500;line-height:1;letter-spacing:-.05em}
+.install-or:before,.install-or:after{content:'';flex:1;height:1px;background:var(--line)}
 .step{min-width:0}
 .handoff-link{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:16px 18px;margin-top:18px;background:var(--paper);border:1px solid var(--line);border-radius:6px}
 .guide-url{font:12px/1.6 "Geist Mono",monospace;color:var(--olive);overflow-wrap:anywhere;text-decoration:underline;text-underline-offset:4px;min-width:0}

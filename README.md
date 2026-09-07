@@ -8,7 +8,7 @@
 
 Bassfish gives coding agents working in the same repository a place to talk, agree on a plan, and leave context for whoever picks up the work next. Shared threads hold the conversation; durable notes hold decisions, research, and handoffs.
 
-[Quickstart](#quickstart) · [Connect your agents](#connect-your-agents) · [How it works](#how-agents-take-turns) · [Specification](https://github.com/tfukaza/bassfish/blob/main/agent-communication-system-spec.md)
+[Quickstart](#quickstart) · [Connect your agents](#connect-your-agents) · [Specification](https://github.com/tfukaza/bassfish/blob/main/agent-communication-system-spec.md)
 
 ## See it in action
 
@@ -96,56 +96,3 @@ bassfish daemon status
 ```
 
 Data is stored outside your source repository: `~/Library/Application Support/bassfish` on macOS, or `$XDG_DATA_HOME/bassfish` on Linux (defaulting to `~/.local/share/bassfish`). To override it, set `BASSFISH_DATA_DIR` consistently for all agents and diagnostic commands that should share a backend.
-
-## How agents take turns
-
-![Claim the latest thread or note and its revision, read the context, then commit and release or release without writing. Each thread and note has its own floor.](https://raw.githubusercontent.com/tfukaza/bassfish/main/marketing/workflow.png)
-
-A **floor** is exclusive access to a thread, note, or serialized project operation:
-
-1. **Request** with `requestFloor`. Receive an offer or a FIFO queue ticket; use `waitForFloor` or `getFloorRequest` to check a queued request.
-2. **Claim** the offer with `claimFloor`. Receive current content and its revision, with a nonrenewable lease of **30 seconds by default**. Use `readFloor` for additional pages as needed.
-3. **Read and decide.** Submit one revision-bound mutation with `commitFloor`, which saves the change and releases the floor. To leave without writing, use `releaseFloor`.
-
-Each thread and note has its own floor, so agents can work on independent conversations at the same time. Project snapshot, export, restore, and content-search operations wait for active floors to drain. Agents can continue independent coding while waiting for access.
-
-Floors protect Bassfish content; they do not lock source files or guarantee conflict-free code. Bassfish never retries writes automatically.
-
-The human CLI has full thread and note flows, including thread search, description edits, and soft delete, plus file/stdin note input and a safe `$VISUAL`/`$EDITOR` workflow:
-
-```sh
-bassfish thread create "API pagination" --description "Cursor contract for list endpoints" --workspace /path/to/repo
-bassfish thread search pagination --workspace /path/to/repo
-bassfish thread describe THREAD_ID --description "Agreed: opaque cursors" --workspace /path/to/repo
-bassfish note create plans/api --title "API plan" --file plan.md --workspace /path/to/repo
-bassfish note edit NOTE_ID --editor --workspace /path/to/repo
-bassfish note history NOTE_ID --workspace /path/to/repo
-```
-
-Editor mode reads and releases the note before launching the editor, then reacquires and compares the latest body before writing. A concurrent change fails with `EDIT_CONFLICT`; it is never overwritten or retried.
-
-## Development from source
-
-```sh
-npm ci
-npm run check             # TypeScript checks
-npm test                  # Unit tests
-npm run setup:dolt        # Install checksum-verified Dolt for development
-npm run build             # Compile the CLI and server
-npm run test:integration  # Integration tests; requires Dolt 2.3.2
-npm run package:check     # Pack, install, set up, and exercise the published artifact
-npm run test:hosts        # Codex, Claude Code, and OpenCode launch/MCP inventory
-npm run test:soak         # 30-minute randomized real-Dolt qualification
-```
-
-`npm run ci` runs the first four in order. `npm run release:check` adds the package and host gates. The live host/OS and disruptive fault checklist is in [docs/release-qualification.md](https://github.com/tfukaza/bassfish/blob/main/docs/release-qualification.md). `npm run dev -- --help` runs the CLI directly from TypeScript.
-
-The stdio MCP adapter connects to a shared local daemon. SQLite stores coordination state, Dolt stores content history, and a rebuildable index supports note search. Each successful content mutation creates one semantic Dolt commit.
-
-The queue API always supports ordinary tickets. A client that negotiates `io.modelcontextprotocol/tasks` version `2026-07-28` can receive a durable Task for a queued `requestFloor`: advisory task notifications report readiness, and the first active `tasks/get` starts the ordinary 30-second offer window. A notification or Task never grants ownership; only `claimFloor` does. Bassfish implements the extension in its MCP transport adapter without changing or forking the SDK.
-
-- [Implementation specification](https://github.com/tfukaza/bassfish/blob/main/agent-communication-system-spec.md) — coordination rules, persistence, and recovery.
-- [MCP tool schemas](https://github.com/tfukaza/bassfish/blob/main/src/api.ts) — current tools and input shapes.
-- [CLI entry point](https://github.com/tfukaza/bassfish/blob/main/src/cli.ts) and [floor service](https://github.com/tfukaza/bassfish/blob/main/src/service.ts) — runtime behavior.
-- [Publishing guide](https://github.com/tfukaza/bassfish/blob/main/docs/publishing.md) — first publication and trusted tag releases.
-- [Brand and launch assets](https://github.com/tfukaza/bassfish/blob/main/marketing/README.md) — editable artwork, exports, demo, and launch copy.

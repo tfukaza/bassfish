@@ -85,7 +85,10 @@ test('two actual stdio MCP clients: lazy shared daemon, FIFO, durable content, S
   const admin = await connectDaemon(data); const health = await admin.call<{ pid: number; epoch: string }>('getHealth');
   const disconnected = once(admin.socket, 'close'); process.kill(health.pid, 'SIGKILL'); await disconnected;
   // New daemon waits on SQL guardian ownership; no old SQL writer can survive into recovery.
-  await ensureDaemon(data, doltBinary());
+  await ensureDaemon(data, doltBinary(), { turnTimeoutMs: 90_000 });
+  const restartedAdmin = await connectDaemon(data);
+  const restartedHealth = await restartedAdmin.call<{ config: { turnTimeoutMs: number } }>('getHealth'); restartedAdmin.close();
+  assert.equal(restartedHealth.config.turnTimeoutMs, 90_000);
   const resumed = await call<Session>(alice, 'getSession'); assert.equal(resumed.identityId, a.identityId); assert.notEqual(resumed.adapterInstanceId, a.adapterInstanceId);
   const retained = await call<Ticket>(alice, 'getTurnRequest', { requestId: pending.requestId }); assert.equal(retained.state, 'offered');
   const stale = await bob.callTool({ name: 'readTurn', arguments: { turn: { id: crashHolder.turn.id, fencingToken: crashHolder.turn.fencingToken } } });

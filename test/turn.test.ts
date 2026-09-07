@@ -27,19 +27,19 @@ test('offers reveal no content, claims are exclusive, one commit releases to FIF
   await assert.rejects(s.read(a.agentHandle, turn.turn.id, turn.turn.fencingToken, 20), errorCode('STALE_TURN'));
 });
 
-test('30-second hard deadline, delayed claim, no renewal, expired content reads rejected after I/O', async t => {
+test('60-second hard deadline, delayed claim, no renewal, expired content reads rejected after I/O', async t => {
   const f = await fixture(); t.after(f.close); const { service: s, a, b, thread, clock } = f;
   const offered = await s.requestResourceTurn(a.agentHandle, thread);
   clock.advance(29_000);
   const turn = await s.claimTurn(a.agentHandle, offered.offerId as string, 20) as Turn;
-  assert.equal(Date.parse(turn.turn.expiresAt) - clock.now(), 30_000);
+  assert.equal(Date.parse(turn.turn.expiresAt) - clock.now(), 60_000);
   const queued = await s.requestResourceTurn(b.agentHandle, thread);
-  clock.advance(29_999); s.heartbeat(a.agentHandle); await s.read(a.agentHandle, turn.turn.id, turn.turn.fencingToken, 1);
+  clock.advance(59_999); s.heartbeat(a.agentHandle); await s.read(a.agentHandle, turn.turn.id, turn.turn.fencingToken, 1);
   clock.advance(1);
   assert.throws(() => s.releaseTurn(a.agentHandle, turn.turn.id, turn.turn.fencingToken), errorCode('TURN_EXPIRED'));
   await assert.rejects(s.commitTurn(a.agentHandle, turn.turn.id, turn.turn.fencingToken, turn.snapshot.revision, { kind: 'archiveThread' }), errorCode('TURN_EXPIRED'));
   const next = await s.claimTurn(b.agentHandle, s.status(b.agentHandle, queued.requestId as string).offerId as string, 20) as Turn;
-  f.content.afterSnapshot = () => clock.advance(30_000);
+  f.content.afterSnapshot = () => clock.advance(60_000);
   await assert.rejects(s.read(b.agentHandle, next.turn.id, next.turn.fencingToken, 1), errorCode('TURN_EXPIRED'));
 });
 

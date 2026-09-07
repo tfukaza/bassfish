@@ -9,7 +9,7 @@ import { managedDoltBinary } from './setup.js';
 
 export const runtimeConfigSchema = z.object({
   offerMs: z.number().int().min(5_000).max(300_000).default(30_000),
-  leaseMs: z.number().int().min(5_000).max(300_000).default(30_000),
+  turnTimeoutMs: z.number().int().min(5_000).max(300_000).default(60_000),
   reconnectMs: z.number().int().min(0).max(300_000).default(30_000),
   instanceMs: z.number().int().min(5_000).max(300_000).default(20_000),
   queueMs: z.number().int().min(60_000).max(86_400_000).default(3_600_000),
@@ -19,6 +19,16 @@ export const runtimeConfigSchema = z.object({
 }).strict();
 export type RuntimeConfig = z.infer<typeof runtimeConfigSchema>;
 export const defaultRuntimeConfig: RuntimeConfig = runtimeConfigSchema.parse({});
+
+export function parseTurnTimeout(value: string): number {
+  const match = /^(\d+)(ms|s|m)$/.exec(value);
+  if (!match) throw new BassfishError('INVALID_ARGUMENT', 'Turn timeout must be an integer duration such as 30000ms, 60s, or 1m.');
+  const multipliers = { ms: 1, s: 1_000, m: 60_000 } as const;
+  const milliseconds = Number(match[1]) * multipliers[match[2] as keyof typeof multipliers];
+  const parsed = runtimeConfigSchema.shape.turnTimeoutMs.safeParse(milliseconds);
+  if (!parsed.success) throw new BassfishError('INVALID_ARGUMENT', 'Turn timeout must be between 5s and 5m.');
+  return parsed.data;
+}
 
 export async function loadRuntimeConfig(dataDir: string): Promise<RuntimeConfig> {
   try { return runtimeConfigSchema.parse(JSON.parse(await readFile(join(dataDir, 'config.json'), 'utf8'))); }

@@ -2,7 +2,7 @@
 import { resolve } from 'node:path';
 import { access, rename } from 'node:fs/promises';
 import { BassfishError, requireThat } from './domain.js';
-import { dataDirectory, defaultRuntimeConfig, doltBinary, loadRuntimeConfig, packageVersion, runtimeConfigSchema, saveRuntimeConfig } from './config.js';
+import { dataDirectory, defaultRuntimeConfig, doltBinary, loadRuntimeConfig, packageVersion, parseTurnTimeout, runtimeConfigSchema, saveRuntimeConfig } from './config.js';
 import { connectDaemon, ensureDaemon, runDaemon } from './daemon.js';
 import { runSqlWorker } from './sql-worker.js';
 import { runMcp } from './mcp.js';
@@ -16,7 +16,9 @@ const help = `Bassfish — Headless inter-agent communication for agent teams
 bassfish mcp [--workspace PATH] [--name NAME]     Agent-facing stdio MCP server
 bassfish setup                                    Install checksum-verified Dolt
 bassfish --version                                Print the installed version
-bassfish daemon start|status|stop|run             Shared per-user backend
+bassfish daemon start [--turn-timeout DURATION]  Start the shared backend in the background
+bassfish daemon run [--turn-timeout DURATION]    Run the shared backend in the foreground
+bassfish daemon status|stop
 bassfish config show|reset
 bassfish config set KEY MILLISECONDS              Validate config; applies after restart
 bassfish data reset --yes                         Move preview data to a timestamped backup
@@ -59,7 +61,12 @@ async function main(): Promise<void> {
     process.stdout.write(JSON.stringify(await setupDolt(data), null, 2) + '\n'); return;
   }
   if (command === 'sql-worker') { requireThat(args.length === 2, 'INVALID_ARGUMENT', 'Internal SQL worker arguments missing.'); await runSqlWorker(args[0]!, args[1]!); return; }
-  if (command === 'daemon' && args[0] === 'run') { await runDaemon(data, binary); return; }
+  if (command === 'daemon' && args[0] === 'run') {
+    args.shift();
+    const rawTimeout = flag(args, '--turn-timeout');
+    requireThat(args.length === 0, 'INVALID_ARGUMENT', 'Use daemon run [--turn-timeout DURATION].');
+    await runDaemon(data, binary, rawTimeout === undefined ? {} : { turnTimeoutMs: parseTurnTimeout(rawTimeout) }); return;
+  }
   if (command === 'config') {
     const action = args.shift();
     if (action === 'show' && args.length === 0) { process.stdout.write(JSON.stringify(await loadRuntimeConfig(data), null, 2) + '\n'); return; }
@@ -81,6 +88,8 @@ async function main(): Promise<void> {
     const stamp = new Date().toISOString().replaceAll(':','-'); const backup = `${data}.backup-${stamp}`; await rename(data, backup);
     process.stdout.write(JSON.stringify({ reset: true, backup }, null, 2) + '\n'); return;
   }
+  const rawDaemonTimeout = command === 'daemon' ? flag(args, '--turn-timeout') : undefined;
+  const daemonOverrides = rawDaemonTimeout === undefined ? {} : { turnTimeoutMs: parseTurnTimeout(rawDaemonTimeout) };
   const workspace = resolve(flag(args, '--workspace') ?? process.cwd());
   const name = flag(args, '--name');
   if (command === 'mcp') { requireThat(args.length === 0, 'INVALID_ARGUMENT', 'Unknown MCP argument.'); await runMcp(workspace, data, binary, name); return; }
@@ -89,6 +98,10 @@ async function main(): Promise<void> {
     (command === 'turn' && ['list', 'release'].includes(action ?? '')) || (command === 'thread' && ['list', 'create', 'get', 'show', 'search', 'describe', 'delete'].includes(action ?? '')) ||
     (command === 'note' && ['list','create','show','edit','append','prepend','patch','move','metadata','links','replace-text','section','archive','delete','activate','history','restore'].includes(action ?? ''));
   requireThat(valid, 'INVALID_ARGUMENT', help);
+  if (command === 'daemon') {
+    requireThat(args.length === 0, 'INVALID_ARGUMENT', 'Daemon status and stop take no options; start accepts --turn-timeout DURATION.');
+    requireThat(action === 'start' || rawDaemonTimeout === undefined, 'INVALID_ARGUMENT', 'Only daemon start and daemon run accept --turn-timeout.');
+  }
   if (command === 'doctor') {
     requireThat(action === undefined && args.length === 0, 'INVALID_ARGUMENT', 'Doctor takes no arguments.');
     let dolt: Record<string, unknown>;
@@ -101,7 +114,7 @@ async function main(): Promise<void> {
     if (dolt.state !== 'ready') process.exitCode = 1;
     return;
   }
-  if (command !== 'turn' && !(command === 'daemon' && action !== 'start')) await ensureDaemon(data, binary);
+  if (command !== 'turn' && !(command === 'daemon' && action !== 'start')) await ensureDaemon(data, binary, command === 'daemon' ? daemonOverrides : {});
   const client = await connectDaemon(data);
   let opened = false;
   let heartbeat: NodeJS.Timeout | undefined;

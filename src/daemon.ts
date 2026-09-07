@@ -13,7 +13,8 @@ import { resolveRepository } from './repository.js';
 import { nameSchema } from './api.js';
 import { exclusiveLock } from './lock.js';
 import { listenRpc, RpcClient } from './ipc.js';
-import { loadRuntimeConfig, socketPath, packageRoot } from './config.js';
+import { loadRuntimeConfig, runtimeConfigSchema, socketPath, packageRoot } from './config.js';
+import type { RuntimeConfig } from './config.js';
 import { entryArgs, requireDolt, startSql } from './supervisor.js';
 import { NoteSearchIndex } from './storage/search.js';
 
@@ -28,7 +29,9 @@ function parse<T>(schema: z.ZodType<T>, value: unknown): T {
   return result.data;
 }
 
-export async function runDaemon(dataDir: string, binary: string): Promise<void> {
+export type DaemonOverrides = Partial<Pick<RuntimeConfig, 'turnTimeoutMs'>>;
+
+export async function runDaemon(dataDir: string, binary: string, overrides: DaemonOverrides = {}): Promise<void> {
   process.umask(0o077);
   const path = socketPath(dataDir);
   await mkdir(join(dataDir, 'run'), { recursive: true, mode: 0o700 });
@@ -47,7 +50,7 @@ export async function runDaemon(dataDir: string, binary: string): Promise<void> 
     await rpc?.close(); search?.close(); await content?.close(); await sql?.close(); control?.close(); unlock();
   })();
   try {
-    const config = await loadRuntimeConfig(dataDir);
+    const config = runtimeConfigSchema.parse({ ...await loadRuntimeConfig(dataDir), ...overrides });
     try { const stale = await lstat(path); requireThat(stale.isSocket(), 'UNSAFE_SOCKET_PATH', 'The daemon socket path contains a non-socket file.'); await unlink(path); }
     catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
     sql = await startSql(dataDir, binary);
@@ -55,7 +58,7 @@ export async function runDaemon(dataDir: string, binary: string): Promise<void> 
     control = new SqliteControl(join(dataDir, 'control.sqlite'));
     content = new DoltContent(sql.endpoint);
     search = new NoteSearchIndex(join(dataDir,'search.sqlite'));
-    const service = new Bassfish(control, content, new SystemClock(), { offerMs: config.offerMs, leaseMs: config.leaseMs, reconnectMs: config.reconnectMs,
+    const service = new Bassfish(control, content, new SystemClock(), { offerMs: config.offerMs, turnTimeoutMs: config.turnTimeoutMs, reconnectMs: config.reconnectMs,
       instanceMs: config.instanceMs, queueMs: config.queueMs, retentionMs: config.retentionMs, waitMs: config.waitMs }, search, dataDir);
     await service.initialize();
     const sessions = new Map<Socket, string>();
@@ -65,7 +68,7 @@ export async function runDaemon(dataDir: string, binary: string): Promise<void> 
       lastActivity = Date.now();
       requireThat(!closing, 'DAEMON_STOPPING', 'The daemon is stopping.');
       switch (method) {
-        case 'getHealth': return { apiVersion: 3, pid: process.pid, epoch: service.epoch, dataDir, state: sql?.alive() ? 'ready' : 'sqlUnavailable', control: service.inspect() };
+        case 'getHealth': return { apiVersion: 3, pid: process.pid, epoch: service.epoch, dataDir, state: sql?.alive() ? 'ready' : 'sqlUnavailable', config, control: service.inspect() };
         case 'stopDaemon': setTimeout(() => { void stop().catch(fatal); }, 25); return { stopping: true };
         case 'inspectDaemon': return service.inspect();
         case 'forceRelease': service.forceRelease(parse(releaseSchema, params).turnId); return { released: true };
@@ -120,14 +123,21 @@ async function probe(dataDir: string): Promise<boolean> {
     throw error;
   } finally { client?.close(); }
 }
-export async function ensureDaemon(dataDir: string, binary: string): Promise<void> {
-  if (await probe(dataDir)) return;
+export async function ensureDaemon(dataDir: string, binary: string, overrides: DaemonOverrides = {}): Promise<void> {
+  if (await probe(dataDir)) {
+    requireThat(overrides.turnTimeoutMs === undefined, 'DAEMON_RUNNING', 'The daemon is already running. Stop it before starting with a different turn timeout.');
+    return;
+  }
   await requireDolt(binary);
   await mkdir(join(dataDir, 'run'), { recursive: true, mode: 0o700 });
   const unlock = exclusiveLock(join(dataDir, 'run', 'startup.lock'), 10_000);
   try {
-    if (await probe(dataDir)) return;
-    const child = spawn(process.execPath, entryArgs('daemon', 'run'), { cwd: packageRoot, detached: true, stdio: 'ignore',
+    if (await probe(dataDir)) {
+      requireThat(overrides.turnTimeoutMs === undefined, 'DAEMON_RUNNING', 'Another daemon started first. Stop it before starting with a different turn timeout.');
+      return;
+    }
+    const daemonArgs = overrides.turnTimeoutMs === undefined ? [] : ['--turn-timeout', `${overrides.turnTimeoutMs}ms`];
+    const child = spawn(process.execPath, entryArgs('daemon', 'run', ...daemonArgs), { cwd: packageRoot, detached: true, stdio: 'ignore',
       env: { ...process.env, BASSFISH_DATA_DIR: dataDir, BASSFISH_DOLT_BIN: binary } });
     let failed = false;
     child.once('error', () => { failed = true; }); child.once('exit', () => { failed = true; }); child.unref();

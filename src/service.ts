@@ -10,8 +10,8 @@ import { NoteSearchIndex } from './storage/search.js';
 import { exportProject as writeProjectExport } from './export.js';
 import { RE2 } from 're2-wasm';
 
-export interface Limits { offerMs: number; leaseMs: number; reconnectMs: number; instanceMs: number; queueMs: number; retentionMs: number; waitMs: number }
-export const defaultLimits: Limits = { offerMs: 30_000, leaseMs: 30_000, reconnectMs: 30_000, instanceMs: 20_000, queueMs: 3_600_000, retentionMs: 3_600_000, waitMs: 20_000 };
+export interface Limits { offerMs: number; turnTimeoutMs: number; reconnectMs: number; instanceMs: number; queueMs: number; retentionMs: number; waitMs: number }
+export const defaultLimits: Limits = { offerMs: 30_000, turnTimeoutMs: 60_000, reconnectMs: 30_000, instanceMs: 20_000, queueMs: 3_600_000, retentionMs: 3_600_000, waitMs: 20_000 };
 const values = Object.values;
 const uid = () => randomUUID();
 const iso = (ms: number) => new Date(ms).toISOString();
@@ -367,7 +367,7 @@ export class Bassfish {
         const commit = await this.content.head(actor.projectId); this.sweep(); offer();
         const turn = this.control.update(state => { const current = state.requests[request.id]!; const resource = state.resources[current.resourceId]!;
           resource.fence = increment(resource.fence); current.state = 'CLAIMED'; current.turnId = uid(); current.fence = resource.fence; current.baseRevision = '0';
-          current.snapshotCommit = commit; current.expiresAt = this.clock.now() + this.limits.leaseMs; return current; });
+          current.snapshotCommit = commit; current.expiresAt = this.clock.now() + this.limits.turnTimeoutMs; return current; });
         return { requestId: turn.id, target: { type: 'project', purpose: turn.purpose },
           turn: { id: turn.turnId, fencingToken: turn.fence, expiresAt: iso(turn.expiresAt!) }, snapshot: { commit }, serverTime: iso(this.clock.now()) };
       }
@@ -381,7 +381,7 @@ export class Bassfish {
         resource.fence = increment(resource.fence);
         current.state = 'CLAIMED'; current.turnId = uid(); current.fence = resource.fence;
         current.baseRevision = snapshot.resourceType === 'thread' ? snapshot.thread.revision : snapshot.note.revision; current.snapshotCommit = snapshot.commit;
-        current.expiresAt = this.clock.now() + this.limits.leaseMs;
+        current.expiresAt = this.clock.now() + this.limits.turnTimeoutMs;
         return current;
       });
       this.control.view(s => this.claimed(s, handle, turn.turnId!, turn.fence!));

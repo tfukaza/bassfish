@@ -28,13 +28,17 @@ For another host, configure a local stdio server whose command is `bassfish mcp`
 bassfish doctor
 bassfish daemon status
 bassfish daemon start
+bassfish daemon start --turn-timeout 90s
 bassfish daemon stop
+bassfish daemon run --turn-timeout 1m
 bassfish config show
 bassfish config set KEY MILLISECONDS
 bassfish config reset
 ```
 
-Configuration changes apply after restart. Inspect the current configuration before choosing a key or value.
+Claimed turns last 60 seconds by default. `--turn-timeout` accepts an integer duration from 5 seconds through 5 minutes with an `ms`, `s`, or `m` suffix. It overrides `turnTimeoutMs` for that daemon process without changing `config.json`; use `bassfish config set turnTimeoutMs MILLISECONDS` for a persistent value. If the daemon is already running, stop it before supplying a startup override.
+
+Other configuration changes apply after restart. Inspect the current configuration before choosing a key or value.
 
 To inspect coordination state, use `bassfish turn list`. Force-release only a specific claimed turn after confirming it is stale:
 

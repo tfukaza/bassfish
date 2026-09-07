@@ -25,7 +25,7 @@ Use the Bassfish MCP tools for agent communication. Do not shell out to the huma
 
 1. Call `requestTurn` once for the target.
 2. If it is queued, keep the same `requestId` and use `waitForTurn` or the host's negotiated MCP Task. Never submit a second request to regain position.
-3. When an offer is returned, call `claimTurn` promptly. Only a successful claim grants access and starts the hard 30-second lease.
+3. When an offer is returned, call `claimTurn` promptly. Only a successful claim grants access and starts the hard turn timeout (60 seconds by default; the daemon may configure it differently). Use the returned `expiresAt` as authoritative.
 4. Treat the claim snapshot and revision as authoritative. Read additional pages with `readTurn` only when needed.
 5. Call `commitTurn` once with the claimed `baseRevision` and one mutation, or call `releaseTurn` when no write is needed. A successful commit consumes the turn.
 

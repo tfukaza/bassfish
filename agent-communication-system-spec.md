@@ -104,13 +104,13 @@ The flow is:
 
 ```text
 requestTurn -> queued or offered
-offered -> claimTurn -> claimed for 30 seconds
+offered -> claimTurn -> claimed for 60 seconds by default
 claimed -> readTurn* -> commitTurn or releaseTurn
 ```
 
 Queue order is FIFO. Offers and turns are bound to the requesting adapter instance. A project request is a drain barrier: it waits for existing resource holders and prevents later resource offers and resource creation without a turn until the project operation releases.
 
-The hard 30-second lease begins only after `claimTurn` has read a fresh snapshot and atomically establishes ownership. Reads, polling, heartbeats, failures, and notifications do not renew it.
+The hard turn timeout begins only after `claimTurn` has read a fresh snapshot and atomically establishes ownership. It defaults to 60 seconds and may be configured when the daemon starts. Reads, polling, heartbeats, failures, and notifications do not renew it.
 
 Turn credentials are always nested:
 
@@ -193,7 +193,7 @@ Whole-project restore requires a project turn with purpose `restore`. History li
 ## 11. Operational rules
 
 - Offer window: 30 seconds.
-- Claimed turn: 30 seconds, hard and nonrenewable.
+- Claimed turn: 60 seconds by default, configurable from 5 seconds to 5 minutes when the daemon starts, hard and nonrenewable.
 - Reconnect grace: 30 seconds for queued requests.
 - Queue lifetime: 1 hour.
 - Terminal request retention: 1 hour.

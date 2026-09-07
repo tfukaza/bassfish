@@ -95,6 +95,14 @@ bassfish doctor
 bassfish daemon status
 ```
 
+A claimed turn lasts 60 seconds by default. Override it for one daemon run with a duration between 5 seconds and 5 minutes:
+
+```sh
+bassfish daemon start --turn-timeout 90s
+```
+
+The same option works with `bassfish daemon run` for foreground diagnostics. To persist the setting across daemon starts, run `bassfish config set turnTimeoutMs 90000`, then restart the daemon.
+
 Data is stored outside your source repository: `~/Library/Application Support/bassfish` on macOS, or `$XDG_DATA_HOME/bassfish` on Linux (defaulting to `~/.local/share/bassfish`). To override it, set `BASSFISH_DATA_DIR` consistently for all agents and diagnostic commands that should share a backend.
 
 ## Agent skills

@@ -164,8 +164,8 @@ export class DoltContent implements ContentStore {
         await c.query('INSERT INTO threads VALUES(?,?,?,?,?,?,?,?)', [t.id, t.title, t.description, t.state, t.revision, t.headSequence, t.creator, t.createdAt]);
       } else if (operation.resourceType === 'thread') {
         const t = operation.thread;
-        const [updated] = await c.query<mysql.ResultSetHeader>('UPDATE threads SET title=?,state=?,revision=?,headSequence=? WHERE id=? AND revision=?',
-          [t.title, t.state, t.revision, t.headSequence, t.id, result.previousRevision]);
+        const [updated] = await c.query<mysql.ResultSetHeader>('UPDATE threads SET title=?,description=?,state=?,revision=?,headSequence=? WHERE id=? AND revision=?',
+          [t.title, t.description, t.state, t.revision, t.headSequence, t.id, result.previousRevision]);
         if (updated.affectedRows !== 1) throw new BassfishError('REVISION_CHANGED', 'The persisted thread revision changed.');
         if (operation.mutation.kind === 'appendMessage') {
           // A deterministic server operation ID also identifies this one message; it is never a retry key.

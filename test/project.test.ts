@@ -79,3 +79,20 @@ test('historical note FTS returns prior semantic revisions under a search floor'
   const result = await f.service.call(f.a.agentHandle,'searchProjectNoteHistory',{ floor: searchCredential, query: 'narwhal', noteId: created.noteId }) as { matches: { revision: string }[] };
   assert.deepEqual(result.matches.map(value => value.revision),['1']); await f.service.call(f.a.agentHandle,'releaseFloor',{ floor: searchCredential });
 });
+
+test('whole-project restore to a pre-deletion commit reactivates a deleted thread', async t => {
+  const f = await fixture(); t.after(f.close);
+  const projectId = (f.a.session as { projectId: string }).projectId;
+  const targetCommit = await f.content.head(projectId);
+  const threadFloor = await hold(f.service,f.a.agentHandle,f.thread);
+  await f.service.call(f.a.agentHandle,'commitFloor',{ floor: { id: threadFloor.floor.id, fencingToken: threadFloor.floor.fencingToken }, baseRevision: threadFloor.snapshot.revision, mutation: { kind: 'deleteThread' } });
+  assert.equal((await f.service.call(f.a.agentHandle,'getThread',{ threadId: f.thread }) as { state: string }).state,'deleted');
+  const request = await f.service.call(f.a.agentHandle,'requestFloor',{ target: { type: 'project', purpose: 'restore' } }) as { offerId: string };
+  const floor = await f.service.call(f.a.agentHandle,'claimFloor',{ offerId: request.offerId }) as { floor: { id: string; fencingToken: string } };
+  const credential = { id: floor.floor.id, fencingToken: floor.floor.fencingToken };
+  const preview = await f.service.call(f.a.agentHandle,'previewSnapshotRestore',{ floor: credential, targetCommit }) as { previewToken: string };
+  const restored = await f.service.call(f.a.agentHandle,'restoreSnapshot',{ floor: credential, previewToken: preview.previewToken }) as { changes: { resourceType: string; resourceId: string; action: string }[] };
+  assert.deepEqual(restored.changes.map(change => [change.resourceType,change.resourceId,change.action]),[['thread',f.thread,'update']]);
+  const after = await f.service.call(f.a.agentHandle,'getThread',{ threadId: f.thread }) as { state: string; revision: string };
+  assert.equal(after.state,'active'); assert.ok(BigInt(after.revision) > 2n);
+});

@@ -10,7 +10,7 @@ test('offers reveal no content, claims are exclusive, one commit releases to FIF
   const f = await fixture(); t.after(f.close); const { service: s, a, b, thread } = f;
   const first = await s.requestResourceFloor(a.agentHandle, thread), second = await s.requestResourceFloor(b.agentHandle, thread);
   assert.equal(first.state, 'offered'); assert.equal(second.state, 'queued'); assert.equal(second.position, 1);
-  assert.ok(!JSON.stringify(first).includes('protected')); assert.ok(!JSON.stringify(await s.call(b.agentHandle, 'listThreads', {})).includes('protected'));
+  assert.ok(!JSON.stringify(first).includes('protected')); assert.ok(JSON.stringify(await s.call(b.agentHandle, 'listThreads', {})).includes('protected description'));
   await assert.rejects(s.requestResourceFloor(a.agentHandle, thread), errorCode('FLOOR_REQUEST_EXISTS'));
   await assert.rejects(s.claimFloor(b.agentHandle, first.offerId as string, 20), errorCode('NOT_FLOOR_OWNER'));
   await assert.rejects(s.call(b.agentHandle, 'readFloor', {}), errorCode('INVALID_ARGUMENT'));

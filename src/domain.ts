@@ -61,8 +61,9 @@ export interface ControlStore {
   close(): void;
 }
 export interface Clock { now(): number; wallNow(): number; discontinuity(): boolean }
+export type ThreadState = 'active' | 'archived' | 'deleted';
 export interface Thread {
-  id: string; title: string; description: string; state: 'active' | 'archived';
+  id: string; title: string; description: string; state: ThreadState;
   revision: string; headSequence: string; creator: string; createdAt: string;
 }
 export type NoteState = 'active' | 'archived' | 'deleted';
@@ -91,8 +92,10 @@ export type ResourceSnapshot = Snapshot | NoteSnapshot;
 export type ThreadMutation =
   | { kind: 'appendMessage'; body: string }
   | { kind: 'renameThread'; title: string }
+  | { kind: 'setThreadDescription'; description: string }
   | { kind: 'archiveThread' }
   | { kind: 'activateThread' }
+  | { kind: 'deleteThread' }
   | { kind: 'retractMessage'; messageId: string }
   | { kind: 'reinstateMessage'; messageId: string }
   | { kind: 'restoreThreadRevision'; targetRevision: string };
@@ -179,13 +182,21 @@ export function prepareMutation(thread: Thread, mutation: ThreadMutation): Threa
       requireThat(thread.title !== mutation.title, 'NO_CHANGE', 'The title is unchanged.');
       next.title = mutation.title;
       break;
+    case 'setThreadDescription':
+      requireThat(thread.description !== mutation.description, 'NO_CHANGE', 'The description is unchanged.');
+      next.description = mutation.description;
+      break;
     case 'archiveThread':
-      requireThat(thread.state !== 'archived', 'NO_CHANGE', 'The thread is already archived.');
+      requireThat(thread.state === 'active', 'NO_CHANGE', 'Only an active thread can be archived.');
       next.state = 'archived';
       break;
     case 'activateThread':
       requireThat(thread.state !== 'active', 'NO_CHANGE', 'The thread is already active.');
       next.state = 'active';
+      break;
+    case 'deleteThread':
+      requireThat(thread.state !== 'deleted', 'NO_CHANGE', 'The thread is already deleted.');
+      next.state = 'deleted';
       break;
     case 'retractMessage':
     case 'reinstateMessage':

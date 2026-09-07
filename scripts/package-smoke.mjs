@@ -46,7 +46,7 @@ try {
   client = new Client({ name: 'bassfish-package-smoke', version: '1.0.0' });
   const transport = new StdioClientTransport({ command: binary, args: ['mcp', '--workspace', repo], env, stderr: 'pipe' });
   transport.stderr?.on('data', () => {}); await client.connect(transport);
-  assert.equal((await client.listTools()).tools.length, 30);
+  assert.equal((await client.listTools()).tools.length, 32);
   const session = await client.callTool({ name: 'getSession', arguments: {} });
   assert.notEqual(session.isError, true); assert.ok(session.structuredContent?.projectId);
   await client.close(); client = undefined;

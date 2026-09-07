@@ -105,7 +105,7 @@ export async function runMcp(workspace: string, dataDir: string, binary: string,
     for (const name of Object.keys(schemas) as ToolName[]) {
       const inputSchema: StandardSchemaWithJSON = schemas[name];
       server.registerTool(name, { description: descriptions[name], inputSchema,
-        annotations: { readOnlyHint: ['getSession','listAgents','listThreads','listNotes','searchNotes','getFloorRequest','waitForFloor','readFloor','listHistory','readRevision','diffRevision','previewRestore','getNoteOutline','findInNote','inspectSnapshot','searchProjectNotes','searchProjectNoteHistory','listSnapshotHistory','previewSnapshotRestore'].includes(name),
+        annotations: { readOnlyHint: ['getSession','listAgents','listThreads','getThread','searchThreads','listNotes','searchNotes','getFloorRequest','waitForFloor','readFloor','listHistory','readRevision','diffRevision','previewRestore','getNoteOutline','findInNote','inspectSnapshot','searchProjectNotes','searchProjectNoteHistory','listSnapshotHistory','previewSnapshotRestore'].includes(name),
           destructiveHint: ['commitFloor','restoreRevision','restoreSnapshot'].includes(name), idempotentHint: false, openWorldHint: false } }, async (args, context) => {
         try {
           const backend = await connection();

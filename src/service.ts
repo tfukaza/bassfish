@@ -19,6 +19,17 @@ const pendingFor = (state: ControlState, instanceId: string) => values(state.req
 function toMutation(input: Record<string, unknown>): Mutation {
   return input as unknown as Mutation;
 }
+const threadMutationKinds = ['appendMessage','renameThread','setThreadDescription','archiveThread','activateThread','deleteThread','retractMessage','reinstateMessage'];
+const compare = (a: string, b: string) => a < b ? -1 : a > b ? 1 : 0;
+const sortThreads = (threads: Thread[]): Thread[] => [...threads].sort((a, b) => compare(a.createdAt, b.createdAt) || compare(a.id, b.id));
+const encodeCursor = (pair: [string, string]) => Buffer.from(JSON.stringify(pair)).toString('base64url');
+function decodeCursor(cursor: unknown): [string, string] | undefined {
+  if (!cursor) return undefined;
+  let value: unknown;
+  try { value = JSON.parse(Buffer.from(String(cursor), 'base64url').toString('utf8')); } catch { throw new BassfishError('INVALID_CURSOR', 'The cursor is invalid.'); }
+  requireThat(Array.isArray(value) && value.length === 2 && value.every(item => typeof item === 'string'), 'INVALID_CURSOR', 'The cursor is invalid.');
+  return value as [string, string];
+}
 
 /** Application service: all coordination is persisted by ControlStore; all content uses ContentStore. */
 export class Bassfish {
@@ -589,7 +600,7 @@ export class Bassfish {
     this.sweep(); const request = this.control.view(s => this.projectHeld(s,handle,floorId,fence,'snapshot'));
     const snapshot = await this.content.projectSnapshot(request.projectId,request.snapshotCommit);
     this.sweep(); this.control.view(s => this.projectHeld(s,handle,floorId,fence,'snapshot'));
-    return { snapshotCommit: snapshot.commit, threads: snapshot.threads.map(thread => ({ id: thread.id, title: thread.title, state: thread.state, revision: thread.revision })),
+    return { snapshotCommit: snapshot.commit, threads: snapshot.threads.map(thread => ({ id: thread.id, title: thread.title, description: thread.description, state: thread.state, revision: thread.revision })),
       notes: snapshot.notes.map(note => this.noteMetadata(note)), messageCount: snapshot.messages.length };
   }
   private cursorOffset(token: string | undefined, expected: Record<string, unknown>): number {
@@ -700,7 +711,7 @@ export class Bassfish {
       requireThat(base === request.baseRevision && base === currentRevision, 'REVISION_CHANGED', 'The mutation base must match the current claimed revision.');
       const at = iso(this.clock.now()); let operation: WriteOperation;
       if (snapshot.resourceType === 'thread') {
-        requireThat(['appendMessage','renameThread','archiveThread','activateThread','retractMessage','reinstateMessage'].includes(mutation.kind), 'RESOURCE_TYPE_MISMATCH', 'This mutation does not apply to a thread.');
+        requireThat(threadMutationKinds.includes(mutation.kind), 'RESOURCE_TYPE_MISMATCH', 'This mutation does not apply to a thread.');
         if (mutation.kind === 'retractMessage' || mutation.kind === 'reinstateMessage') {
           const current = await this.content.snapshot(actor.projectId,request.resourceId,1_000_000);
           const message = current.messages.find(value => value.id === mutation.messageId);
@@ -710,7 +721,7 @@ export class Bassfish {
         const thread = prepareMutation(snapshot.thread, mutation as ThreadMutation);
         operation = { id: uid(), actor, resourceId: request.resourceId, resourceType: 'thread', at, thread, mutation: mutation as ThreadMutation };
       } else {
-        requireThat(!['appendMessage','renameThread','archiveThread','activateThread'].includes(mutation.kind), 'RESOURCE_TYPE_MISMATCH', 'This mutation does not apply to a note.');
+        requireThat(!threadMutationKinds.includes(mutation.kind), 'RESOURCE_TYPE_MISMATCH', 'This mutation does not apply to a note.');
         const noteMutation = mutation as NoteMutation;
         const note = prepareNote(snapshot.note, noteMutation, actor, at);
         await this.validateLinks(actor.projectId, note.links);
@@ -799,11 +810,31 @@ export class Bassfish {
       case 'setAgentName': return this.requestName(handle, args.name as string);
       case 'listAgents': return this.control.view(s => { const actor = this.actor(s, handle); return { agents: values(s.identities).filter(i => i.projectId === actor.projectId).map(i => ({ identityId: i.id, name: i.name, active: values(s.instances).some(a => a.identityId === i.id && a.active) })) }; });
       case 'createThread': return this.createThread(handle, args.title as string, args.description as string);
-      case 'listThreads': { const actor = this.control.view(s => { const a = this.actor(s, handle); this.ready(s, a.projectId); return a; }); return { threads: (await this.content.listThreads(actor.projectId)).filter(t => t.state === args.state).map(({ description: _description, ...t }) => t) }; }
+      case 'listThreads': {
+        const actor = this.control.view(s => { const a = this.actor(s, handle); this.ready(s, a.projectId); return a; });
+        const cursor = decodeCursor(args.cursor);
+        let threads = sortThreads(await this.content.listThreads(actor.projectId)).filter(thread => thread.state === args.state);
+        if (args.creatorIdentityId) threads = threads.filter(thread => thread.creator === args.creatorIdentityId);
+        if (args.titlePrefix) threads = threads.filter(thread => thread.title.startsWith(args.titlePrefix as string));
+        if (cursor) threads = threads.filter(thread => thread.createdAt > cursor[0] || (thread.createdAt === cursor[0] && thread.id > cursor[1]));
+        const limit = args.limit as number; const page = threads.slice(0, limit); const last = page.at(-1);
+        return { threads: page, nextCursor: threads.length > limit && last ? encodeCursor([last.createdAt, last.id]) : null };
+      }
+      case 'getThread': {
+        const actor = this.control.view(s => { const a = this.actor(s, handle); this.ready(s, a.projectId); return a; });
+        const thread = (await this.content.listThreads(actor.projectId)).find(value => value.id === args.threadId);
+        requireThat(thread, 'NOT_FOUND', 'Thread not found in this project.');
+        return thread;
+      }
+      case 'searchThreads': {
+        const actor = this.control.view(s => { const a = this.actor(s, handle); this.ready(s, a.projectId); return a; }); const query = String(args.query).toLowerCase();
+        const threads = sortThreads(await this.content.listThreads(actor.projectId)).filter(thread => thread.state === args.state && [thread.title, thread.description].some(value => value.toLowerCase().includes(query))).slice(0, args.limit as number);
+        return { threads };
+      }
       case 'createNote': return this.createNote(handle, args as never);
       case 'listNotes': {
         const actor = this.control.view(s => { const a = this.actor(s, handle); this.ready(s, a.projectId); return a; });
-        const cursor = args.cursor ? JSON.parse(Buffer.from(args.cursor as string, 'base64url').toString('utf8')) as [string,string] : undefined;
+        const cursor = decodeCursor(args.cursor);
         let notes = (await this.content.listNotes(actor.projectId)).filter(note => note.state === args.state);
         if (args.pathPrefix) notes = notes.filter(note => note.path.startsWith(args.pathPrefix as string));
         if (args.label) notes = notes.filter(note => note.labels.includes(args.label as string));
@@ -811,7 +842,7 @@ export class Bassfish {
         if (args.creatorIdentityId) notes = notes.filter(note => note.creator === args.creatorIdentityId);
         if (cursor) notes = notes.filter(note => note.path > cursor[0] || (note.path === cursor[0] && note.id > cursor[1]));
         const limit = args.limit as number; const page = notes.slice(0, limit); const last = page.at(-1);
-        return { notes: page.map(note => this.noteMetadata(note)), nextCursor: notes.length > limit && last ? Buffer.from(JSON.stringify([last.path,last.id])).toString('base64url') : null };
+        return { notes: page.map(note => this.noteMetadata(note)), nextCursor: notes.length > limit && last ? encodeCursor([last.path,last.id]) : null };
       }
       case 'searchNotes': {
         const actor = this.control.view(s => { const a = this.actor(s,handle); this.ready(s,a.projectId); return a; }); const query = String(args.query).toLowerCase();

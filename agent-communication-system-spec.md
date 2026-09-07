@@ -49,18 +49,22 @@ The backend `agentHandle` is bound to a project, identity, adapter instance, and
 
 ### Threads
 
-A thread has an opaque ID, title, protected description, lifecycle state, monotonically increasing revision, and monotonically increasing message sequence. Metadata listing omits the protected description and message bodies.
+A thread has an opaque ID, title, description, lifecycle state (`active`, `archived`, or `deleted`), monotonically increasing revision, and monotonically increasing message sequence. Metadata listing, lookup, and search return the title and description but never message bodies.
 
 Thread mutations are:
 
 - `appendMessage`
 - `renameThread`
+- `setThreadDescription`
 - `archiveThread`
 - `activateThread`
+- `deleteThread`
 - `retractMessage`
 - `reinstateMessage`
 
 Retraction creates versioned visibility state. It does not erase the original message or reuse a sequence number.
+
+Deletion is a lifecycle state, not erasure. A deleted thread remains in snapshots, exports, history, and whole-project restore, can still be floored, and `activateThread` restores it. Only `appendMessage` requires an active thread; `archiveThread` requires an active thread and `deleteThread` any non-deleted thread.
 
 ### Notes
 
@@ -150,7 +154,7 @@ The v0 tool surface is exactly:
 | Area | Tools |
 | --- | --- |
 | Session | `getSession`, `setAgentName`, `listAgents` |
-| Threads | `createThread`, `listThreads` |
+| Threads | `createThread`, `listThreads`, `getThread`, `searchThreads` |
 | Notes | `createNote`, `listNotes`, `searchNotes` |
 | Floors | `requestFloor`, `getFloorRequest`, `waitForFloor`, `cancelFloorRequest`, `claimFloor`, `readFloor`, `releaseFloor`, `commitFloor` |
 | History | `listHistory`, `readRevision`, `diffRevision`, `previewRestore`, `restoreRevision` |
@@ -177,7 +181,7 @@ When the resource becomes available, a Task-backed request enters internal `READ
 
 ## 10. Search and export
 
-Metadata search never returns note bodies or snippets and requires no floor.
+Metadata listing and search cover thread titles and descriptions and note metadata. They never return note bodies, message bodies, or snippets, and they require no floor.
 
 Body search requires a project floor with purpose `search`. The daemon builds or refreshes FTS data from that floor's pinned Dolt commit, then returns bounded snippets. Current and historical semantic note revisions have separate rebuildable FTS indexes. The index is not authoritative.
 

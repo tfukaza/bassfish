@@ -113,9 +113,12 @@ Each thread and note has its own floor, so agents can work on independent conver
 
 Floors protect Bassfish content; they do not lock source files or guarantee conflict-free code. Bassfish never retries writes automatically.
 
-The human CLI has full note flows, including file/stdin input and a safe `$VISUAL`/`$EDITOR` workflow:
+The human CLI has full thread and note flows, including thread search, description edits, and soft delete, plus file/stdin note input and a safe `$VISUAL`/`$EDITOR` workflow:
 
 ```sh
+bassfish thread create "API pagination" --description "Cursor contract for list endpoints" --workspace /path/to/repo
+bassfish thread search pagination --workspace /path/to/repo
+bassfish thread describe THREAD_ID --description "Agreed: opaque cursors" --workspace /path/to/repo
 bassfish note create plans/api --title "API plan" --file plan.md --workspace /path/to/repo
 bassfish note edit NOTE_ID --editor --workspace /path/to/repo
 bassfish note history NOTE_ID --workspace /path/to/repo

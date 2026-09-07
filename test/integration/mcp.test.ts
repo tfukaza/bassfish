@@ -37,7 +37,7 @@ test('two actual stdio MCP clients: lazy shared daemon, FIFO, durable content, S
     await c.connect(transport); return c;
   }
   const [alice, bob] = await Promise.all([client('Alice'), client('Bob')]);
-  const listed = await alice.listTools(); assert.equal(listed.tools.length, 30);
+  const listed = await alice.listTools(); assert.equal(listed.tools.length, 32);
   await assert.rejects(lstat(socketPath(data)), { code: 'ENOENT' }); // initialize/list do not start the daemon.
   async function call<T>(c: Client, name: string, args: Record<string, unknown> = {}): Promise<T> {
     const result = await c.callTool({ name, arguments: args });
@@ -48,6 +48,8 @@ test('two actual stdio MCP clients: lazy shared daemon, FIFO, durable content, S
   assert.equal(a.projectId, b.projectId); assert.notEqual(a.identityId, b.identityId);
   assert.equal((await lstat(socketPath(data))).mode & 0o777, 0o600);
   const created = await call<{ threadId: string }>(alice, 'createThread', { title: 'MCP roundtrip', description: 'Protected content' });
+  const fetched = await call<{ description: string; state: string }>(bob, 'getThread', { threadId: created.threadId });
+  assert.equal(fetched.description, 'Protected content'); assert.equal(fetched.state, 'active');
   const offered = await call<Ticket>(alice, 'requestFloor', { target: { type: 'thread', id: created.threadId } });
   const queued = await call<Ticket>(bob, 'requestFloor', { target: { type: 'thread', id: created.threadId } });
   assert.equal(queued.state, 'queued'); assert.ok(!JSON.stringify(offered).includes('Protected'));
@@ -92,6 +94,11 @@ test('two actual stdio MCP clients: lazy shared daemon, FIFO, durable content, S
   await call(alice, 'releaseFloor', { floor: { id: final.floor.id, fencingToken: final.floor.fencingToken } });
   const cli = await exec(process.execPath, [join(packageRoot, 'dist/cli.js'), 'thread', 'show', created.threadId, '--workspace', repo], { env });
   const shown = JSON.parse(cli.stdout) as Floor; assert.equal(shown.page.messages[0]!.body, 'Hello from real MCP');
+  await exec(process.execPath, [join(packageRoot, 'dist/cli.js'), 'thread', 'describe', created.threadId, '--description', 'CLI topic', '--workspace', repo, '--name', 'Human'], { env });
+  const got = await exec(process.execPath, [join(packageRoot, 'dist/cli.js'), 'thread', 'get', created.threadId, '--workspace', repo, '--name', 'Human'], { env });
+  assert.equal((JSON.parse(got.stdout) as { description: string }).description, 'CLI topic');
+  const found = await exec(process.execPath, [join(packageRoot, 'dist/cli.js'), 'thread', 'search', 'cli topic', '--workspace', repo, '--name', 'Human'], { env });
+  assert.deepEqual((JSON.parse(found.stdout) as { threads: { id: string }[] }).threads.map(thread => thread.id), [created.threadId]);
   const bodyFile = join(dir,'note.md'); await writeFile(bodyFile,'CLI body\n');
   const cliCreated = await exec(process.execPath,[join(packageRoot,'dist/cli.js'),'note','create','plans/cli','--title','CLI','--file',bodyFile,'--workspace',repo,'--name','Human'],{ env });
   const noteId = (JSON.parse(cliCreated.stdout) as { noteId: string }).noteId;

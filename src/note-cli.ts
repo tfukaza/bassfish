@@ -3,16 +3,16 @@ import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises
 import { join } from 'node:path';
 import { BassfishError, requireThat } from './domain.js';
 
-type Call = <T = unknown>(name: string, args?: unknown) => Promise<T>;
-type Floor = { floor: { id: string; fencingToken: string }; snapshot: { revision: string }; page: { text?: string; note?: unknown }; nextCursor?: string | null };
-const credential = (floor: Floor) => ({ id: floor.floor.id, fencingToken: floor.floor.fencingToken });
+export type Call = <T = unknown>(name: string, args?: unknown) => Promise<T>;
+export type Floor = { floor: { id: string; fencingToken: string }; snapshot: { revision: string }; page: { text?: string; note?: unknown }; nextCursor?: string | null };
+export const credential = (floor: Floor) => ({ id: floor.floor.id, fencingToken: floor.floor.fencingToken });
 
-function take(args: string[], name: string): string | undefined {
+export function take(args: string[], name: string): string | undefined {
   const index = args.indexOf(name); if (index < 0) return undefined; const value = args[index+1];
   requireThat(value !== undefined && !value.startsWith('--'),'INVALID_ARGUMENT',`${name} requires a value.`); args.splice(index,2); return value;
 }
 function takeAll(args: string[], name: string): string[] { const output: string[] = []; let value: string | undefined; while ((value = take(args,name)) !== undefined) output.push(value); return output; }
-function booleanFlag(args: string[], name: string): boolean { const index = args.indexOf(name); if (index < 0) return false; args.splice(index,1); return true; }
+export function booleanFlag(args: string[], name: string): boolean { const index = args.indexOf(name); if (index < 0) return false; args.splice(index,1); return true; }
 async function stdin(): Promise<string> { const chunks: Buffer[] = []; for await (const chunk of process.stdin) chunks.push(Buffer.from(chunk)); return Buffer.concat(chunks).toString('utf8'); }
 async function edit(dataDir: string, initial: string): Promise<string> {
   const editor = process.env.VISUAL ?? process.env.EDITOR; requireThat(editor,'EDITOR_UNAVAILABLE','Set VISUAL or EDITOR to an executable path.');
@@ -28,19 +28,19 @@ async function source(args: string[], dataDir: string, initial = ''): Promise<st
   requireThat((file === undefined ? 0 : 1) + (useEditor ? 1 : 0) === 1,'INVALID_ARGUMENT','Choose exactly one of --file PATH, --file -, or --editor.');
   if (useEditor) return edit(dataDir,initial); return file === '-' ? stdin() : readFile(file!,'utf8');
 }
-async function acquire(call: Call, type: 'note'|'thread', id: string): Promise<Floor> {
+export async function acquire(call: Call, type: 'note'|'thread', id: string): Promise<Floor> {
   const ticket = await call<{ state: string; requestId: string; offerId?: string }>('requestFloor',{ target: { type, id } });
   if (ticket.state !== 'offered') { await call('cancelFloorRequest',{ requestId: ticket.requestId }); throw new BassfishError('FLOOR_BUSY',`${type === 'note' ? 'Note' : 'Thread'} is busy. This request was cancelled, not retried.`); }
   return call<Floor>('claimFloor',{ offerId: ticket.offerId });
 }
-async function release(call: Call, floor: Floor): Promise<void> { await call('releaseFloor',{ floor: credential(floor) }); }
+export async function release(call: Call, floor: Floor): Promise<void> { await call('releaseFloor',{ floor: credential(floor) }); }
 async function fullNote(call: Call, floor: Floor): Promise<{ text: string; note: unknown }> {
   let text = floor.page.text ?? ''; let cursor = floor.nextCursor; const note = floor.page.note;
   while (cursor) { const page = await call<Floor>('readFloor',{ floor: credential(floor), cursor }); text += page.page.text ?? ''; cursor = page.nextCursor; }
   return { text, note };
 }
-async function mutation(call: Call, id: string, value: Record<string,unknown>): Promise<unknown> {
-  const floor = await acquire(call,'note',id); let consumed = false;
+export async function mutation(call: Call, type: 'note'|'thread', id: string, value: Record<string,unknown>): Promise<unknown> {
+  const floor = await acquire(call,type,id); let consumed = false;
   try { const result = await call('commitFloor',{ floor: credential(floor), baseRevision: floor.snapshot.revision, mutation: value }); consumed = true; return result; }
   finally { if (!consumed) await release(call,floor).catch(() => {}); }
 }
@@ -74,27 +74,27 @@ export async function runNoteCli(action: string | undefined, args: string[], cal
   if (['edit','append','prepend','patch'].includes(action ?? '')) {
     const body = await source(args,dataDir); requireThat(args.length === 0,'INVALID_ARGUMENT',`Unknown note ${action} argument.`);
     const kind = action === 'edit' ? 'replaceNoteBody' : action === 'append' ? 'appendNoteBody' : action === 'prepend' ? 'prependNoteBody' : 'patchNoteBody';
-    return { value: await mutation(call,id,{ kind, [action === 'patch' ? 'patch' : 'body']: body }) };
+    return { value: await mutation(call,'note',id,{ kind, [action === 'patch' ? 'patch' : 'body']: body }) };
   }
-  if (action === 'move') { const path = args.shift(); requireThat(path && args.length === 0,'INVALID_ARGUMENT','Use note move NOTE_ID PATH.'); return { value: await mutation(call,id,{ kind: 'moveNote', path }) }; }
+  if (action === 'move') { const path = args.shift(); requireThat(path && args.length === 0,'INVALID_ARGUMENT','Use note move NOTE_ID PATH.'); return { value: await mutation(call,'note',id,{ kind: 'moveNote', path }) }; }
   if (action === 'metadata') {
     const title = take(args,'--title'); const labelsValue = take(args,'--labels'); const kindValue = take(args,'--kind'); const clearKind = booleanFlag(args,'--clear-kind');
     requireThat(!(kindValue && clearKind) && args.length === 0,'INVALID_ARGUMENT','Invalid note metadata arguments.'); const value = { kind: 'setNoteMetadata', ...(title ? { title } : {}), ...(labelsValue !== undefined ? { labels: labelsValue.split(',').filter(Boolean) } : {}), ...(kindValue ? { noteKind: kindValue } : clearKind ? { noteKind: null } : {}) };
-    requireThat(Object.keys(value).length > 1,'INVALID_ARGUMENT','Provide metadata to change.'); return { value: await mutation(call,id,value) };
+    requireThat(Object.keys(value).length > 1,'INVALID_ARGUMENT','Provide metadata to change.'); return { value: await mutation(call,'note',id,value) };
   }
   if (action === 'links') {
     const links = takeAll(args,'--link').map(value => { const at = value.indexOf(':'); requireThat(at > 0,'INVALID_ARGUMENT','Links use TYPE:ID.'); return { targetType: value.slice(0,at), targetId: value.slice(at+1) }; });
-    requireThat(args.length === 0,'INVALID_ARGUMENT','Unknown note links argument.'); return { value: await mutation(call,id,{ kind: 'setLinks', links }) };
+    requireThat(args.length === 0,'INVALID_ARGUMENT','Unknown note links argument.'); return { value: await mutation(call,'note',id,{ kind: 'setLinks', links }) };
   }
   if (action === 'replace-text') {
     const find = take(args,'--find'); const replace = take(args,'--replace') ?? ''; const expectedOccurrences = Number(take(args,'--expect'));
-    requireThat(find && Number.isInteger(expectedOccurrences) && args.length === 0,'INVALID_ARGUMENT','Use --find, --replace, and --expect N.'); return { value: await mutation(call,id,{ kind: 'replaceNoteText', find, replace, expectedOccurrences }) };
+    requireThat(find && Number.isInteger(expectedOccurrences) && args.length === 0,'INVALID_ARGUMENT','Use --find, --replace, and --expect N.'); return { value: await mutation(call,'note',id,{ kind: 'replaceNoteText', find, replace, expectedOccurrences }) };
   }
   if (action === 'section') {
     const heading = take(args,'--heading'); const occurrenceRaw = take(args,'--occurrence'); const createIfMissing = booleanFlag(args,'--create'); requireThat(heading,'INVALID_ARGUMENT','Use --heading A/B.');
-    const body = await source(args,dataDir); requireThat(args.length === 0,'INVALID_ARGUMENT','Unknown note section argument.'); return { value: await mutation(call,id,{ kind: 'upsertNoteSection', headingPath: heading.split('/').filter(Boolean), body, ...(occurrenceRaw ? { occurrence: Number(occurrenceRaw) } : {}), createIfMissing }) };
+    const body = await source(args,dataDir); requireThat(args.length === 0,'INVALID_ARGUMENT','Unknown note section argument.'); return { value: await mutation(call,'note',id,{ kind: 'upsertNoteSection', headingPath: heading.split('/').filter(Boolean), body, ...(occurrenceRaw ? { occurrence: Number(occurrenceRaw) } : {}), createIfMissing }) };
   }
-  if (['archive','delete','activate'].includes(action ?? '')) { requireThat(args.length === 0,'INVALID_ARGUMENT',`Unknown note ${action} argument.`); return { value: await mutation(call,id,{ kind: `${action}Note` }) }; }
+  if (['archive','delete','activate'].includes(action ?? '')) { requireThat(args.length === 0,'INVALID_ARGUMENT',`Unknown note ${action} argument.`); return { value: await mutation(call,'note',id,{ kind: `${action}Note` }) }; }
   if (action === 'history') {
     requireThat(args.length === 0,'INVALID_ARGUMENT','Unknown note history argument.'); const floor = await acquire(call,'note',id); try { return { value: await call('listHistory',{ floor: credential(floor), limit: 100, offset: 0 }) }; } finally { await release(call,floor); }
   }

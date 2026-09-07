@@ -63,6 +63,14 @@ test('real Dolt: credential isolation, semantic commits, rollback, atomicity and
     assert.equal((await content.snapshot(project, created.threadId, 1)).thread.title, 'Real SQL');
   } finally { await raw.end(); }
   service.releaseFloor(b.agentHandle, next.floor.id, next.floor.fencingToken);
+  const describing = await hold(service, a.agentHandle, created.threadId);
+  await service.commitFloor(a.agentHandle, describing.floor.id, describing.floor.fencingToken, describing.snapshot.revision, { kind: 'setThreadDescription', description: 'Updated description' });
+  assert.equal((await content.snapshot(project, created.threadId, 1)).thread.description, 'Updated description');
+  const deleting = await hold(service, a.agentHandle, created.threadId);
+  await service.commitFloor(a.agentHandle, deleting.floor.id, deleting.floor.fencingToken, deleting.snapshot.revision, { kind: 'deleteThread' });
+  assert.equal((await content.listThreads(project))[0]!.state, 'deleted');
+  const activating = await hold(service, a.agentHandle, created.threadId);
+  await service.commitFloor(a.agentHandle, activating.floor.id, activating.floor.fencingToken, activating.snapshot.revision, { kind: 'activateThread' });
   const lost = await hold(service, a.agentHandle, created.threadId);
   // Crash boundary fixture: commit real content, then simulate inability to acknowledge it in SQLite.
   const originalWrite = content.write.bind(content), originalResolve = content.resolve.bind(content);
@@ -77,6 +85,7 @@ test('real Dolt: credential isolation, semantic commits, rollback, atomicity and
   const after = await hold(service, resumed.agentHandle, created.threadId);
   assert.deepEqual(after.page.messages.map(m => m.sequence), ['1', '2']);
   assert.equal(after.page.messages[1]!.body, 'committed but unacknowledged');
+  assert.equal(after.page.thread.description, 'Updated description'); assert.equal(after.page.thread.state, 'active');
   assert.equal(control.view(s => Object.values(s.pending).length), 0);
   assert.notEqual(committed.doltCommit, created.doltCommit);
   // Ensure the fixture's monkey patch never leaks into the new content adapter.

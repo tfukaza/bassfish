@@ -7,6 +7,7 @@ import { connectDaemon, ensureDaemon, runDaemon } from './daemon.js';
 import { runSqlWorker } from './sql-worker.js';
 import { runMcp } from './mcp.js';
 import { runNoteCli } from './note-cli.js';
+import { runThreadCli } from './thread-cli.js';
 import { setupDolt } from './setup.js';
 import { requireDolt } from './supervisor.js';
 
@@ -22,9 +23,13 @@ bassfish data reset --yes                         Move preview data to a timesta
 bassfish doctor                                 Current state and recovery diagnostics
 bassfish floor list                             List current floor/control metadata
 bassfish floor release FLOOR_ID --force          Revoke HELD, never COMMITTING
-bassfish thread list [--archived]                List thread metadata
+bassfish thread list [--archived|--deleted] [--limit N] [--cursor C] [--creator ID] [--title-prefix TEXT]
 bassfish thread create TITLE [--description TEXT]
-bassfish thread show THREAD_ID                  Acquire once, read, then release
+bassfish thread get THREAD_ID                   Thread metadata without a floor
+bassfish thread show THREAD_ID                  Acquire once, read messages, then release
+bassfish thread search QUERY [--archived|--deleted] [--limit N]
+bassfish thread describe THREAD_ID (--description TEXT | --clear)
+bassfish thread delete THREAD_ID
 bassfish note list [--archived|--deleted] [filters]
 bassfish note create PATH --title TITLE (--file PATH|-|--editor)
 bassfish note show NOTE_ID [--json]
@@ -80,10 +85,8 @@ async function main(): Promise<void> {
   const name = flag(args, '--name');
   if (command === 'mcp') { requireThat(args.length === 0, 'INVALID_ARGUMENT', 'Unknown MCP argument.'); await runMcp(workspace, data, binary, name); return; }
   const action = args.shift();
-  const description = flag(args, '--description') ?? '';
-  const archived = args.includes('--archived');
   const valid = (command === 'daemon' && ['start', 'status', 'stop'].includes(action ?? '')) || command === 'doctor' ||
-    (command === 'floor' && ['list', 'release'].includes(action ?? '')) || (command === 'thread' && ['list', 'create', 'show'].includes(action ?? '')) ||
+    (command === 'floor' && ['list', 'release'].includes(action ?? '')) || (command === 'thread' && ['list', 'create', 'get', 'show', 'search', 'describe', 'delete'].includes(action ?? '')) ||
     (command === 'note' && ['list','create','show','edit','append','prepend','patch','move','metadata','links','replace-text','section','archive','delete','activate','history','restore'].includes(action ?? ''));
   requireThat(valid, 'INVALID_ARGUMENT', help);
   if (command === 'doctor') {
@@ -115,16 +118,7 @@ async function main(): Promise<void> {
       const call = <T = unknown>(name: string, args: unknown = {}) => client.call<T>('callTool', { name, args });
       if (command === 'note') {
         const output = await runNoteCli(action,args,call,data); if (output.raw !== undefined) { process.stdout.write(output.raw); return; } result = output.value;
-      } else if (action === 'list') result = await call('listThreads', { state: archived ? 'archived' : 'active' });
-      else if (action === 'create') { requireThat(args.length === 1, 'INVALID_ARGUMENT', 'Pass one quoted thread title.'); result = await call('createThread', { title: args[0], description }); }
-      else if (action === 'show') {
-        requireThat(args.length === 1, 'INVALID_ARGUMENT', 'Pass one thread ID.');
-        const ticket = await call<{ state: string; requestId: string; offerId: string }>('requestFloor', { target: { type: 'thread', id: args[0] } });
-        if (ticket.state !== 'offered') { await call('cancelFloorRequest', { requestId: ticket.requestId }); throw new BassfishError('FLOOR_BUSY', 'Thread is busy. This request was cancelled, not retried.'); }
-        const floor = await call<{ floor: { id: string; fencingToken: string } }>('claimFloor', { offerId: ticket.offerId });
-        result = floor;
-        await call('releaseFloor', { floor: { id: floor.floor.id, fencingToken: floor.floor.fencingToken } });
-      }
+      } else if (command === 'thread') result = await runThreadCli(action, args, call);
     }
     process.stdout.write(JSON.stringify(result, null, 2) + '\n');
   } finally {

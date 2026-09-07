@@ -6,6 +6,8 @@ export const nameSchema = z.string().regex(/^[A-Za-z][A-Za-z0-9_-]{0,63}$/);
 const floor = z.object({ id, fencingToken: counter }).strict();
 const withFloor = { floor };
 const title = z.string().trim().min(1).max(200);
+const threadDescription = z.string().max(2000);
+const threadState = z.enum(['active','archived','deleted']);
 export const notePathSchema = z.string().max(240).regex(/^[a-z0-9](?:[a-z0-9._-]{0,62}[a-z0-9])?(?:\/[a-z0-9](?:[a-z0-9._-]{0,62}[a-z0-9])?){0,15}$/);
 const noteToken = z.string().regex(/^[a-z][a-z0-9_-]{0,31}$/);
 const noteBody = z.string().refine(value => Buffer.byteLength(value, 'utf8') <= 256 * 1024, 'Note body exceeds 256 KiB.');
@@ -27,8 +29,10 @@ const noteMutationBase = [
 const mutation = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('appendMessage'), body: z.string().min(1).max(16_000) }).strict(),
   z.object({ kind: z.literal('renameThread'), title }).strict(),
+  z.object({ kind: z.literal('setThreadDescription'), description: threadDescription }).strict(),
   z.object({ kind: z.literal('archiveThread') }).strict(),
   z.object({ kind: z.literal('activateThread') }).strict(),
+  z.object({ kind: z.literal('deleteThread') }).strict(),
   z.object({ kind: z.literal('retractMessage'), messageId: id }).strict(),
   z.object({ kind: z.literal('reinstateMessage'), messageId: id }).strict(),
   ...noteMutationBase,
@@ -44,8 +48,10 @@ export const schemas = {
   getSession: z.object({}).strict(),
   setAgentName: z.object({ name: nameSchema }).strict(),
   listAgents: z.object({}).strict(),
-  createThread: z.object({ title, description: z.string().max(2000).default('') }).strict(),
-  listThreads: z.object({ state: z.enum(['active','archived']).default('active') }).strict(),
+  createThread: z.object({ title, description: threadDescription.default('') }).strict(),
+  listThreads: z.object({ state: threadState.default('active'), creatorIdentityId: id.optional(), titlePrefix: z.string().max(200).optional(), limit: z.number().int().min(1).max(100).default(100), cursor: z.string().max(500).optional() }).strict(),
+  getThread: z.object({ threadId: id }).strict(),
+  searchThreads: z.object({ query: z.string().trim().min(1).max(200), state: threadState.default('active'), limit: z.number().int().min(1).max(100).default(100) }).strict(),
   createNote: z.object({ path: notePathSchema, title, body: noteBody.default(''), labels: z.array(noteToken).max(16).default([]), noteKind: noteToken.nullable().default(null), links: links.default([]) }).strict(),
   listNotes: z.object({ pathPrefix: z.string().max(240).optional(), label: noteToken.optional(), noteKind: noteToken.optional(), state: z.enum(['active','archived','deleted']).default('active'), creatorIdentityId: id.optional(), limit: z.number().int().min(1).max(100).default(100), cursor: z.string().max(500).optional() }).strict(),
   searchNotes: z.object({ query: z.string().trim().min(1).max(200), state: z.enum(['active','archived','deleted']).default('active'), limit: z.number().int().min(1).max(100).default(100) }).strict(),
@@ -79,7 +85,9 @@ export const descriptions: Record<ToolName, string> = {
   setAgentName: 'Choose or reclaim an inactive repository-scoped agent identity.',
   listAgents: 'List repository-scoped agent identities and current liveness.',
   createThread: 'Create a thread in one semantic Dolt commit.',
-  listThreads: 'List thread metadata without message bodies.',
+  listThreads: 'List thread metadata, including descriptions, without message bodies.',
+  getThread: 'Get one thread\'s metadata, including its description, without message bodies.',
+  searchThreads: 'Search thread titles and descriptions without message bodies.',
   createNote: 'Create a uniquely addressed note; never upserts.',
   listNotes: 'List note metadata without bodies or snippets.',
   searchNotes: 'Search note metadata without bodies or snippets.',

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Manage Bassfish"
+  short_description: "Operate Bassfish safely through its CLI"
+  default_prompt: "Use $manage-bassfish to inspect and manage this Bassfish installation."

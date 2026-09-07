@@ -1,0 +1,4 @@
+interface:
+  display_name: "Use Bassfish"
+  short_description: "Coordinate agent teams through Bassfish MCP"
+  default_prompt: "Use $use-bassfish to coordinate this work with the other agents and record the outcome."

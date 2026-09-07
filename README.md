@@ -96,3 +96,13 @@ bassfish daemon status
 ```
 
 Data is stored outside your source repository: `~/Library/Application Support/bassfish` on macOS, or `$XDG_DATA_HOME/bassfish` on Linux (defaulting to `~/.local/share/bassfish`). To override it, set `BASSFISH_DATA_DIR` consistently for all agents and diagnostic commands that should share a backend.
+
+## Agent skills
+
+Install Bassfish's optional Agent Skills globally so supported coding agents can use them across repositories:
+
+```sh
+npx skills add tfukaza/bassfish --skill use-bassfish --skill manage-bassfish -g
+```
+
+[`$use-bassfish`](.agents/skills/use-bassfish/SKILL.md) teaches an agent to coordinate through the MCP server. [`$manage-bassfish`](.agents/skills/manage-bassfish/SKILL.md) covers installation, diagnostics, recovery, and the full human CLI. The skills provide guidance; install and connect Bassfish itself using the Quickstart above.

@@ -49,6 +49,10 @@ const assert=require('node:assert/strict');
     check('Ponds face outward at quarter turns',separated.pondPoses.every((pose,i)=>Math.abs(pose.rotation-[0,-Math.PI/2,Math.PI,Math.PI/2][i])<.001));
     check('The original pond is at the bottom',separated.pondPoses.slice(1).every(p=>p.y<separated.pondPoses[0].y));
     check('Separate ponds have no connecting rig yet',!separated.carrier&&separated.microphones===0);
+    const flight=[];
+    for(const p of [3.63,3.80,3.99]){await progress(p);flight.push(await stats());await page.screenshot({path:path.join(output,`flight-${p}.png`)});}
+    check('The arriving bass follows a curved swimming path',flight[1].carrierPosition[2]>flight[0].carrierPosition[2]+2&&flight[1].carrierPosition[2]>flight[2].carrierPosition[2]+2);
+    check('The bass turns to follow each bend',Math.abs(flight[0].carrierForward[2]-flight[1].carrierForward[2])>.2);
     await progress(4.35);check('The larger bass flies in above the ponds',(await stats()).carrier&&!(await stats()).connected);
     check('The large bass faces down and right toward the camera',(await stats()).carrierNose.x>(await stats()).carrierTail.x&&(await stats()).carrierNose.y>(await stats()).carrierTail.y);
     await progress(5.15);check('Four microphones connect the agents',(await stats()).microphones===4&&(await stats()).connected);
@@ -78,6 +82,11 @@ const assert=require('node:assert/strict');
     await page.setViewportSize({width:1440,height:1000});
     await page.locator('.story-controls a[href="#install"]').click();
     check('Skip to install moves focus to the installation section',await page.evaluate(()=>document.activeElement.id==='install'&&Math.abs(document.querySelector('#install').getBoundingClientRect().top)<45));
+    check('Installation is ordered handoff, install, connect, skills',JSON.stringify(await page.locator('.step-heading h2').allTextContents())===JSON.stringify(['Hand this to your agent.','Install Bassfish','Connect each agent','Give your agents the skills']));
+    check('The optional handoff starts at step zero',await page.locator('.install-steps').getAttribute('start')==='0');
+    check('Detailed documentation links are in the footer',await page.locator('.site-footer a[href="./setup.md"]').count()===1&&await page.locator('#install a').count()===4);
+    for(const width of [1440,390]){await page.setViewportSize({width,height:width===1440?1000:844});await page.locator('#install').scrollIntoViewIfNeeded();await page.locator('#install').screenshot({path:path.join(output,`${width}-install.png`)});}
+    await page.setViewportSize({width:1440,height:1000});
     await page.locator('[data-copy="skills-code"]').click();
     const skillCommand=await page.evaluate(()=>navigator.clipboard.readText());
     check('Copy skills command includes both skills',skillCommand.includes('--skill use-bassfish --skill manage-bassfish -g')&&skillCommand.startsWith('npx skills add tfukaza/bassfish'));
@@ -89,8 +98,7 @@ const assert=require('node:assert/strict');
     check('Host picker supports keyboard navigation',await page.getByRole('tab',{name:'Other MCP hosts'}).getAttribute('aria-selected')==='true');
     await page.keyboard.press('Home');
     await page.locator('[data-copy-url]').click();check('Agent guide link preserves the project path',await page.evaluate(()=>navigator.clipboard.readText())===new URL('setup.md',base).href);
-    await page.locator('.first-conversation summary').click();await page.locator('[data-copy="first-prompt"]').click();
-    check('First conversation can be expanded and copied',(await page.evaluate(()=>navigator.clipboard.readText())).includes('another connected agent'));
+    check('The first conversation is available in the full documentation',(await (await page.request.get(new URL('setup.md',base).href)).text()).includes('## Start a conversation'));
     for(const name of ['setup.md','llms.txt','index.md']){
       const response=await page.request.get(new URL(name,base).href);
       check(`${name} is readable and includes skills`,response.ok()&&/text\//.test(response.headers()['content-type'])&&(await response.text()).includes('use-bassfish'));

@@ -80,12 +80,18 @@ export function createPondStory(onFrame) {
     const brass=new THREE.MeshStandardMaterial({color:0xc3ac72,roughness:.4,metalness:.65});
     const lit=new THREE.MeshBasicMaterial({color:0xbadd95,toneMapped:false});
     const carrier=new THREE.Group();scene.add(carrier);
-    const giant=fishes[0].fish.clone(true);giant.position.set(0,0,0);giant.scale.setScalar(3.5);giant.rotation.set(0,-.30,0);carrier.add(giant);
+    const giant=fishes[0].fish.clone(true);giant.position.set(0,0,0);giant.scale.setScalar(3.5);giant.rotation.set(0,0,0);carrier.add(giant);
+    const flight=new THREE.CubicBezierCurve3(V(-31,18,-7),V(-21,15,15),V(-8,12.5,-2.5),V(0,12.5,0));
+    const flightBasis=new THREE.Matrix4(), harness=[];
     function item(geometry,material,parent=scene) { const mesh=new THREE.Mesh(geometry,material);parent.add(mesh);return mesh; }
-    // Two narrow harness bands and four articulated arms give the bass its machine character.
-    for(const x of [-1.75,1.3]) {
-      const band=item(new THREE.TorusGeometry(1.04,.08,8,40),brass,carrier);band.rotation.y=Math.PI/2;band.scale.y=1.2;band.position.x=x;
-      const mount=item(new THREE.BoxGeometry(.55,.35,1.8),dark,carrier);mount.position.set(x,-.75,0);
+    // Fit each strap to the body's oval cross-section. Fish, straps, and mounts share one frame.
+    for(const [x,height,depth] of [[-1.75,1.37,.86],[1.3,1.36,.98]]) {
+      const root=new THREE.Group();root.position.x=x;carrier.add(root);
+      const oval=new THREE.Curve();
+      oval.getPoint=(t,target=V())=>target.set(0,Math.cos(t*Math.PI*2)*height,Math.sin(t*Math.PI*2)*depth);
+      item(new THREE.TubeGeometry(oval,64,.055,8,true),brass,root);
+      const mount=item(new THREE.BoxGeometry(.40,.22,depth*2+.30),dark,root);mount.position.y=-height+.10;
+      harness.push({root,x,height,depth});
     }
     const jointGeo=new THREE.SphereGeometry(.19,12,8), rodGeo=new THREE.CylinderGeometry(1,1,1,10);
     const Y=V(0,1,0);
@@ -156,12 +162,21 @@ export function createPondStory(onFrame) {
           fish.updateWorldMatrix(true,false);
           bubbles.push({...projected(fish.getWorldPosition(V()).add(V(0,.55,0))),text:'doing something',visible:chapter===2&&reveal>.25,agent:'',subagent:true});
         });
-        carrier.visible=arrive>.001;carrier.position.set(mix(-31,0,arrive),mix(20,12.5,arrive)+Math.sin(time*.8)*.12,0);
-        carrier.rotation.z=mix(-.20,0,arrive);carrier.updateMatrixWorld(true);
+        carrier.visible=arrive>.001;flight.getPoint(arrive,carrier.position);carrier.position.y+=Math.sin(time*.8)*.12;
+        const forward=flight.getTangent(arrive).normalize(), right=V().crossVectors(forward,Y).normalize(), up=V().crossVectors(right,forward);
+        carrier.quaternion.setFromRotationMatrix(flightBasis.makeBasis(forward,up,right));
+        carrier.rotateX(Math.sin(arrive*Math.PI*2)*.12*(1-arrive));
+        for(const strap of harness){
+          // Match the painted bass shader's lateral bend at the strap's body station.
+          const localX=strap.x/3.5, aft=1-THREE.MathUtils.smoothstep(localX,-1.30,.35);
+          strap.root.position.z=Math.sin(localX*3-time*3.3+fishes[0].phase)*.12*aft*aft*3.5;
+        }
+        carrier.updateMatrixWorld(true);
         for(let i=0;i<4;i++) {
           const arm=arms[i];arm.root.visible=arrive>.001;
           const sideX=Math.sign(centers[i].x),sideZ=Math.sign(centers[i].z);
-          const start=carrier.localToWorld(V(sideX<0?-1.75:1.3,-.85,sideZ));
+          const strap=harness[sideX<0?0:1];
+          const start=strap.root.localToWorld(V(0,-strap.height+.10,sideZ*(strap.depth+.15)));
           const fish=pods[i].fish.getWorldPosition(V());
           const end=fish.clone().add(V(.18,1.25,0));
           const folded=start.clone().add(V(0,-.4,0));
@@ -181,7 +196,7 @@ export function createPondStory(onFrame) {
         const textEnter=ease(chapterStarts[chapter],chapterStarts[chapter]+.32,p);
         const textExit=chapter===5?0:ease(chapterStarts[chapter+1]-.18,chapterStarts[chapter+1],p);
         const textY=(1-textEnter)*height*.48-textExit*height*.16;
-        state={chapter,progress:p,ponds:pods.filter(pod=>pod.group.visible).length,hiddenAgents:hiddenFish.filter(fish=>fish.visible).length,leadFishY:pods[0].fish.position.y,leadFishPosition:pods[0].fish.position.toArray(),carrier:carrier.visible,microphones:extend>.95?4:0,connected:connect>.9,orbit,sceneDrop,textY,carrierNose:projected(giant.localToWorld(V(1.12,0,0))),carrierTail:projected(giant.localToWorld(V(-1.92,0,0))),pondPoses:pods.map(pod=>({rotation:pod.group.rotation.y,...projected(pod.group.position)}))};
+        state={chapter,progress:p,ponds:pods.filter(pod=>pod.group.visible).length,hiddenAgents:hiddenFish.filter(fish=>fish.visible).length,leadFishY:pods[0].fish.position.y,leadFishPosition:pods[0].fish.position.toArray(),carrier:carrier.visible,carrierPosition:carrier.position.toArray(),carrierForward:forward.toArray(),microphones:extend>.95?4:0,connected:connect>.9,orbit,sceneDrop,textY,carrierNose:projected(giant.localToWorld(V(1.12,0,0))),carrierTail:projected(giant.localToWorld(V(-1.92,0,0))),pondPoses:pods.map(pod=>({rotation:pod.group.rotation.y,...projected(pod.group.position)}))};
         onFrame?.({...state,bubbles,textOpacity:1-textExit,heroOpacity:1-ease(.10,.52,p),heroY:-height*.16*ease(.10,.55,p),chapterChanged:chapter!==lastChapter,narrow});lastChapter=chapter;
       },
       getStats:()=>state,

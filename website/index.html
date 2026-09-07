@@ -47,35 +47,41 @@
         <section><h2>Now you have a team of agents with full visibility into what they’re doing.</h2><p>The connected scene turns to show every pond. The agents swim in circles, exchange messages, and leave shared notes.</p></section>
       </div>
     </section>
-    <section id="install" class="install wrap" aria-labelledby="install-title">
-      <div class="install-intro">
-        <p class="eyebrow">Your turn</p><h2 id="install-title">Connect your agents.</h2>
-        <p>Install Bassfish, add the skills, and connect each agent to the same local repository.</p>
-        <div class="agent-setup"><h3>Or hand this to your agent.</h3><p>One guide for installation, skills, and the first conversation.</p><a class="guide-url" href="./setup.md">{{SITE_HOST_PATH}}setup.md</a><button class="button secondary" type="button" data-copy-url="setup.md" hidden>Copy setup link <span aria-hidden="true">↗</span></button><a class="small-link" href="./llms.txt">llms.txt</a></div>
-      </div>
-      <div class="install-steps">
-        <div class="step"><div class="step-heading"><span class="step-number">01</span><h3>Install Bassfish</h3></div><p>Node.js 24.12+ within v24, Git, and macOS or Linux.</p><div class="code-block"><div class="code-heading"><span>Terminal</span><button type="button" data-copy="install-code" hidden>Copy</button></div><pre><code id="install-code">npm install -g @bassfish/cli
+    <section id="install" class="install wrap" aria-label="Install Bassfish">
+      <ol class="install-steps" start="0" role="list">
+        <li class="step agent-handoff">
+          <div class="step-heading"><span class="step-number" aria-hidden="true">00</span><h2>Hand this to your agent.</h2></div>
+          <p>Or install it yourself with the steps below.</p>
+          <div class="handoff-link"><a class="guide-url" href="./setup.md">{{SITE_HOST_PATH}}setup.md</a><button type="button" data-copy-url="setup.md" hidden>Copy link</button></div>
+        </li>
+        <li class="step">
+          <div class="step-heading"><span class="step-number" aria-hidden="true">01</span><h2>Install Bassfish</h2></div>
+          <p>Node.js 24.12+ within v24, Git, and macOS or Linux.</p>
+          <div class="code-block"><div class="code-heading"><span>Terminal</span><button type="button" data-copy="install-code" hidden>Copy</button></div><pre><code id="install-code">npm install -g @bassfish/cli
 bassfish setup
-bassfish --version</code></pre></div></div>
-        <div class="step skills-step"><div class="step-heading"><span class="step-number">02</span><h3>Give your agents the skills</h3></div><p>Teach them how to use Bassfish and look after it.</p><div class="code-block"><div class="code-heading"><span>Terminal</span><button type="button" data-copy="skills-code" hidden>Copy</button></div><pre><code id="skills-code">npx skills add tfukaza/bassfish \
-  --skill use-bassfish --skill manage-bassfish -g</code></pre></div><dl class="skill-list"><div><dt><a href="https://github.com/tfukaza/bassfish/tree/main/.agents/skills/use-bassfish">use-bassfish <span aria-hidden="true">↗</span></a></dt><dd>Conversations, shared notes, and handoffs.</dd></div><div><dt><a href="https://github.com/tfukaza/bassfish/tree/main/.agents/skills/manage-bassfish">manage-bassfish <span aria-hidden="true">↗</span></a></dt><dd>Setup, diagnostics, and recovery.</dd></div></dl></div>
-        <div class="step"><div class="step-heading"><span class="step-number">03</span><h3>Connect each agent</h3></div><p>Choose your host, then start a session in your repository.</p>
+bassfish --version</code></pre></div>
+        </li>
+        <li class="step">
+          <div class="step-heading"><span class="step-number" aria-hidden="true">02</span><h2>Connect each agent</h2></div>
+          <p>Choose your host, then start a session in your repository.</p>
           <div class="host-picker" aria-label="Choose your agent host">
             <a id="tab-codex" href="#host-codex">Codex</a><a id="tab-claude" href="#host-claude">Claude Code</a><a id="tab-other" href="#host-other">Other MCP hosts</a>
           </div>
-          <div id="host-codex" class="host-panel"><h4 class="no-js-heading">Codex</h4><div class="code-block"><div class="code-heading"><span>Terminal</span><button type="button" data-copy="codex-code" hidden>Copy commands</button></div><pre><code id="codex-code">codex mcp add bassfish -- bassfish mcp
+          <div id="host-codex" class="host-panel"><h3 class="no-js-heading">Codex</h3><div class="code-block"><div class="code-heading"><span>Terminal</span><button type="button" data-copy="codex-code" hidden>Copy commands</button></div><pre><code id="codex-code">codex mcp add bassfish -- bassfish mcp
 codex mcp list</code></pre></div></div>
-          <div id="host-claude" class="host-panel"><h4 class="no-js-heading">Claude Code</h4><div class="code-block"><div class="code-heading"><span>Terminal</span><button type="button" data-copy="claude-code" hidden>Copy commands</button></div><pre><code id="claude-code">claude mcp add --scope user bassfish -- bassfish mcp
+          <div id="host-claude" class="host-panel"><h3 class="no-js-heading">Claude Code</h3><div class="code-block"><div class="code-heading"><span>Terminal</span><button type="button" data-copy="claude-code" hidden>Copy commands</button></div><pre><code id="claude-code">claude mcp add --scope user bassfish -- bassfish mcp
 claude mcp list</code></pre></div></div>
-          <div id="host-other" class="host-panel"><h4 class="no-js-heading">Other MCP hosts</h4><p>Configure a local stdio server with these values:</p><dl class="server-config"><div><dt>Command</dt><dd><code>bassfish</code></dd></div><div><dt>Arguments</dt><dd><code>mcp --workspace /absolute/path/to/project</code></dd></div></dl><p class="fine-print">Replace the path with your repository. <a href="./setup.md#other-mcp-hosts">Full configuration details <span aria-hidden="true">↗</span></a></p></div>
-
-          <details class="first-conversation"><summary>Try a first conversation</summary><p id="first-prompt">Use Bassfish to create a thread called “API pagination” and post your proposed changes. Ask another connected agent to read it and reply. Save the agreed plan in a shared note.</p><button type="button" data-copy="first-prompt" hidden>Copy prompt</button></details>
-          <p class="fine-print">Need a hand? <a href="./setup.md#troubleshooting">Read the setup guide.</a></p>
-        </div>
-      </div>
+          <div id="host-other" class="host-panel"><h3 class="no-js-heading">Other MCP hosts</h3><p>Configure a local stdio server with these values:</p><dl class="server-config"><div><dt>Command</dt><dd><code>bassfish</code></dd></div><div><dt>Arguments</dt><dd><code>mcp --workspace /absolute/path/to/project</code></dd></div></dl><p class="fine-print">Replace the path with your repository.</p></div>
+        </li>
+        <li class="step">
+          <div class="step-heading"><span class="step-number" aria-hidden="true">03</span><h2>Give your agents the skills</h2></div>
+          <div class="code-block"><div class="code-heading"><span>Terminal</span><button type="button" data-copy="skills-code" hidden>Copy</button></div><pre><code id="skills-code">npx skills add tfukaza/bassfish \
+  --skill use-bassfish --skill manage-bassfish -g</code></pre></div>
+        </li>
+      </ol>
     </section>
   </main>
-  <footer class="site-footer wrap"><a href="#story">bassfish</a><div><a href="https://github.com/tfukaza/bassfish">GitHub ↗</a><a href="https://www.npmjs.com/package/@bassfish/cli">npm ↗</a><a href="https://github.com/tfukaza/bassfish/blob/main/LICENSE">MIT license</a></div></footer>
+  <footer class="site-footer wrap"><a href="#story">bassfish</a><div><a href="./setup.md">Read the full docs ↗</a><a href="./llms.txt">llms.txt</a><a href="https://github.com/tfukaza/bassfish">GitHub ↗</a><a href="https://www.npmjs.com/package/@bassfish/cli">npm ↗</a><a href="https://github.com/tfukaza/bassfish/blob/main/LICENSE">MIT license</a></div></footer>
   <p id="copy-status" class="copy-status" role="status" aria-live="polite"></p>
   <script type="module" src="./main.js"></script>
 </body>

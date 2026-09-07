@@ -8,7 +8,7 @@ The homepage is a full-viewport pond followed by a scroll-driven story and a com
 2. **One agent:** the bass rises to the surface. It swims in a circle, with messages about editing a file, asking a question, and requesting approval. The pond settles lower while the heading scrolls upward from behind its silhouette.
 3. **A hidden team:** three darker bass appear beneath the water. Only the original agent stays at the surface. Each submerged agent has a “doing something” bubble.
 4. **Separate sessions:** the camera pulls back as three more ponds rotate into place. The original pond sits at the bottom. The other ponds face outward at quarter-turn offsets. Each pond has one visible agent; their conversations are separate.
-5. **Bassfish arrives:** a larger bass flies over all four ponds, facing down and right toward the camera. A harness carries four articulated arms, which unfold and lower microphones above the fish.
+5. **Bassfish arrives:** a larger bass swims along an S-shaped approach, turning and banking with the curve before settling above the ponds, facing down and right toward the camera. Two oval harness straps fit its cross-sections and follow the same body frame and lateral bend. Their mounts carry four articulated arms, which unfold and lower microphones above the fish.
 6. **Shared context:** signals travel along the arms. Agents exchange API, client, test, and review messages through Bassfish. The whole connected scene turns through a full revolution as the visitor scrolls, then continues a slow ambient orbit. Every surfaced agent swims in a circle.
 
 The four ponds represent agent sessions in the same local Git repository, not networked machines. The story is an illustration of the product, not a recording of live tool traffic.
@@ -17,7 +17,7 @@ The title, chapter headings, and descriptions remain flat HTML. Chapter text scr
 
 ## Installation content
 
-The installation section has three steps: install the CLI/runtime, add `use-bassfish` and `manage-bassfish`, then connect an MCP host. The skills receive short descriptions and their own copyable command. A first conversation prompt is available under a disclosure.
+The installation section is one numbered list. Step 0 offers an optional handoff with a copyable setup link. Steps 1–3 install the CLI/runtime, connect each agent host, and add `use-bassfish` and `manage-bassfish`. Detailed documentation and reference links live in the footer; the full guide includes the first conversation prompt.
 
 `setup.md` is the complete installation, skills, and usage guide; `llms.txt` indexes it, and `index.md` supplies a text overview. These are static files an agent can fetch, not executable installers.
 

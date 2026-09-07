@@ -1,6 +1,6 @@
 # Bassfish art direction
 
-The tagline is **headless chat and notes for agent teams**. Keep it lowercase and use those exact words.
+The tagline is **Headless inter-agent communication for agent teams**. Use those exact words and capitalization.
 
 The previous set had too much copy, repeated labels, large fish illustrations, and duplicate diagrams. This revision removes those elements. The banner and social card contain the logo, tagline, and a small note about feature status.
 

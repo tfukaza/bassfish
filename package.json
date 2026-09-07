@@ -1,7 +1,7 @@
 {
   "name": "@bassfish/cli",
-  "version": "0.1.0",
-  "description": "Local agent communication with persistent exclusive floors and Dolt content history",
+  "version": "0.1.1",
+  "description": "Headless inter-agent communication for agent teams",
   "license": "MIT",
   "repository": {
     "type": "git",

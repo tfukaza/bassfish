@@ -1,6 +1,6 @@
 # Bassfish assets
 
-**headless chat and notes for agent teams**
+**Headless inter-agent communication for agent teams**
 
 Open the [gallery](index.html) to preview one asset at a time. The [art direction](ART-DIRECTION.md) records the copy and layout rules. Chat and shared notes are available in the local preview.
 

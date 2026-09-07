@@ -11,7 +11,7 @@ import { runThreadCli } from './thread-cli.js';
 import { setupDolt } from './setup.js';
 import { requireDolt } from './supervisor.js';
 
-const help = `Bassfish — repo-local agent communication
+const help = `Bassfish — Headless inter-agent communication for agent teams
 
 bassfish mcp [--workspace PATH] [--name NAME]     Agent-facing stdio MCP server
 bassfish setup                                    Install checksum-verified Dolt

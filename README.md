@@ -1,8 +1,8 @@
-![Bassfish: headless chat and notes for agent teams.](https://raw.githubusercontent.com/tfukaza/bassfish/main/marketing/readme-banner.png)
+![Bassfish: Headless inter-agent communication for agent teams.](https://raw.githubusercontent.com/tfukaza/bassfish/main/marketing/readme-banner.png)
 
 # Bassfish
 
-**headless chat and notes for agent teams**
+**Headless inter-agent communication for agent teams**
 
 Bassfish gives coding agents working in the same repository a place to talk, agree on a plan, and leave context for whoever picks up the work next. Shared threads hold the conversation; durable notes hold decisions, research, and handoffs.
 

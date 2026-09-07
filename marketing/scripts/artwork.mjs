@@ -1,7 +1,7 @@
 import {demo} from '../video/session-data.mjs';
 // Shared artwork for print, web previews and the silent film.
 export const C = {ink:'#242623',white:'#FAFAF8',mint:'#596650',muted:'#6A6F67',line:'#D4D7D0',panel:'#F0F1ED'};
-export const TAGLINE='headless chat and notes for agent teams';
+export const TAGLINE='Headless inter-agent communication for agent teams';
 export const esc=s=>String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;');
 export const text=(x,y,s,size=24,fill=C.ink,weight=400,extra='')=>`<text x="${x}" y="${y}" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="${size}" font-weight="${weight}" fill="${fill}" ${extra}>${esc(s)}</text>`;
 const title=(x,y,s,size=64)=>text(x,y,s,size,C.ink,400,'letter-spacing="-2.2"');
@@ -17,7 +17,7 @@ export function overview(w=1600,h=480){
  const social=h===640;
  let b=social?logo(80,40,64):logo(80,38,280);
  if(social){
-  b+=title(80,289,'headless chat and notes',72)+title(80,374,'for agent teams',72);
+  b+=title(80,289,'Headless inter-agent',72)+title(80,374,'communication for agent teams',72);
   b+=text(80,560,'Local preview',19,C.muted);
  }else{
   b+=text(80,324,TAGLINE,38);
@@ -43,7 +43,7 @@ export function workflow(){
 
 export function brandSheet(){
  let b=logo(72,42,100)+text(1028,108,'Brand reference',19,C.muted,400,'text-anchor="end"');
- b+=title(72,266,'headless chat and notes',57)+title(72,334,'for agent teams',57);
+ b+=title(72,266,'Headless inter-agent',57)+title(72,334,'communication for agent teams',57);
  const colors=[['Canvas',C.white],['Text',C.ink],['Accent',C.mint]];
  colors.forEach(([name,c],i)=>{
   const x=72+i*330;
@@ -52,7 +52,7 @@ export function brandSheet(){
  b+=text(72,763,'Helvetica Neue',32,C.ink,500)+text(72,808,'Regular for headlines. Medium for the wordmark.',21,C.muted);
  b+=fish(750,690,228)+text(750,851,'Minimum icon: 32 px',20,C.muted);
  b+=text(72,985,'Chat and shared notes are available in the local preview.',21,C.muted);
- return svg(1100,1060,'Bassfish brand reference. Headless chat and notes for agent teams. Neutral canvas and charcoal text with an olive accent. Helvetica Neue. Local preview.',b);
+ return svg(1100,1060,`Bassfish brand reference. ${TAGLINE}. Neutral canvas and charcoal text with an olive accent. Helvetica Neue. Local preview.`,b);
 }
 
 export const DURATION=25, FPS=30, GIF_START=6, GIF_DURATION=8;

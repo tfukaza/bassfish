@@ -61,7 +61,12 @@ addEventListener('hashchange', () => {
 const storySection=document.querySelector('#story'), container=document.querySelector('#pond');
 const controls=document.querySelector('.story-controls'), pause=document.querySelector('#pause-pond');
 const bodyCopy=document.querySelector('#chapter-body'), chapterTitle=document.querySelector('#chapter-title'), count=document.querySelector('#chapter-count');
+const heading=document.querySelector('.chapter-heading'), landing=document.querySelector('.landing-title');
 const bubbles=[...document.querySelectorAll('.fish-bubble')];
+const leaders=document.createElementNS('http://www.w3.org/2000/svg','svg');
+leaders.classList.add('bubble-leaders');
+const leaderPaths=bubbles.map(()=>{const path=document.createElementNS(leaders.namespaceURI,'path');leaders.appendChild(path);return path;});
+document.querySelector('.bubble-layer').prepend(leaders);
 const motion=matchMedia('(prefers-reduced-motion: reduce)');
 let pond, disposed=false, userPaused=motion.matches, offscreen=false, scrollFrame=0;
 let currentProgress=0, currentChapter=-1;
@@ -107,6 +112,7 @@ addEventListener('pagehide',event=>{
 async function loadStory() {
   try {
     const [{mountPond},{createPondStory,chapters}]=await Promise.all([import('./backdrop/pond/scene.js'),import('./story-scene.js')]);
+    await document.fonts.ready;
     if(disposed)return;
     pond=mountPond(container,{
       paused:userPaused||offscreen,pixelRatio:1.35,
@@ -116,20 +122,38 @@ async function loadStory() {
           storySection.dataset.chapter=String(frame.chapter);
           chapterTitle.textContent=frame.chapter?chapters[frame.chapter].title:'';
           bodyCopy.textContent=frame.chapter?chapters[frame.chapter].body:'';
+          bodyCopy.hidden=!bodyCopy.textContent;
           count.textContent=`0${frame.chapter} / 05`;
         }
+        heading.style.transform=`translateY(${motion.matches?0:frame.textY}px)`;
+        heading.style.opacity=motion.matches?'1':String(frame.textOpacity);
+        landing.style.transform=`translateY(${motion.matches?0:frame.heroY}px)`;
+        landing.style.opacity=motion.matches?'1':String(frame.heroOpacity);
+        const placed=[];
         for(let i=0;i<bubbles.length;i++) {
           const bubble=bubbles[i],data=frame.bubbles[i];
+          leaderPaths[i].setAttribute('d','');
           bubble.classList.toggle('visible',data.visible);
+          bubble.classList.toggle('subagent-bubble',Boolean(data.subagent));
           if(!data.visible)continue;
-          if(bubble.querySelector('p').textContent!==data.text||bubble.dataset.viewport!==String(innerWidth)) {
+          const viewport=`${container.clientWidth}/${container.clientHeight}`;
+          if(bubble.querySelector('p').textContent!==data.text||bubble.dataset.viewport!==viewport) {
             bubble.querySelector('p').textContent=data.text;bubble.querySelector('span').textContent=data.agent;
-            bubble.dataset.viewport=String(innerWidth);bubble.dataset.width=String(bubble.offsetWidth);
+            bubble.dataset.viewport=viewport;bubble.dataset.width=String(bubble.offsetWidth);bubble.dataset.height=String(bubble.offsetHeight);
           }
-          const width=Number(bubble.dataset.width), anchor=data.x*container.clientWidth;
+          const width=Number(bubble.dataset.width), height=Number(bubble.dataset.height), anchor=data.x*container.clientWidth;
           const left=Math.max(width/2+16,Math.min(innerWidth-width/2-16,anchor));
-          bubble.style.left=`${left}px`;bubble.style.top=`${data.y*container.clientHeight}px`;
+          let top=data.y*container.clientHeight;
+          // Keep short activity bubbles distinct while their fish overlap in projection.
+          for(const other of placed)if(Math.abs(left-other.left)<(width+other.width)/2+8&&top-height<other.top+8&&top>other.top-other.height-8)top=other.top-other.height-10;
+          top=Math.max(height+35,Math.min(container.clientHeight-45,top));
+          placed.push({left,top,width,height});
+          bubble.style.left=`${left}px`;bubble.style.top=`${top}px`;
           bubble.style.setProperty('--tail-x',`${Math.max(12,Math.min(width-12,anchor-left+width/2))-5}px`);
+          if(data.subagent&&Math.abs(top-data.y*container.clientHeight)>15){
+            const tip=left+Math.max(-width/2+12,Math.min(width/2-12,anchor-left));
+            leaderPaths[i].setAttribute('d',`M ${tip} ${top-9} L ${anchor} ${data.y*container.clientHeight-3}`);
+          }
         }
       }),
     });

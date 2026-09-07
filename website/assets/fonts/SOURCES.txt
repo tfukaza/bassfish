@@ -1,0 +1,6 @@
+Geist Sans and Geist Mono
+Source: https://github.com/vercel/geist-font
+Font information: https://vercel.com/font
+Original files: fonts/Geist/webfonts/Geist[wght].woff2 and fonts/GeistMono/webfonts/GeistMono[wght].woff2
+Downloaded 2026-09-06. Files are unchanged; names simplified for local URLs.
+License: SIL Open Font License 1.1, included as OFL.txt.

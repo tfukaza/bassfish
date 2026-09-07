@@ -9,7 +9,7 @@ async function walk(directory) {
   return (await Promise.all(entries.map(entry => entry.isDirectory() ? walk(path.join(directory, entry.name)) : path.join(directory, entry.name)))).flat();
 }
 const files = await walk(out);
-for (const name of ['index.html', 'setup.md', 'llms.txt', 'index.md', '.nojekyll', 'backdrop/pond/scene.js', 'backdrop/vendor/LICENSE', 'LICENSE.txt']) await access(path.join(out, name));
+for (const name of ['index.html', 'setup.md', 'llms.txt', 'index.md', '.nojekyll', 'backdrop/pond/scene.js', 'backdrop/vendor/LICENSE', 'LICENSE.txt', 'assets/fonts/Geist-Variable.woff2', 'assets/fonts/GeistMono-Variable.woff2', 'assets/fonts/OFL.txt']) await access(path.join(out, name));
 let bytes = 0;
 for (const file of files) {
   bytes += (await stat(file)).size;

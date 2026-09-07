@@ -4,22 +4,24 @@ The homepage is a full-viewport pond followed by a scroll-driven story and a com
 
 ## Storyboard
 
-1. **Landing:** one bass in the pond, with a flat HTML title and tagline above it. The document also contains an accessible HTML heading and navigation.
-2. **One agent:** the bass rises to the surface. Its messages include editing a file, asking a question, and requesting approval.
-3. **A hidden team:** three darker bass appear beneath the water. Only the original agent stays at the surface.
+1. **Landing:** one bass in the pond, with a large Geist title and tagline above it. The document also contains an accessible HTML heading and navigation.
+2. **One agent:** the bass rises to the surface. It swims in a circle, with messages about editing a file, asking a question, and requesting approval. The pond settles lower while the heading scrolls upward from behind its silhouette.
+3. **A hidden team:** three darker bass appear beneath the water. Only the original agent stays at the surface. Each submerged agent has a “doing something” bubble.
 4. **Separate sessions:** the camera pulls back as three more ponds rotate into place. The original pond sits at the bottom. The other ponds face outward at quarter-turn offsets. Each pond has one visible agent; their conversations are separate.
-5. **Bassfish arrives:** a larger bass flies over all four ponds. A harness carries four articulated arms, which unfold and lower microphones above the fish.
-6. **Shared context:** signals travel along the arms. Agents exchange API, client, test, and review messages through Bassfish.
+5. **Bassfish arrives:** a larger bass flies over all four ponds, facing down and right toward the camera. A harness carries four articulated arms, which unfold and lower microphones above the fish.
+6. **Shared context:** signals travel along the arms. Agents exchange API, client, test, and review messages through Bassfish. The whole connected scene turns through a full revolution as the visitor scrolls, then continues a slow ambient orbit. Every surfaced agent swims in a circle.
 
 The four ponds represent agent sessions in the same local Git repository, not networked machines. The story is an illustration of the product, not a recording of live tool traffic.
 
-The title, chapter headings, and descriptions are flat HTML overlays above the ponds. Speech bubbles follow projected fish positions. The scene shares geometry and textures across ponds; each pond gets its own clipping planes and soil coordinates. Scrolling is native and reversible. A pause control stops ambient motion, reduced-motion mode uses still chapter poses, and a skip link goes directly to installation. If JavaScript, WebGL, or a texture fails, the story remains available as ordinary HTML with the pond poster.
+The title, chapter headings, and descriptions remain flat HTML. Chapter text scrolls behind a transparent Three.js canvas, so the pond silhouette occludes it as it rises. Once settled, the headings occupy the space above the pond. The small third line of context has been removed. Speech bubbles follow projected fish positions. The scene shares geometry and textures across ponds; each pond gets its own clipping planes and soil coordinates. Scrolling is native and reversible. A pause control stops ambient motion, reduced-motion mode uses still chapter poses, and a skip link goes directly to installation. If JavaScript, WebGL, or a texture fails, the story remains available as ordinary HTML with the pond poster.
 
 ## Installation content
 
 The installation section has three steps: install the CLI/runtime, add `use-bassfish` and `manage-bassfish`, then connect an MCP host. The skills receive short descriptions and their own copyable command. A first conversation prompt is available under a disclosure.
 
 `setup.md` is the complete installation, skills, and usage guide; `llms.txt` indexes it, and `index.md` supplies a text overview. These are static files an agent can fetch, not executable installers.
+
+Geist Sans and Geist Mono are self-hosted in `assets/fonts/`, with their SIL Open Font License included. The build does not fetch fonts or call a font CDN.
 
 Visual direction follows the user's pond storyboard: white space, green water, natural foliage, charcoal type, and restrained brass and metal on the communication rig. Writing and visual references remain [Clear Technical English](https://hakanalpay.com/english/) and [Taste Minimalist UI](https://github.com/Leonxlnx/taste-skill/blob/main/skills/minimalist-skill/SKILL.md).
 

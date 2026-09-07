@@ -14,8 +14,8 @@ export function mountPond(container,options={}){
   let time=5,previous=0,raf=0,signalAge=20,frames=0;
   let yaw=.72,elevation=.56,targetYaw=.72,targetElevation=.56,width=1,height=1;
   let story=null,storyProgress=0;
-  const renderer=new THREE.WebGLRenderer({antialias:true,alpha:false,powerPreference:'low-power'});
-  renderer.setPixelRatio(Math.min(devicePixelRatio||1,1.65));renderer.setClearColor(0xffffff);
+  const renderer=new THREE.WebGLRenderer({antialias:true,alpha:Boolean(options.createStory),powerPreference:'low-power'});
+  renderer.setPixelRatio(Math.min(devicePixelRatio||1,1.65));renderer.setClearColor(0xffffff,options.createStory?0:1);
   renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=.98;
   renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;renderer.shadowMap.autoUpdate=false;renderer.shadowMap.needsUpdate=true;
   renderer.localClippingEnabled=true;
@@ -28,6 +28,8 @@ export function mountPond(container,options={}){
   scene.add(new THREE.HemisphereLight(0xf1f7f0,0x877454,1.35));
   const fill=new THREE.DirectionalLight(0xcbe5df,.65);fill.position.set(7,4,-5);scene.add(fill);
   const ground=new THREE.Mesh(new THREE.PlaneGeometry(200,200),new THREE.MeshBasicMaterial({color:0xffffff,toneMapped:false}));ground.rotation.x=-Math.PI/2;ground.position.y=-5.525;scene.add(ground);
+  // The story's HTML headings sit behind the transparent canvas and its silhouette.
+  ground.visible=!options.createStory;
   const shadow=new THREE.Mesh(new THREE.PlaneGeometry(200,200),new THREE.ShadowMaterial({opacity:.10}));shadow.rotation.x=-Math.PI/2;shadow.position.y=-5.520;shadow.receiveShadow=true;scene.add(shadow);
   const timeUniform={value:time};
   const materialCache=new Map();

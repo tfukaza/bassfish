@@ -80,7 +80,7 @@ export function buildHabitat({world,mesh,material,rand,timeUniform}){
   const plaqueCanvas=document.createElement('canvas');plaqueCanvas.width=1024;plaqueCanvas.height=144;
   const plaqueContext=plaqueCanvas.getContext('2d');
   plaqueContext.fillStyle='#3e4e40';plaqueContext.fillRect(0,0,1024,144);
-  plaqueContext.fillStyle='#ded9b8';plaqueContext.font='500 44px monospace';plaqueContext.textAlign='center';plaqueContext.textBaseline='middle';
+  plaqueContext.fillStyle='#ded9b8';plaqueContext.font='500 44px "Geist Mono", monospace';plaqueContext.textAlign='center';plaqueContext.textBaseline='middle';
   plaqueContext.fillText('BASSFISH / POND 002',512,75);
   const plaqueTexture=new THREE.CanvasTexture(plaqueCanvas);plaqueTexture.colorSpace=THREE.SRGBColorSpace;plaqueTexture.anisotropy=4;
   mesh(new THREE.PlaneGeometry(1.87,.254),new THREE.MeshStandardMaterial({map:plaqueTexture,roughness:.55,metalness:.15}),[2.65,plaqueY,plaqueZ+.026],world,false);

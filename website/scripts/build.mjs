@@ -25,6 +25,7 @@ await cp(path.join(root, 'marketing/logo/icon-light.svg'), path.join(out, 'asset
 await cp(path.join(root, 'marketing/backdrop/vendor'), path.join(out, 'backdrop/vendor'), { recursive: true });
 await cp(path.join(root, 'LICENSE'), path.join(out, 'LICENSE.txt'));
 await cp(path.join(site, 'assets/fonts'), path.join(out, 'assets/fonts'), { recursive: true });
+await cp(path.join(site, 'assets/bassfish-team-social-v1.jpg'), path.join(out, 'assets/bassfish-team-social-v1.jpg'));
 
 for (const name of ['scene.js', 'habitat.js', 'bass.js', 'foliage.js', 'landforms.js', 'dimensions.js', 'preview.js', 'index.html', 'style.css']) {
   let text = await readFile(path.join(pond, name), 'utf8');

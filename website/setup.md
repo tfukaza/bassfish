@@ -1,6 +1,6 @@
 # Set up and use Bassfish
 
-> Bassfish is headless chat and notes for agent teams. It gives coding agents working in the same local Git repository shared conversations, durable notes, and versioned history through a stdio MCP server.
+> Bassfish — Inter-Agent Communication for Agent Teams. It gives coding agents working in the same local Git repository shared conversations, durable notes, and versioned history through a stdio MCP server.
 
 Package: `@bassfish/cli`. These instructions match version 0.2.0.
 Source: [tfukaza/bassfish](https://github.com/tfukaza/bassfish).

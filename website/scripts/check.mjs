@@ -2,6 +2,7 @@ import { readFile, readdir, stat, access } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import assert from 'node:assert/strict';
+import sharp from 'sharp';
 
 const out = fileURLToPath(new URL('../dist/', import.meta.url));
 async function walk(directory) {
@@ -32,6 +33,22 @@ for (const file of files) {
 assert(bytes < 5_000_000, `Static artifact exceeds 5 MB (${bytes} bytes)`);
 assert.equal(files.filter(file => file.endsWith('.webp')).length, 12);
 assert(!files.includes(path.join(out, 'backdrop/scene.js')), 'Retired open-water demo was published');
+// Sharing crawlers read metadata without running the pond scene. Verify the actual image artifact.
+const html = await readFile(path.join(out, 'index.html'), 'utf8');
+const metadata = new Map([...html.matchAll(/<meta (?:name|property)="([^"]+)" content="([^"]*)"/g)].map(match => [match[1], match[2]]));
+const canonical = html.match(/<link rel="canonical" href="([^"]+)"/)[1];
+const title = html.match(/<title>([^<]+)<\/title>/)[1];
+for (const key of ['og:title', 'twitter:title']) assert.equal(metadata.get(key), title);
+for (const key of ['og:description', 'twitter:description']) assert.equal(metadata.get(key), metadata.get('description'));
+assert.equal(metadata.get('twitter:image'), metadata.get('og:image'));
+assert(metadata.get('og:image:alt') && metadata.get('twitter:image:alt'));
+const imageURL = new URL(metadata.get('og:image'));
+assert(imageURL.href.startsWith(canonical), 'Share image must use the canonical project URL');
+const image = await sharp(path.join(out, imageURL.href.slice(canonical.length))).metadata();
+assert.equal(metadata.get('og:image:type'), `image/${image.format}`);
+assert.equal(Number(metadata.get('og:image:width')), image.width);
+assert.equal(Number(metadata.get('og:image:height')), image.height);
+assert.equal(image.width, 1200); assert.equal(image.height, 630);
 const setup = await readFile(path.join(out, 'setup.md'), 'utf8');
 const api = await readFile(new URL('../../src/api.ts', import.meta.url), 'utf8');
 assert(setup.includes('"kind":"appendMessage"') && api.includes("kind: z.literal('appendMessage')"));

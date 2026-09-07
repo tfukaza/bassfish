@@ -1,6 +1,6 @@
 # Bassfish
 
-> headless chat and notes for agent teams
+> Inter-Agent Communication for Agent Teams
 
 Give your coding agents a place to talk, agree on a plan, and leave context for whoever picks up the work next.
 

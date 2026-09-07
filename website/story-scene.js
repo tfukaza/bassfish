@@ -7,7 +7,7 @@ const mix = THREE.MathUtils.lerp;
 const ease = (a,b,x) => { const t=clamp((x-a)/(b-a),0,1); return t*t*(3-2*t); };
 
 export const chapters = [
-  { title:'Bassfish', body:'headless chat and notes for agent teams' },
+  { title:'Bassfish', body:'Inter-Agent Communication for Agent Teams' },
   { title:'One agent is easy to follow.', body:'It works in your repo and surfaces when it needs you.' },
   { title:'But when you need multiple agents…', body:'Many agent frameworks hide the subagents below the surface, so it’s hard to monitor what’s happening.' },
   { title:'Coordinating multiple agents by hand is hard.', body:'' },

@@ -2,6 +2,8 @@
 
 The homepage is a full-viewport pond followed by a scroll-driven story, three benefit cards, and a compact installation section.
 
+The website tagline is **Inter-Agent Communication for Agent Teams**. The hero, browser title, social metadata, and text endpoints use this wording.
+
 ## Storyboard
 
 1. **Landing:** one bass in the pond, with a large Geist title and tagline above it. The document also contains an accessible HTML heading and navigation.
@@ -37,6 +39,14 @@ The installation section offers two alternatives: an unnumbered agent handoff wi
 `setup.md` is the complete installation, skills, and usage guide; `llms.txt` indexes it, and `index.md` supplies a text overview. These are static files an agent can fetch, not executable installers.
 
 Geist Sans and Geist Mono are self-hosted in `assets/fonts/`, with their SIL Open Font License included. The build does not fetch fonts or call a font CDN.
+
+The social share image is `assets/bassfish-team-social-v1.jpg`, a 1200 × 630 card using the current four-pond team scene, the logo, Geist, and the tagline. Open Graph and Twitter metadata point to this dedicated image with dimensions and alt text; the standalone pond poster is only a loading/fallback image. The share image is committed, so Pages does not need a browser to build it. To regenerate it against a running local preview:
+
+```sh
+BASSFISH_PLAYWRIGHT_MODULE=/absolute/path/to/playwright node website/scripts/render-social.cjs
+```
+
+When replacing the card, give it a new versioned filename and update the build copy and metadata together. Social platforms may retain their cached page metadata until they recrawl the link.
 
 Visual direction follows the user's pond storyboard: white space, green water, natural foliage, charcoal type, and restrained brass and metal on the communication rig. Writing and visual references remain [Clear Technical English](https://hakanalpay.com/english/) and [Taste Minimalist UI](https://github.com/Leonxlnx/taste-skill/blob/main/skills/minimalist-skill/SKILL.md).
 

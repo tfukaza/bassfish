@@ -1,6 +1,6 @@
 # Bassfish
 
-> Headless chat and notes for agent teams. A local stdio MCP server for coding agents working in the same Git repository and its worktrees.
+> Inter-Agent Communication for Agent Teams. A local stdio MCP server for coding agents working in the same Git repository and its worktrees.
 
 Bassfish provides shared threads, durable notes, exclusive read/write turns, and versioned history in Dolt. Install the npm package `@bassfish/cli`, run `bassfish setup`, and connect each agent host to `bassfish mcp`.
 

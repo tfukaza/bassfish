@@ -95,7 +95,7 @@ button:hover,.text-link:hover,nav a:hover,.small-link:hover {
 .landing-title h1{font-size:clamp(88px,min(11vw,16svh),164px);font-weight:500;letter-spacing:-.075em;line-height:1.04}
 .landing-title p{font-size:clamp(18px,2vw,26px);margin-top:16px;color:var(--muted);letter-spacing:-.025em}
 .story-ready #story:not([data-chapter="0"]) .landing-title{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
-.story-enhanced #story{height:720svh}
+.story-enhanced #story{height:1000svh}
 .story-enhanced .story-stage{position:sticky;top:0;height:100svh;min-height:0}
 .story-chapters{max-width:660px;margin:0 auto;padding:32px 24px 70px}
 .story-chapters section{margin:48px 0}
@@ -121,6 +121,26 @@ button:hover,.text-link:hover,nav a:hover,.small-link:hover {
 .story-controls{display:flex;gap:25px;align-items:center}
 .story-controls button,.story-controls a{padding-block:8px;min-height:32px;font-size:11px}
 #chapter-count{font:10px/1 "Geist Mono",monospace;color:#8a9584}
+.terminal-layer{position:absolute;inset:0;z-index:3;pointer-events:none}
+.story-terminal{position:absolute;display:flex;flex-direction:column;overflow:hidden;background:#1c2420;border:1px solid #354139;box-shadow:0 18px 45px -24px #14251f60;color:#e7ede5;font-family:"Geist Mono",monospace;contain:layout paint}
+.terminal-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-shrink:0;padding:13px 17px;border-bottom:1px solid #354139;background:#252f29;opacity:var(--terminal-ink,0);font-size:11px;line-height:1.2}
+.terminal-host{white-space:nowrap}
+.terminal-host:before{content:'';display:inline-block;width:6px;height:6px;border-radius:50%;background:#a6c795;margin-right:9px;vertical-align:1px}
+.terminal-agent{font-size:10px;color:#a4b59f;white-space:nowrap}
+.terminal-viewport{position:relative;flex:1;min-height:0;margin:14px 17px;overflow:hidden;opacity:var(--terminal-ink,0);mask-image:linear-gradient(transparent,#000 10px)}
+.terminal-feed{transition:transform .22s ease-out;will-change:transform}
+.terminal-line{font-size:12px;line-height:1.65;margin-bottom:8px;overflow-wrap:anywhere}
+.terminal-line:last-child{margin-bottom:0}
+.terminal-line.meta{color:#97a69b;font-size:10px}
+.terminal-line.receive{color:#b6d8a1}
+.terminal-line.note{color:#dec99b}
+.terminal-line.task{color:#e7ede5}
+.terminal-status{flex-shrink:0;font-size:9px;color:#a4b59f;padding:9px 17px;border-top:1px solid #354139;opacity:var(--terminal-ink,0)}
+.terminal-status>span{padding-inline:5px;color:#70866e}
+.benefits{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;padding-block:50px 100px}
+.benefit-card{min-width:0;padding:34px 30px 36px;background:var(--paper);border:1px solid var(--line);border-radius:9px}
+.benefit-card h2{font-size:clamp(24px,2.35vw,31px);font-weight:500;line-height:1.15;letter-spacing:-.04em;margin-bottom:24px}
+.benefit-card p{font-size:14px;color:var(--muted);line-height:1.75}
 .install.wrap{width:min(760px,calc(100% - 80px));padding-block:80px;border-top:1px solid var(--line)}
 .install-steps{list-style:none;margin:0;padding:0}
 .install-or{display:flex;align-items:center;gap:24px;margin:44px 0;font-size:clamp(36px,5vw,54px);font-weight:500;line-height:1;letter-spacing:-.05em}
@@ -296,12 +316,16 @@ button:hover,.text-link:hover,nav a:hover,.small-link:hover {
   .wrap{width:calc(100% - 40px)}
   .story-stage{min-height:500px}.story-enhanced .story-stage{min-height:0}
   .landing-title{top:9%}.landing-title h1{font-size:clamp(72px,17vw,120px)}.landing-title p{font-size:clamp(14px,3.8vw,22px);margin-top:12px}
-  .story-enhanced #story{height:670svh}
+  .story-enhanced #story{height:950svh}
   .story-navigation{left:22px;right:22px;bottom:18px;font-size:10px;gap:6px}
   .story-controls{gap:16px}.story-controls button,.story-controls a{font-size:10px}
   #scroll-cue{gap:8px}.story-controls #chapter-count{display:none}
   .chapter-heading{top:8svh;left:22px;right:22px}.chapter-heading h2{font-size:clamp(27px,min(8.8vw,5svh),56px);max-width:620px}.chapter-heading>p{font-size:clamp(16px,4vw,21px);max-width:510px;margin-top:18px}
   .fish-bubble{max-width:170px;padding:10px 12px;font-size:11px;border-radius:9px}.fish-bubble>span{font-size:8px;margin-bottom:5px}
+  .terminal-bar{display:block;padding:10px;font-size:10px}.terminal-agent{display:block;margin-top:7px;font-size:9px}.terminal-host:before{margin-right:6px;width:5px;height:5px}
+  .terminal-viewport{margin:11px 10px}.terminal-line{font-size:11px;line-height:1.6;margin-bottom:10px}.terminal-line.meta{font-size:9px}
+  .terminal-status{font-size:8px;padding:8px 10px}.terminal-status>span{padding-inline:1px}
+  .benefits{grid-template-columns:1fr;gap:14px;padding-block:28px 56px}.benefit-card{padding:28px}.benefit-card h2{font-size:28px;margin-bottom:18px}.benefit-card p{font-size:14px;max-width:540px}
   .install.wrap{width:calc(100% - 40px);padding-block:52px}
   .handoff-link{gap:12px;padding:12px}.guide-url{font-size:10px}.handoff-link button{font-size:10px}
   .step h2{font-size:21px}.step>p{font-size:12px}.step+.step{margin-top:30px;padding-top:27px}
@@ -310,4 +334,4 @@ button:hover,.text-link:hover,nav a:hover,.small-link:hover {
   .site-footer{width:calc(100% - 40px);gap:20px;font-size:10px}.site-footer>div{gap:17px;flex-wrap:wrap;justify-content:flex-end}
 }
 @media(max-height:600px) and (min-width:760px){.landing-title{top:3%}.landing-title h1{font-size:76px}.landing-title p{font-size:17px;margin-top:8px}.chapter-heading{top:20px}.chapter-heading h2{font-size:32px;max-width:820px}.chapter-heading>p{font-size:17px;margin-top:12px}.story-navigation{bottom:15px}.fish-bubble{font-size:11px;padding:8px 12px}}
-@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}.fish-bubble{transition:none}}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}.fish-bubble,.terminal-feed{transition:none}}

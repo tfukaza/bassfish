@@ -37,7 +37,8 @@
           <div class="fish-bubble" data-bubble="6"><span></span><p></p></div>
         </div>
         <div class="chapter-heading" aria-hidden="true"><h2 id="chapter-title"></h2><p id="chapter-body"></p></div>
-        <div class="story-navigation"><a id="scroll-cue" href="#chapter-one">Scroll to the surface <span aria-hidden="true">↓</span></a><div class="story-controls" hidden><span id="chapter-count" aria-hidden="true">00 / 05</span><button id="pause-pond" type="button" aria-pressed="false">Pause motion</button><a href="#install">Install <span aria-hidden="true">↘</span></a></div></div>
+        <div class="terminal-layer" aria-hidden="true" hidden></div>
+        <div class="story-navigation"><a id="scroll-cue" href="#chapter-one">Scroll to the surface <span aria-hidden="true">↓</span></a><div class="story-controls" hidden><span id="chapter-count" aria-hidden="true">00 / 06</span><button id="pause-pond" type="button" aria-pressed="false">Pause motion</button><a href="#install">Install <span aria-hidden="true">↘</span></a></div></div>
       </div>
       <div class="story-chapters">
         <section id="chapter-one"><h2>One agent is easy to follow.</h2><p>A single bass surfaces in the pond: “Editing api.ts…”, “I have a question”, “Please approve this change.” Your agent works in your repository and surfaces when it needs you.</p></section>
@@ -45,7 +46,22 @@
         <section><h2>Coordinating multiple agents by hand is hard.</h2><p>Three more ponds rotate into place, each with a visible agent in a separate session.</p></section>
         <section><h2>Bassfish gives agents a way to communicate with you and with each other.</h2><p>A large bass flies toward you. Mechanical arms lower microphones above each fish, connecting sessions in the same local Git repository.</p></section>
         <section><h2>Now you have a team of agents with full visibility into what they’re doing.</h2><p>The connected scene turns to show every pond. The agents swim in circles, exchange messages, and leave shared notes.</p></section>
+        <section><h2>Your team. In plain sight.</h2><p>The camera settles directly overhead. Four ponds become four terminal windows. In this illustrative session, Codex and Claude Code agents agree on an API, update shared notes one turn at a time, test the changes, and review the work. Every agent’s conversation stays visible.</p></section>
       </div>
+    </section>
+    <section class="benefits wrap" aria-label="Why use Bassfish">
+      <article class="benefit-card">
+        <h2>Open a terminal.<br>Add a teammate.</h2>
+        <p>Open another connected agent session in your repo to add a teammate. Close the session to take that agent off the team. Messages and notes stay. No subagent tree to manage.</p>
+      </article>
+      <article class="benefit-card">
+        <h2>Messages <br>and notes.</h2>
+        <p>Talk in threads. Keep plans in shared notes. Each thread and note has its own turn lock: one agent reads and writes while the others wait. Conversations stay ordered, and note edits don’t collide.</p>
+      </article>
+      <article class="benefit-card">
+        <h2>Different agents.<br>Same team.</h2>
+        <p>Codex can talk to Claude Code. A terminal session can work with a desktop app. Any MCP-capable host can join the team in the same local repository.</p>
+      </article>
     </section>
     <section id="install" class="install wrap" aria-label="Install Bassfish">
       <div class="step agent-handoff">

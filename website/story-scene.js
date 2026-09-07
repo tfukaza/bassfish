@@ -1,4 +1,5 @@
 import * as THREE from './backdrop/vendor/three.module.min.js';
+import { POND_SIDE } from './backdrop/pond/dimensions.js';
 
 const V = (x=0,y=0,z=0) => new THREE.Vector3(x,y,z);
 const clamp = THREE.MathUtils.clamp;
@@ -12,12 +13,13 @@ export const chapters = [
   { title:'Coordinating multiple agents by hand is hard.', body:'' },
   { title:'Bassfish gives agents a way to communicate with you and with each other.', body:'' },
   { title:'Now you have a team of agents with full visibility into what they’re doing.', body:'' },
+  { title:'Your team. In plain sight.', body:'' },
 ];
-const chapterStarts=[0,.55,1.62,2.62,3.65,4.8,5.6];
+const chapterStarts=[0,.55,1.62,2.62,3.65,4.8,5.6,8.4];
 
 // This extends the existing pond, sharing its texture maps and batched geometry.
 export function createPondStory(onFrame) {
-  return ({scene,world,camera,fishes,timeUniform,renderer,light}) => {
+  return ({scene,world,camera,fishes,timeUniform,renderer,light,shadow}) => {
     const pods=[], hiddenFish=[], arms=[], replacedMaterials=new Set();
     let lastProgress=-1, lastChapter=-1, lastViewport='', state={}, previousTime=0, orbitTime=0;
     const template=world.clone(true);
@@ -116,18 +118,27 @@ export function createPondStory(onFrame) {
 
     return {
       update({progress:p,time,width,height,paused}) {
-        const separate=ease(2.45,3.25,p), arrive=ease(3.5,4.12,p), extend=ease(3.95,4.65,p), connect=ease(4.5,4.95,p);
-        const chapter=p<.55?0:p<1.62?1:p<2.62?2:p<3.65?3:p<4.8?4:5;
+        const overhead=ease(5.6,6.45,p), morph=ease(6.7,7.6,p), retire=ease(5.6,6.25,p);
+        const separate=ease(2.45,3.25,p), arrive=ease(3.5,4.12,p), extend=ease(3.95,4.65,p)*(1-retire), connect=ease(4.5,4.95,p)*(1-retire);
+        const chapter=p<.55?0:p<1.62?1:p<2.62?2:p<3.65?3:p<4.8?4:p<5.6?5:6;
+        shadow.material.opacity=.10*(1-overhead);
         const aspect=width/height, narrow=aspect<.85;
-        const settle=ease(.25,1.0,p), view=mix(narrow?17.5/aspect:mix(26,25,settle),narrow?37.5/aspect:44,separate);
-        const sceneDrop=narrow?settle*.12:mix(.045,.105,settle);
+        const settle=ease(.25,1.0,p), gridSize=Math.min(width*.84,height*.59,720);
+        const gridView=(12.4+POND_SIDE+.42)*height/gridSize;
+        const view=mix(mix(narrow?17.5/aspect:mix(26,25,settle),narrow?37.5/aspect:44,separate),gridView,overhead);
+        const sceneDrop=mix(narrow?settle*.12:mix(.045,.105,settle),.06,overhead);
         camera.left=-view*aspect/2;camera.right=view*aspect/2;camera.top=view*(.5+sceneDrop);camera.bottom=view*(-.5+sceneDrop);camera.updateProjectionMatrix();
         // Orbit the camera so the entire connected scene turns together, including the rig.
         const dt=previousTime?clamp(time-previousTime,0,.1):0;previousTime=time;
-        if(chapter===5)orbitTime+=dt;else orbitTime=0;
+        if(chapter===5)orbitTime+=dt;else if(chapter<5)orbitTime=0;
         const orbit=ease(4.8,5.6,p)*Math.PI*2+orbitTime*.14;
-        const elevation=mix(.56,.66,separate), focus=V(0,mix(-2.1,-.6,separate),0),yaw=.72+orbit;
-        camera.position.set(Math.sin(yaw)*Math.cos(elevation)*36,Math.sin(elevation)*36+focus.y,Math.cos(yaw)*Math.cos(elevation)*36);camera.lookAt(focus);
+        // Preserve the incoming orbit, then take the shortest turn to the fixed overhead frame.
+        const incomingYaw=.72+orbit, yaw=incomingYaw-Math.atan2(Math.sin(incomingYaw),Math.cos(incomingYaw))*overhead;
+        const elevation=mix(mix(.56,.66,separate),Math.PI/2,overhead), focus=V(0,mix(mix(-2.1,-.6,separate),0,overhead),0);
+        camera.up.set(0,1,0);
+        camera.position.set(Math.sin(yaw)*Math.cos(elevation)*36,Math.sin(elevation)*36+focus.y,Math.cos(yaw)*Math.cos(elevation)*36);
+        if(overhead===1){camera.position.set(0,36,0);camera.up.set(0,0,-1);}
+        camera.lookAt(focus);
         camera.updateMatrixWorld();
         const bubbles=[];
         for(let i=0;i<4;i++) {
@@ -162,7 +173,8 @@ export function createPondStory(onFrame) {
           fish.updateWorldMatrix(true,false);
           bubbles.push({...projected(fish.getWorldPosition(V()).add(V(0,.55,0))),text:'doing something',visible:chapter===2&&reveal>.25,agent:'',subagent:true});
         });
-        carrier.visible=arrive>.001;flight.getPoint(arrive,carrier.position);carrier.position.y+=Math.sin(time*.8)*.12;
+        carrier.visible=arrive>.001&&retire<1;flight.getPoint(arrive,carrier.position);carrier.position.y+=Math.sin(time*.8)*.12+retire*22;
+        carrier.scale.setScalar(1-retire*.65);
         const forward=flight.getTangent(arrive).normalize(), right=V().crossVectors(forward,Y).normalize(), up=V().crossVectors(right,forward);
         carrier.quaternion.setFromRotationMatrix(flightBasis.makeBasis(forward,up,right));
         carrier.rotateX(Math.sin(arrive*Math.PI*2)*.12*(1-arrive));
@@ -173,7 +185,7 @@ export function createPondStory(onFrame) {
         }
         carrier.updateMatrixWorld(true);
         for(let i=0;i<4;i++) {
-          const arm=arms[i];arm.root.visible=arrive>.001;
+          const arm=arms[i];arm.root.visible=carrier.visible;
           const sideX=Math.sign(centers[i].x),sideZ=Math.sign(centers[i].z);
           const strap=harness[sideX<0?0:1];
           const start=strap.root.localToWorld(V(0,-strap.height+.10,sideZ*(strap.depth+.15)));
@@ -182,7 +194,7 @@ export function createPondStory(onFrame) {
           const folded=start.clone().add(V(0,-.4,0));
           const elbow=folded.clone().lerp(V(sideX*7.1,6.25,sideZ*6.4),extend);
           const wrist=folded.clone().lerp(end.clone().add(V(0,2.1,0)),extend);
-          const microphone=wrist.clone().lerp(end,ease(4.20,4.70,p));
+          const microphone=wrist.clone().lerp(end,ease(4.20,4.70,p)*(1-retire));
           segment(arm.upper,start,elbow,.13);segment(arm.lower,elbow,wrist,.075);segment(arm.cable,wrist,microphone,.027);
           [start,elbow,wrist].forEach((point,j)=>arm.joints[j].position.copy(point));arm.mic.position.copy(microphone);
           arm.lamp.visible=connect>.1;
@@ -194,12 +206,18 @@ export function createPondStory(onFrame) {
         if(Math.abs(p-lastProgress)>.001||lastViewport!==`${width}/${height}`)renderer.shadowMap.needsUpdate=true;
         lastProgress=p;lastViewport=`${width}/${height}`;
         const textEnter=ease(chapterStarts[chapter],chapterStarts[chapter]+.32,p);
-        const textExit=chapter===5?0:ease(chapterStarts[chapter+1]-.18,chapterStarts[chapter+1],p);
+        const textExit=chapter===6?0:ease(chapterStarts[chapter+1]-.18,chapterStarts[chapter+1],p);
         const textY=(1-textEnter)*height*.48-textExit*height*.16;
-        state={chapter,progress:p,ponds:pods.filter(pod=>pod.group.visible).length,hiddenAgents:hiddenFish.filter(fish=>fish.visible).length,leadFishY:pods[0].fish.position.y,leadFishPosition:pods[0].fish.position.toArray(),carrier:carrier.visible,carrierPosition:carrier.position.toArray(),carrierForward:forward.toArray(),microphones:extend>.95?4:0,connected:connect>.9,orbit,sceneDrop,textY,carrierNose:projected(giant.localToWorld(V(1.12,0,0))),carrierTail:projected(giant.localToWorld(V(-1.92,0,0))),pondPoses:pods.map(pod=>({rotation:pod.group.rotation.y,...projected(pod.group.position)}))};
-        onFrame?.({...state,bubbles,textOpacity:1-textExit,heroOpacity:1-ease(.10,.52,p),heroY:-height*.16*ease(.10,.55,p),chapterChanged:chapter!==lastChapter,narrow});lastChapter=chapter;
+        const half=(POND_SIDE+.42)/2;
+        const pondRects=pods.map(pod=>{
+          const a=projected(pod.group.position.clone().add(V(-half,0,-half))),b=projected(pod.group.position.clone().add(V(half,0,half)));
+          return {x:a.x*width,y:a.y*height,width:(b.x-a.x)*width,height:(b.y-a.y)*height};
+        });
+        state={chapter,progress:p,overhead,morph,pondRects,cameraDirection:camera.getWorldDirection(V()).toArray(),cameraQuaternion:camera.quaternion.toArray(),ponds:pods.filter(pod=>pod.group.visible).length,hiddenAgents:hiddenFish.filter(fish=>fish.visible).length,leadFishY:pods[0].fish.position.y,leadFishPosition:pods[0].fish.position.toArray(),carrier:carrier.visible,carrierPosition:carrier.position.toArray(),carrierForward:forward.toArray(),microphones:extend>.95?4:0,connected:connect>.9,orbit,sceneDrop,textY,carrierNose:projected(giant.localToWorld(V(1.12,0,0))),carrierTail:projected(giant.localToWorld(V(-1.92,0,0))),pondPoses:pods.map(pod=>({rotation:pod.group.rotation.y,...projected(pod.group.position)}))};
+        onFrame?.({...state,time,width,height,paused,bubbles,textOpacity:1-textExit,heroOpacity:1-ease(.10,.52,p),heroY:-height*.16*ease(.10,.55,p),chapterChanged:chapter!==lastChapter,narrow});lastChapter=chapter;
       },
       getStats:()=>state,
+      shouldRender:()=>state.morph!==1,
       dispose:()=>replacedMaterials.forEach(material=>material.dispose()),
     };
   };

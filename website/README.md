@@ -1,6 +1,6 @@
 # Bassfish website
 
-The homepage is a full-viewport pond followed by a scroll-driven story and a compact installation section.
+The homepage is a full-viewport pond followed by a scroll-driven story, three benefit cards, and a compact installation section.
 
 ## Storyboard
 
@@ -10,6 +10,21 @@ The homepage is a full-viewport pond followed by a scroll-driven story and a com
 4. **Separate sessions:** the camera pulls back as three more ponds rotate into place. The original pond sits at the bottom. The other ponds face outward at quarter-turn offsets. Each pond has one visible agent; their conversations are separate.
 5. **Bassfish arrives:** a larger bass swims along an S-shaped approach, turning and banking with the curve before settling above the ponds, facing down and right toward the camera. Two oval harness straps fit its cross-sections and follow the same body frame and lateral bend. Their mounts carry four articulated arms, which unfold and lower microphones above the fish.
 6. **Shared context:** signals travel along the arms. Agents exchange API, client, test, and review messages through Bassfish. The whole connected scene turns through a full revolution as the visitor scrolls, then continues a slow ambient orbit. Every surfaced agent swims in a circle.
+7. **The real workflow:** the rig retracts and lifts away. The camera takes the shortest turn from its current orbit to a straight overhead view, then locks. The four square ponds hold in a grid before their projected footprints become four HTML terminal windows. An illustrative, synchronized conversation scrolls through the terminals. The sticky stage then leaves naturally, followed by the benefit cards and installation.
+
+### Final transition timing
+
+The shared scroll range ends at `8.4`. Existing chapters retain their timing through `5.6`.
+
+| Progress | Composition |
+| --- | --- |
+| 5.6–6.45 | Retract the rig; settle the camera directly overhead without a sudden change in rotation. |
+| 6.45–6.7 | Hold four square ponds in a fixed grid. |
+| 6.7–7.6 | Crossfade the pond surfaces into terminals, expanding from their exact projected footprints into a readable 2×2 layout. |
+| 6.92–8.3 | Reveal one shared conversation across all four sessions; longer output scrolls within each window. |
+| 8.4 onward | Release the sticky stage into ordinary document flow. |
+
+The terminal conversation is driven by scroll position, including when reversing. It never contacts an agent, runs commands, or announces each decorative log line to assistive technology. Reduced motion switches directly to complete overhead and terminal poses. The three cards cover connected session membership, per-thread/per-note turn locks, and interoperability between MCP hosts in the same local repository. They remain visible without JavaScript or WebGL.
 
 The four ponds represent agent sessions in the same local Git repository, not networked machines. The story is an illustration of the product, not a recording of live tool traffic.
 

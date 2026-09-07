@@ -14,7 +14,7 @@ if (!['http:', 'https:'].includes(siteURL.protocol) || siteURL.search || siteURL
 await rm(out, { recursive: true, force: true });
 await mkdir(path.join(out, 'assets'), { recursive: true });
 await mkdir(path.join(out, 'backdrop/pond'), { recursive: true });
-for (const name of ['index.html', 'style.css', 'main.js', 'story-scene.js', 'setup.md', 'llms.txt', 'index.md']) {
+for (const name of ['index.html', 'style.css', 'main.js', 'story-scene.js', 'story-timing.js', 'terminal-story.js', 'setup.md', 'llms.txt', 'index.md']) {
   const source = await readFile(path.join(site, name), 'utf8');
   const text = source.replaceAll('{{SITE_URL}}', siteURL.href).replaceAll('{{SITE_HOST_PATH}}', `${siteURL.host}${siteURL.pathname}`);
   await writeFile(path.join(out, name), text);

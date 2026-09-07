@@ -1,3 +1,6 @@
+import { STORY_END, stillProgress } from './story-timing.js';
+import { createTerminalStory } from './terminal-story.js';
+
 const status = document.querySelector('#copy-status');
 let statusTimer;
 function announce(message) {
@@ -62,6 +65,8 @@ const storySection=document.querySelector('#story'), container=document.querySel
 const controls=document.querySelector('.story-controls'), pause=document.querySelector('#pause-pond');
 const bodyCopy=document.querySelector('#chapter-body'), chapterTitle=document.querySelector('#chapter-title'), count=document.querySelector('#chapter-count');
 const heading=document.querySelector('.chapter-heading'), landing=document.querySelector('.landing-title');
+const terminalLayer=document.querySelector('.terminal-layer'), updateTerminals=createTerminalStory(terminalLayer,container);
+storySection.dataset.end=String(STORY_END);
 const bubbles=[...document.querySelectorAll('.fish-bubble')];
 const leaders=document.createElementNS('http://www.w3.org/2000/svg','svg');
 leaders.classList.add('bubble-leaders');
@@ -75,9 +80,8 @@ document.body.classList.add('story-enhanced');
 function updateScroll() {
   scrollFrame=0;
   const rect=storySection.getBoundingClientRect();
-  currentProgress=Math.max(0,Math.min(5.6,-rect.top/(storySection.offsetHeight-innerHeight)*5.6));
-  const snapped=[0,1.1,2.1,3.25,4.5,5.25][Math.min(5,Math.floor(currentProgress+.4))];
-  pond?.setStoryProgress(motion.matches?snapped:currentProgress);
+  currentProgress=Math.max(0,Math.min(STORY_END,-rect.top/(storySection.offsetHeight-innerHeight)*STORY_END));
+  pond?.setStoryProgress(motion.matches?stillProgress(currentProgress):currentProgress);
 }
 function scheduleScroll() { if(!scrollFrame)scrollFrame=requestAnimationFrame(updateScroll); }
 addEventListener('scroll',scheduleScroll,{passive:true});
@@ -92,7 +96,7 @@ motion.addEventListener('change',scheduleScroll);
 document.querySelector('#scroll-cue').addEventListener('click',event=>{
   if(!pond)return;
   event.preventDefault();
-  window.scrollTo({top:storySection.offsetTop+(storySection.offsetHeight-innerHeight)*.92/5.6,behavior:motion.matches?'instant':'smooth'});
+  window.scrollTo({top:storySection.offsetTop+(storySection.offsetHeight-innerHeight)*.92/STORY_END,behavior:motion.matches?'instant':'smooth'});
 });
 for(const link of document.querySelectorAll('a[href="#install"]'))link.addEventListener('click',event=>{
   event.preventDefault();const target=document.querySelector('#install');
@@ -115,7 +119,7 @@ async function loadStory() {
     await document.fonts.ready;
     if(disposed)return;
     pond=mountPond(container,{
-      paused:userPaused||offscreen,pixelRatio:1.35,
+      paused:userPaused||offscreen,pixelRatio:1.35,storyEnd:STORY_END,
       createStory:createPondStory(frame=>{
         if(frame.chapter!==currentChapter) {
           currentChapter=frame.chapter;
@@ -123,12 +127,13 @@ async function loadStory() {
           chapterTitle.textContent=frame.chapter?chapters[frame.chapter].title:'';
           bodyCopy.textContent=frame.chapter?chapters[frame.chapter].body:'';
           bodyCopy.hidden=!bodyCopy.textContent;
-          count.textContent=`0${frame.chapter} / 05`;
+          count.textContent=`0${frame.chapter} / 06`;
         }
         heading.style.transform=`translateY(${motion.matches?0:frame.textY}px)`;
         heading.style.opacity=motion.matches?'1':String(frame.textOpacity);
         landing.style.transform=`translateY(${motion.matches?0:frame.heroY}px)`;
         landing.style.opacity=motion.matches?'1':String(frame.heroOpacity);
+        updateTerminals(frame);
         const placed=[];
         for(let i=0;i<bubbles.length;i++) {
           const bubble=bubbles[i],data=frame.bubbles[i];
@@ -165,6 +170,7 @@ async function loadStory() {
     updateScroll();
   } catch {
     pond?.dispose();pond=undefined;controls.hidden=true;observer.disconnect();
+    terminalLayer.hidden=true;container.style.opacity='1';
     document.body.classList.remove('story-enhanced','story-ready');container.dataset.ready='fallback';
   }
 }

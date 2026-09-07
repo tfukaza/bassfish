@@ -89,7 +89,9 @@ export function mountPond(container,options={}){
     });
     habitat.update(time,signalAge);
     story?.update({progress:storyProgress,time,width,height,paused});
-    renderer.render(scene,camera);frames++;
+    // Once the HTML terminals cover the scene, scroll still updates state without GPU work.
+    if(story?.shouldRender?.()!==false)renderer.render(scene,camera);
+    frames++;
   }
   function resize(){
     width=Math.max(1,container.clientWidth);height=Math.max(1,container.clientHeight);
@@ -118,10 +120,10 @@ export function mountPond(container,options={}){
   document.addEventListener('visibilitychange',onVisibility);motion.addEventListener('change',onMotion);renderer.domElement.addEventListener('webglcontextlost',onContextLost);
   const observer=new ResizeObserver(resize);observer.observe(container);resize();raf=requestAnimationFrame(tick);
   return {
-    ready:Promise.all([habitat.ready,bass.ready]).then(()=>{if(!disposed){texturesReady=true;habitat.update(time,signalAge);story=options.createStory?.({scene,world,camera,fishes,timeUniform,renderer,light});draw();renderer.domElement.style.opacity='1';}}),
+    ready:Promise.all([habitat.ready,bass.ready]).then(()=>{if(!disposed){texturesReady=true;habitat.update(time,signalAge);story=options.createStory?.({scene,world,camera,fishes,timeUniform,renderer,light,shadow});draw();renderer.domElement.style.opacity='1';}}),
     get paused(){return paused;},get reducedMotion(){return reducedMotion;},
     setPaused(value){paused=Boolean(value);previous=0;draw();},signal,
-    setStoryProgress(value){storyProgress=clamp(value,0,5.8);if(!disposed)draw();},
+    setStoryProgress(value){storyProgress=clamp(value,0,options.storyEnd??5.8);if(!disposed)draw();},
     resetView(){targetYaw=.72;targetElevation=.56;draw();},
     getStats(){return {frames,time,signalAge,paused,width,height,yaw,elevation,texturesReady,...habitat.getStats(),...bass.getStats(),...story?.getStats(),drawCalls:renderer.info.render.calls,triangles:renderer.info.render.triangles,threeRevision:THREE.REVISION};},
     dispose(){

@@ -18,6 +18,8 @@ Open the [gallery](index.html) to preview one asset at a time. The [art directio
 | Chat exchange loop | [Scene generator](scripts/artwork.mjs), seconds 6–14 | [8-second GIF](video/chat-exchange.gif) |
 | Film text | [Transcript](video/transcript.md) | [Captions](video/captions.vtt) |
 | Copy | [Tagline and launch post](launch-copy.md) | Markdown |
+| Underwater backdrop | [Interactive Three.js scene](backdrop/index.html), [integration guide](backdrop/README.md) | [Static fallback](backdrop/poster.jpg) |
+| Pond backdrop | [Isometric cutaway](backdrop/pond/index.html), [integration guide](backdrop/pond/README.md) | [Static fallback](backdrop/pond/poster.jpg) |
 
 Use the light logo on light backgrounds and the dark logo on dark backgrounds. SVG text uses Helvetica Neue, with Helvetica and Arial fallbacks. Use PNG or MP4 when the output needs to look the same on systems without those fonts. Use “Bassfish” as alt text for a linked logo. The root README and gallery include descriptions for the other images.
 

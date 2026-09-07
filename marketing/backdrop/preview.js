@@ -36,6 +36,10 @@ try {
   addEventListener('pagehide', () => ocean.dispose(), { once: true });
 } catch (error) {
   console.error('Bassfish backdrop:', error);
+  const container = document.querySelector('#ocean');
+  container.style.backgroundImage = 'url("' + new URL('./poster.jpg', import.meta.url).href + '")';
+  container.style.backgroundSize = 'cover';
+  container.style.backgroundPosition = 'center';
   fallback.hidden = false;
   document.querySelectorAll('button').forEach(button => { button.disabled = true; });
 }

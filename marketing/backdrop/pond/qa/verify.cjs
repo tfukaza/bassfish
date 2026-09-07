@@ -1,0 +1,105 @@
+const {chromium}=require(process.env.BASSFISH_PLAYWRIGHT_MODULE||'playwright');
+const fs=require('node:fs/promises');
+const path=require('node:path');
+const assert=require('node:assert/strict');
+
+(async()=>{
+  const browser=await chromium.launch({headless:true});
+  const page=await browser.newPage({viewport:{width:1440,height:1000},deviceScaleFactor:1});
+  const errors=[],checks=[];
+  page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});
+  page.on('pageerror',e=>errors.push(e.message));
+  page.on('response',r=>{if(r.status()>=400)errors.push(`${r.status()} ${r.url()}`);});
+  const base=process.env.BASSFISH_POND_URL||'http://127.0.0.1:8080/backdrop/pond/';
+  const stats=()=>page.evaluate(()=>window.bassfishPond.getStats());
+  const check=(label,condition)=>{assert.ok(condition,label);checks.push(label);};
+  try{
+    await page.goto(base);await page.waitForFunction(()=>window.bassfishPond?.getStats().frames>4);
+    check('Three.js pond renders', (await stats()).threeRevision==='180'&&(await stats()).triangles>0);
+    check('Generated terrain, rock, and foliage textures are ready',(await stats()).texturesReady&&(await stats()).terrainTextures===4&&(await stats()).texturedRocks>0&&(await stats()).foliageTextures===6);
+    check('Both swimming bass use the generated body and fin textures',(await stats()).texturesReady&&(await stats()).texturedBass===2&&(await stats()).fishTextures===2);
+    check('Fuller bank planting uses billboards and lily leaves stay flat',(await stats()).groundPlants===32&&(await stats()).billboards===39&&(await stats()).lilyPads===5);
+    const alphaChecks=await page.evaluate(async()=>{
+      const names=['bank-grass','bank-shrub','bank-flowers','water-plants','cattails','lily-pad'];
+      return Promise.all(names.map(async name=>{
+        const blob=await (await fetch(`./foliage/${name}-v2.png`)).blob(),image=await createImageBitmap(blob);
+        const canvas=document.createElement('canvas');canvas.width=64;canvas.height=64;
+        const context=canvas.getContext('2d');context.drawImage(image,0,0,64,64);
+        const data=context.getImageData(0,0,64,64).data;let clear=0,solid=0;
+        for(let i=3;i<data.length;i+=4){if(data[i]<4)clear++;if(data[i]>128)solid++;}
+        image.close();return clear>500&&solid>200;
+      }));
+    });
+    check('All six foliage images have real cutout alpha',alphaChecks.every(Boolean));
+    check('Static geometry is batched', (await stats()).drawCalls<180);
+    await page.getByRole('button',{name:'Pause animation',exact:true}).click();
+    const frozen=(await stats()).time;await page.waitForTimeout(200);
+    check('Pause stops simulation time',(await stats()).time===frozen);
+    await page.getByRole('button',{name:'Send a signal',exact:true}).click();
+    check('Signal appears while paused',(await stats()).signalAge===.5);
+    await page.screenshot({path:path.join(__dirname,'signal.png')});
+    await page.mouse.move(760,460);await page.mouse.down();await page.mouse.move(950,520,{steps:8});await page.mouse.up();
+    check('Drag changes camera angle',Math.abs((await stats()).yaw-.72)>.2);
+    await page.screenshot({path:path.join(__dirname,'rotated.png')});
+    await page.getByRole('button',{name:'Reset view',exact:true}).click();
+    const reset=await stats();
+    check('Reset restores isometric view',reset.yaw===.72&&reset.elevation===.56);
+    await page.getByRole('button',{name:'Play animation',exact:true}).click();
+    await page.waitForFunction(t=>window.bassfishPond.getStats().time>t,frozen);
+    check('Playback resumes',!(await stats()).paused);
+    await page.screenshot({path:path.join(__dirname,'desktop.png')});
+    for(const width of [390,760,1920]){
+      await page.setViewportSize({width,height:width===1920?1080:844});
+      await page.waitForFunction(w=>window.bassfishPond.getStats().width===w,width);
+      check(`Layout fits at ${width}px`,await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+      if(width===390)await page.screenshot({path:path.join(__dirname,'mobile.png')});
+    }
+    await page.emulateMedia({reducedMotion:'reduce'});
+    await page.waitForFunction(()=>window.bassfishPond.paused);
+    check('Changing motion preference pauses animation',(await stats()).paused);
+    check('Pause control reflects motion preference',await page.getByRole('button',{name:'Play animation',exact:true}).isVisible());
+    await page.reload();await page.waitForFunction(()=>!!window.bassfishPond);
+    check('Reduced-motion load is paused',(await stats()).paused);
+    await page.goto(base+'?embed');await page.waitForFunction(()=>!!window.bassfishPond);
+    check('Embed hides preview text and controls',!(await page.locator('.chrome').isVisible()));
+    await page.screenshot({path:path.join(__dirname,'..','poster.jpg'),type:'jpeg',quality:90});
+    const rendererStats=await stats();
+    await page.evaluate(()=>window.bassfishPond.dispose());
+    const count=(await stats()).frames;await page.waitForTimeout(200);
+    check('Dispose removes canvas and stops drawing',await page.locator('canvas').count()===0&&(await stats()).frames===count);
+    const fallback=await browser.newPage();
+    await fallback.addInitScript(()=>{const original=HTMLCanvasElement.prototype.getContext;HTMLCanvasElement.prototype.getContext=function(type,...args){return type==='webgl2'?null:original.call(this,type,...args);};});
+    await fallback.goto(base);
+    await fallback.waitForFunction(()=>!document.querySelector('#fallback').hidden);
+    check('WebGL failure shows the still fallback',await fallback.locator('#fallback').isVisible());
+    await fallback.close();
+    const failedTexture=await browser.newPage();
+    await failedTexture.route('**/textures/grass-albedo-v2.png',route=>route.abort());
+    await failedTexture.goto(base);
+    await failedTexture.waitForFunction(()=>!document.querySelector('#fallback').hidden);
+    check('Texture failure keeps the poster and disposes the canvas',await failedTexture.locator('canvas').count()===0);
+    await failedTexture.close();
+    const failedRock=await browser.newPage();
+    await failedRock.route('**/textures/rock-albedo-v1.png',route=>route.abort());
+    await failedRock.goto(base);
+    await failedRock.waitForFunction(()=>!document.querySelector('#fallback').hidden);
+    check('Rock texture failure retains the poster and disposes the canvas',await failedRock.locator('canvas').count()===0);
+    await failedRock.close();
+    const failedFoliage=await browser.newPage();
+    await failedFoliage.route('**/foliage/cattails-v2.png',route=>route.abort());
+    await failedFoliage.goto(base);
+    await failedFoliage.waitForFunction(()=>!document.querySelector('#fallback').hidden);
+    check('Foliage load failure retains the poster and disposes the canvas',await failedFoliage.locator('canvas').count()===0);
+    await failedFoliage.close();
+    const failedFish=await browser.newPage();
+    await failedFish.route('**/fish/bass-body-v2.png',route=>route.abort());
+    await failedFish.goto(base);
+    await failedFish.waitForFunction(()=>!document.querySelector('#fallback').hidden);
+    check('Fish texture load failure retains the poster and disposes the canvas',await failedFish.locator('canvas').count()===0);
+    await failedFish.close();
+    check('No shader, JavaScript, or missing-resource errors',errors.length===0);
+    const result={checks,errors,rendererStats};
+    await fs.writeFile(path.join(__dirname,'checks.json'),JSON.stringify(result,null,2));
+    console.log(JSON.stringify(result,null,2));
+  }finally{await browser.close();}
+})().catch(e=>{console.error(e);process.exitCode=1;});

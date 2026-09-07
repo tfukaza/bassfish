@@ -11,7 +11,7 @@ float noise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(ha
 
 // A lathed body with a broad head, narrow caudal peduncle, and separate fins.
 // Everything is authored here; there are no model or texture downloads.
-function bassGeometry() {
+function bassGeometry(rings=76,sides=40) {
   const profiles = [
     [-2.35,.13,.085,-.02],[-2.05,.23,.14,-.01],[-1.65,.43,.25,.015],
     [-1.1,.65,.36,.03],[-.45,.81,.43,.04],[.2,.82,.46,.04],
@@ -19,7 +19,6 @@ function bassGeometry() {
   ];
   const curve = new THREE.CatmullRomCurve3(profiles.map(p=>new THREE.Vector3(p[0],p[1],p[2])));
   const positions=[],uvs=[],indices=[];
-  const rings=76,sides=40;
   for(let i=0;i<=rings;i++) {
     const u=i/rings,p=curve.getPoint(u);
     for(let j=0;j<=sides;j++) {
@@ -58,9 +57,15 @@ void main(){
   vUv=uv;vLocal=position;
   vec3 p=position;
   float tail=1.-smoothstep(-2.7,.7,p.x);
-  p.z+=sin(p.x*1.8-uTime*2.8+uPhase)*.23*tail*tail;
-  vNormal=normalize(mat3(modelMatrix)*normal);
-  vWorld=(modelMatrix*vec4(p,1.)).xyz;
+  float phase=uPhase;
+  mat4 objectMatrix=modelMatrix;
+  #ifdef USE_INSTANCING
+    objectMatrix=modelMatrix*instanceMatrix;
+    phase+=instanceMatrix[3].z;
+  #endif
+  p.z+=sin(p.x*1.8-uTime*2.8+phase)*.23*tail*tail;
+  vNormal=normalize(mat3(objectMatrix)*normal);
+  vWorld=(objectMatrix*vec4(p,1.)).xyz;
   gl_Position=projectionMatrix*viewMatrix*vec4(vWorld,1.);
 }`;
 
@@ -74,29 +79,32 @@ void main(){
   float rim=pow(1.-abs(dot(n,view)),3.3);
   float light=max(0.,dot(n,normalize(vec3(-.5,1.4,1.6))));
   float belly=1.-smoothstep(-.55,.45,vLocal.y);
-  vec3 base=mix(vec3(.065,.20,.17),vec3(.47,.56,.42),belly*.85);
+  vec3 base=mix(vec3(.019,.079,.063),vec3(.34,.41,.30),belly*.85);
   base=mix(base,vec3(.12,.20,.28)+belly*vec3(.3,.35,.38),uMoon*.75);
-  float lateral=exp(-pow((vLocal.y+.045)/.13,2.))*smoothstep(1.5,.3,vLocal.x);
-  base*=1.-lateral*(.35+.3*noise(vLocal.xy*13.));
+  float lateral=exp(-pow((vLocal.y+.045)/.13,2.))*(1.-smoothstep(.3,1.5,vLocal.x));
+  base*=1.-lateral*(.5+.35*noise(vLocal.xy*13.));
+  base*=.84+.16*noise(vLocal.xy*9.);
   vec2 cells=vec2(vUv.x*66.,vUv.y*34.);
   cells.x+=mod(floor(cells.y),2.)*.5;
   vec2 f=fract(cells)-.5;
   float scale=pow(max(0.,1.-length(f*vec2(1.,1.4))*1.6),3.);
-  float scaleEdge=smoothstep(.04,0.,abs(length(f*vec2(1.,1.25))-.46));
+  float scaleEdge=1.-smoothstep(0.,.04,abs(length(f*vec2(1.,1.25))-.46));
   float spec=pow(max(dot(reflect(-normalize(vec3(-.6,1.3,2.)),n),view),0.),38.);
   vec3 color=base*(.22+light*.8)+vec3(.36,.70,.6)*scale*.07*light;
-  color+=scaleEdge*.032+vec3(.61,.85,.73)*spec*.85+vec3(.21,.64,.58)*rim*.48;
+  color+=scaleEdge*.012+vec3(.61,.85,.73)*spec*.45+vec3(.21,.64,.58)*rim*.28;
   // Occasional narrow scan band follows the body; it never replaces the silhouette.
   float scan=exp(-pow((vLocal.x-(mod(uTime*.34,8.)-4.))/.11,2.));
-  color+=vec3(.16,.65,.53)*scan*.45;
+  vec2 wire=abs(fract(vUv*vec2(38.,20.))-.5);
+  float trace=1.-smoothstep(.01,.035,min(wire.x,wire.y));
+  color+=vec3(.10,.55,.39)*scan*(.13+trace*.55);
   color+=vec3(.25,.85,.69)*uSignal*.13;
   if(uFin>.5){
     float ray=pow(.5+.5*cos(vUv.x*100.),12.);
-    color=mix(vec3(.06,.23,.20),vec3(.28,.52,.40),light*.6)+ray*.09+rim*vec3(.08,.22,.18);
+    color=mix(vec3(.014,.061,.046),vec3(.09,.20,.13),light*.6)+ray*.018+rim*vec3(.035,.08,.06);
   }
   float depth=length(cameraPosition-vWorld);
-  color=mix(color,mix(vec3(.012,.061,.068),vec3(.018,.036,.074),uMoon),1.-exp(-depth*.022));
-  gl_FragColor=vec4(color,uFin>.5?.78:1.);
+  color=mix(color,mix(vec3(.004,.018,.019),vec3(.006,.013,.027),uMoon),1.-exp(-max(0.,depth-9.)*.078));
+  gl_FragColor=vec4(color,uFin>.5?.55:1.);
 }`;
 
 export function mountBassfishBackdrop(container, options={}) {
@@ -111,6 +119,7 @@ export function mountBassfishBackdrop(container, options={}) {
   renderer.setPixelRatio(1);
   renderer.outputColorSpace=THREE.LinearSRGBColorSpace;
   renderer.setClearColor(0x04171b,1);
+  renderer.info.autoReset=false;
   renderer.domElement.setAttribute('aria-hidden','true');
   container.appendChild(renderer.domElement);
   const scene=new THREE.Scene();
@@ -143,7 +152,7 @@ export function mountBassfishBackdrop(container, options={}) {
       col+=surface*vec3(.08,.18,.16);
       float haze=noise(vec2(p.x*4.+uTime*.015,p.y*5.))*.018;
       col+=haze*vec3(.24,.6,.55);
-      gl_FragColor=vec4(col,1.);
+      gl_FragColor=vec4(col*.26,1.);
     }`});
   background.add(new THREE.Mesh(plane,bgMat));
 
@@ -168,21 +177,21 @@ export function mountBassfishBackdrop(container, options={}) {
       col+=caustic*vec3(.05,.12,.10)*exp(-d*.055)*.7;
       vec2 g=abs(fract(p*.42-.5)-.5)/max(fwidth(p*.42),vec2(.001));
       float grid=1.-min(min(g.x,g.y),1.);
-      col+=grid*vec3(.025,.065,.058)*exp(-d*.085);
+      col+=grid*vec3(.025,.065,.058)*exp(-d*.085)*.35;
       float radius=uPulseAge*3.6;
       float ring=exp(-pow((length(p-uPulseOrigin)-radius)/.09,2.))*exp(-uPulseAge*.65);
       col+=ring*vec3(.18,.6,.47);
       float fog=1.-exp(-length(cameraPosition-vP)*.042);
       col=mix(col,mix(vec3(.015,.066,.071),vec3(.02,.036,.071),uMoon),fog);
-      gl_FragColor=vec4(col,1.);
+      gl_FragColor=vec4(col*.29,1.);
     }`});
   scene.add(new THREE.Mesh(floorGeometry,floorMat));
 
   const bodyGeo=bassGeometry();
   const fins=[
     finGeometry([[-2.2,.13,0],[-3.05,.82,0],[-3.,.44,0],[-2.8,0,0],[-3.,-.45,0],[-3.05,-.78,0],[-2.2,-.13,0]],[-2.28,0,0]),
-    finGeometry([[.6,.69,0],[.36,1.15,0],[.13,.99,0],[-.07,1.36,0],[-.3,1.14,0],[-.53,1.4,0],[-.77,1.14,0],[-1.,1.24,0],[-1.25,.9,0],[-1.4,.61,0]],[-.35,.7,0]),
-    finGeometry([[-1.1,.62,0],[-1.46,1.05,0],[-1.83,.99,0],[-2.1,.33,0]],[-1.7,.4,0]),
+    finGeometry([[.6,.69,0],[.36,1.02,0],[.19,.9,0],[.03,1.15,0],[-.16,1.0,0],[-.36,1.22,0],[-.52,1.04,0],[-.7,1.17,0],[-.9,.96,0],[-1.1,.7,0]],[-.25,.72,0]),
+    finGeometry([[-.95,.67,0],[-1.21,1.04,0],[-1.52,1.08,0],[-1.77,.89,0],[-2.05,.33,0]],[-1.55,.44,0]),
     finGeometry([[-1.0,-.61,0],[-1.39,-1.03,0],[-1.87,-.85,0],[-1.93,-.29,0]],[-1.43,-.39,0]),
     finGeometry([[.6,-.22,.39],[.2,-.54,.88],[-.42,-.53,.75],[-.04,-.29,.41]],[.55,-.21,.4]),
     finGeometry([[.6,-.22,-.39],[.2,-.54,-.88],[-.42,-.53,-.75],[-.04,-.29,-.41]],[.55,-.21,-.4]),
@@ -205,7 +214,7 @@ export function mountBassfishBackdrop(container, options={}) {
         shine.position.copy(pupil.position);shine.position.y+=.02;shine.position.x-=.012;shine.position.z+=.017*side;fish.add(shine);
         const curve=new THREE.CatmullRomCurve3([new THREE.Vector3(.62,.59,.22*side),new THREE.Vector3(.36,.32,.416*side),new THREE.Vector3(.32,-.16,.46*side),new THREE.Vector3(.56,-.55,.29*side)]);
         fish.add(new THREE.Mesh(new THREE.TubeGeometry(curve,30,.012,5,false),new THREE.MeshBasicMaterial({color:0x244d43})));
-        const lip=new THREE.CatmullRomCurve3([new THREE.Vector3(1.73,-.075,.16*side),new THREE.Vector3(1.42,-.22,.255*side),new THREE.Vector3(1.04,-.12,.355*side)]);
+        const lip=new THREE.CatmullRomCurve3([new THREE.Vector3(1.73,-.075,.16*side),new THREE.Vector3(1.45,-.18,.255*side),new THREE.Vector3(1.1,-.29,.35*side)]);
         fish.add(new THREE.Mesh(new THREE.TubeGeometry(lip,22,.012,5,false),new THREE.MeshBasicMaterial({color:0x14392f})));
       }
     }
@@ -213,11 +222,13 @@ export function mountBassfishBackdrop(container, options={}) {
   }
   const hero=makeFish(1.12,.6,true);
   const escorts=[makeFish(.48,2.3,true),makeFish(.31,4.2,false)];
-  const school=[];
-  for(let i=0;i<24;i++){
-    const fish=makeFish(.07+random()*.09,random()*TAU);
-    school.push({fish,x:(random()-.5)*18,y:random()*4+.1,z:-7-random()*9,phase:random()*TAU,speed:.1+random()*.14});
+  const school=[],schoolMeshes=[];
+  const schoolMat=new THREE.ShaderMaterial({uniforms:{...common,uPhase:{value:0},uFin:{value:0}},vertexShader:fishVertex,fragmentShader:fishFragment,side:THREE.DoubleSide});
+  for(const geometry of [bassGeometry(24,12),...fins]){
+    const mesh=new THREE.InstancedMesh(geometry,schoolMat,36);mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);mesh.frustumCulled=false;scene.add(mesh);schoolMeshes.push(mesh);
   }
+  for(let i=0;i<36;i++)school.push({scale:.06+random()*.08,x:(random()-.5)*12,y:random()*2.2+1.4,z:-8-random()*10,phase:random()*TAU,speed:.12+random()*.08});
+  const schoolTransform=new THREE.Object3D();
 
   // A warm, suspended lure is the single focal accent.
   const lure=new THREE.Group();scene.add(lure);
@@ -252,15 +263,22 @@ export function mountBassfishBackdrop(container, options={}) {
   const ripple=new THREE.Mesh(new THREE.RingGeometry(.985,1,180),rippleMat);rippleGroup.add(ripple);
 
   // A lightweight HDR composite adds restrained bloom, grain, and a soft vignette.
-  const rt=new THREE.WebGLRenderTarget(1,1,{type:THREE.HalfFloatType,depthBuffer:true,samples:0});
+  const rt=new THREE.WebGLRenderTarget(1,1,{type:THREE.HalfFloatType,depthBuffer:true,samples:2});
+  const bloomA=new THREE.WebGLRenderTarget(1,1,{type:THREE.HalfFloatType,depthBuffer:false});
+  const bloomB=bloomA.clone();
+  const blurScene=new THREE.Scene();
+  const blurMat=new THREE.ShaderMaterial({depthTest:false,depthWrite:false,uniforms:{tInput:{value:rt.texture},uDirection:{value:new THREE.Vector2()},uExtract:{value:1}},vertexShader:vertex,fragmentShader:`
+    varying vec2 vUv;uniform sampler2D tInput;uniform vec2 uDirection;uniform float uExtract;
+    vec3 sampleLight(vec2 uv){vec3 c=texture2D(tInput,uv).rgb;return mix(c,max(c-.42,0.),uExtract);}
+    void main(){vec3 c=vec3(0.);float weight=0.;for(int i=-6;i<=6;i++){float f=float(i);float w=exp(-f*f/12.);c+=sampleLight(vUv+uDirection*f)*w;weight+=w;}gl_FragColor=vec4(c/weight,1.);}`});
+  blurScene.add(new THREE.Mesh(plane,blurMat));
   const postScene=new THREE.Scene();
-  const postMat=new THREE.ShaderMaterial({depthTest:false,depthWrite:false,uniforms:{tScene:{value:rt.texture},uResolution:{value:new THREE.Vector2(1,1)},uTime:common.uTime,uComposition:{value:0}},vertexShader:vertex,fragmentShader:`
-    varying vec2 vUv;uniform sampler2D tScene;uniform vec2 uResolution;uniform float uTime;uniform float uComposition;
+  const postMat=new THREE.ShaderMaterial({depthTest:false,depthWrite:false,uniforms:{tScene:{value:rt.texture},tBloom:{value:bloomB.texture},uResolution:{value:new THREE.Vector2(1,1)},uTime:common.uTime,uComposition:{value:0}},vertexShader:vertex,fragmentShader:`
+    varying vec2 vUv;uniform sampler2D tScene;uniform sampler2D tBloom;uniform vec2 uResolution;uniform float uTime;uniform float uComposition;
     float grain(vec2 p){return fract(sin(dot(p,vec2(12.9898,78.233)))*43758.5453);}
     void main(){
-      vec2 uv=vUv;vec3 col=texture2D(tScene,uv).rgb;vec3 bloom=vec3(0.);
-      for(int i=0;i<12;i++){float a=float(i)*6.283185/12.;vec2 delta=vec2(cos(a),sin(a))/uResolution*5.;vec3 s=texture2D(tScene,uv+delta).rgb;bloom+=max(s-.5,0.);vec3 w=texture2D(tScene,uv+delta*3.).rgb;bloom+=max(w-.65,0.)*.35;}
-      col+=bloom*.06;
+      vec2 uv=vUv;vec3 col=texture2D(tScene,uv).rgb;
+      col+=texture2D(tBloom,uv).rgb*.85;
       col*=1.-.34*pow(length((uv-.5)*vec2(1.05,.9)),1.6);
       col*=1.-uComposition*(1.-smoothstep(.05,.65,uv.x))*.35;
       col=1.-exp(-col*1.65);
@@ -274,8 +292,9 @@ export function mountBassfishBackdrop(container, options={}) {
     width=Math.max(1,container.clientWidth);height=Math.max(1,container.clientHeight);
     dpr=Math.min(devicePixelRatio||1,options.pixelRatio??1.5);
     const cap=width<760?1.35:1.5;dpr=Math.min(dpr,cap);
-    renderer.setSize(width,height,false);rt.setSize(Math.round(width*dpr),Math.round(height*dpr));
-    renderer.setPixelRatio(dpr);camera.aspect=width/height;camera.updateProjectionMatrix();
+    renderer.setPixelRatio(dpr);renderer.setSize(width,height,false);rt.setSize(Math.round(width*dpr),Math.round(height*dpr));
+    bloomA.setSize(Math.max(1,Math.round(width*dpr/4)),Math.max(1,Math.round(height*dpr/4)));bloomB.setSize(bloomA.width,bloomA.height);
+    camera.aspect=width/height;camera.updateProjectionMatrix();
     bgMat.uniforms.uAspect.value=width/height;postMat.uniforms.uResolution.value.set(width*dpr,height*dpr);particleMat.uniforms.uDpr.value=dpr;
     render(0);
   }
@@ -291,15 +310,19 @@ export function mountBassfishBackdrop(container, options={}) {
     camera.position.set(smoothPointer.x*.55,1.15+smoothPointer.y*.24,narrow?22:16);
     target.set(narrow?1.5:.3,.1+smoothPointer.y*.16,0);camera.lookAt(target);
     const t=elapsed;
-    hero.position.set(narrow?2.25:3.1,Math.sin(t*.3)*.15+(narrow?-.8:.15),.65+Math.sin(t*.21)*.15);
+    const composing=postMat.uniforms.uComposition.value;
+    hero.scale.setScalar(narrow?.78:1.12);
+    hero.position.set(narrow?1.9:3.1,Math.sin(t*.3)*.15+(narrow?-.8-composing*1.45:.15),.65+Math.sin(t*.21)*.15);
     hero.rotation.set(.035+Math.sin(t*.4)*.024,Math.PI+.14+Math.sin(t*.19)*.13,Math.sin(t*.28)*.03-.04);
     escorts[0].position.set(5.65,-1.7+Math.sin(t*.36)*.15,-3.6);escorts[0].rotation.set(.03,Math.PI+.17,-.05);
     escorts[1].position.set(.9,2.1+Math.sin(t*.32)*.08,-5.1);escorts[1].rotation.set(.02,Math.PI-.25,.02);
-    for(const s of school){
-      s.fish.position.set(((s.x-t*s.speed+18)%36+36)%36-18,s.y+Math.sin(t*.35+s.phase)*.23,s.z);
-      s.fish.rotation.set(0,Math.PI+.18+Math.sin(t*.2+s.phase)*.12,Math.sin(s.phase+t*.3)*.035);
-    }
-    lure.position.set(.06+Math.sin(t*.31)*.12,-.02+Math.sin(t*.49)*.06,1.0);lure.rotation.z=Math.sin(t*.41)*.08;
+    school.forEach((s,i)=>{
+      schoolTransform.position.set(((s.x-t*s.speed+18)%36+36)%36-18,s.y+Math.sin(t*.35+s.phase)*.23,s.z);
+      schoolTransform.rotation.set(0,Math.PI+.18+Math.sin(t*.2+s.phase)*.12,Math.sin(s.phase+t*.3)*.035);
+      schoolTransform.scale.setScalar(s.scale);schoolTransform.updateMatrix();schoolMeshes.forEach(mesh=>mesh.setMatrixAt(i,schoolTransform.matrix));
+    });
+    schoolMeshes.forEach(mesh=>{mesh.instanceMatrix.needsUpdate=true;});
+    lure.position.set((narrow?.13:.06)+Math.sin(t*.31)*.12,-.02+Math.sin(t*.49)*.06-(narrow?composing*1.45:0),1.0);lure.rotation.z=Math.sin(t*.41)*.08;
     const line=fishingLineGeo.attributes.position;
     for(let i=0;i<=80;i++){
       const u=i/80;
@@ -311,7 +334,10 @@ export function mountBassfishBackdrop(container, options={}) {
     for(const r of routes)r.packet.position.copy(r.path.getPoint((t*.035+r.offset)%1));
     rippleGroup.position.copy(lure.position);rippleGroup.quaternion.copy(camera.quaternion);
     const rippleSize=.18+pulseAge*2.1;ripple.scale.setScalar(rippleSize);rippleMat.opacity=pulseAge<4?Math.exp(-pulseAge*1.3)*.35:0;
+    renderer.info.reset();
     renderer.setRenderTarget(rt);renderer.autoClear=true;renderer.render(background,flatCamera);renderer.autoClear=false;renderer.clearDepth();renderer.render(scene,camera);
+    renderer.autoClear=true;renderer.setRenderTarget(bloomA);blurMat.uniforms.tInput.value=rt.texture;blurMat.uniforms.uDirection.value.set(.65/bloomA.width,0);blurMat.uniforms.uExtract.value=1;renderer.render(blurScene,flatCamera);
+    renderer.setRenderTarget(bloomB);blurMat.uniforms.tInput.value=bloomA.texture;blurMat.uniforms.uDirection.value.set(0,.65/bloomA.height);blurMat.uniforms.uExtract.value=0;renderer.render(blurScene,flatCamera);
     renderer.setRenderTarget(null);renderer.autoClear=true;renderer.render(postScene,flatCamera);frameCount++;
   }
   function tick(now){
@@ -336,13 +362,13 @@ export function mountBassfishBackdrop(container, options={}) {
     setPalette(name){moonTarget=name==='moonlight'?1:0;if(paused)render(0);},
     setComposition(name){compositionTarget=name==='hero'?1:0;if(paused)render(0);},
     signal,
-    getStats(){return {frames:frameCount,drawCalls:renderer.info.render.calls,triangles:renderer.info.render.triangles,width,height,pixelRatio:dpr,paused,elapsed,threeRevision:THREE.REVISION};},
+    getStats(){return {frames:frameCount,drawCalls:renderer.info.render.calls,triangles:renderer.info.render.triangles,width,height,pixelRatio:dpr,paused,elapsed,pulseAge,palette:common.uMoon.value,composition:postMat.uniforms.uComposition.value,threeRevision:THREE.REVISION};},
     dispose(){
       if(disposed)return;disposed=true;cancelAnimationFrame(raf);observer.disconnect();
       container.removeEventListener('pointermove',onPointer);container.removeEventListener('pointerleave',onLeave);container.removeEventListener('click',signal);document.removeEventListener('visibilitychange',onVisibility);motionQuery.removeEventListener('change',onMotion);renderer.domElement.removeEventListener('webglcontextlost',onContextLost);
       const geometries=new Set(),materials=new Set();
-      for(const root of [scene,background,postScene])root.traverse(object=>{if(object.geometry)geometries.add(object.geometry);if(object.material)materials.add(object.material);});
-      geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());rt.dispose();renderer.dispose();renderer.domElement.remove();
+      for(const root of [scene,background,postScene,blurScene])root.traverse(object=>{if(object.geometry)geometries.add(object.geometry);if(object.material)materials.add(object.material);});
+      geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());schoolMeshes.forEach(mesh=>mesh.dispose());rt.dispose();bloomA.dispose();bloomB.dispose();renderer.dispose();renderer.domElement.remove();
     },
   };
 }

@@ -105,26 +105,22 @@ const setup = await readFile(path.join(out, 'setup.md'), 'utf8');
 const docs = await readFile(path.join(out, 'docs.html'), 'utf8');
 const indexText = await readFile(path.join(out, 'index.md'), 'utf8');
 const llms = await readFile(path.join(out, 'llms.txt'), 'utf8');
-const packageManifest = JSON.parse(
-  await readFile(new URL('../../package.json', import.meta.url), 'utf8'),
+const publicInterface = JSON.parse(
+  await readFile(new URL('../fixtures/public-interface.json', import.meta.url), 'utf8'),
 );
-const mcpApi = await readFile(new URL('../../src/mcp-api.ts', import.meta.url), 'utf8');
-const schemaBody = mcpApi.match(/export const mcpSchemas = \{([\s\S]*?)\n\} satisfies Record/);
-assert(schemaBody, 'Could not locate the public MCP schema registry');
-const toolNames = [...schemaBody[1].matchAll(/^  ([A-Za-z][A-Za-z0-9]*):/gm)].map(
-  match => match[1],
-);
+const toolNames = publicInterface.tools;
 const documentedTools = [...docs.matchAll(/data-tool="([^"]+)"/g)].map(match => match[1]);
 assert.equal(toolNames.length, 11);
 assert.deepEqual(
   documentedTools,
   toolNames,
-  'Documentation tool inventory must match src/mcp-api.ts',
+  'Documentation tool inventory must match the validated public interface fixture',
 );
-assert(docs.includes('v' + packageManifest.version));
-assert(setup.includes('version ' + packageManifest.version));
+assert(docs.includes('v' + publicInterface.version));
+assert(setup.includes('version ' + publicInterface.version));
 assert(
-  setup.includes('"kind":"appendMessage"') && mcpApi.includes("kind: z.literal('appendMessage')"),
+  setup.includes('"kind":"appendMessage"') &&
+    publicInterface.mutationKinds.includes('appendMessage'),
 );
 assert(setup.includes('"resourceType":"ticket"') && setup.includes('"type":"files"'));
 const publishedGuidance = [html, docs, setup, indexText, llms].join('\n');

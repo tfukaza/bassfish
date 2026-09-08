@@ -1,10 +1,10 @@
 # Pond foliage sprites
 
-Generated with the built-in `image_gen` tool for this project. These original PNGs retain genuine transparency and are used directly by the scene. Upright plants are camera-facing billboards; the lily leaf is a horizontal textured plane. The prompts below are the exact submitted prompts.
+Generated with the built-in `image_gen` tool for this project. These v1 sprites were used as references for the active v2 set; the redundant v1 PNGs are no longer retained. The prompts below preserve their generation provenance.
 
 ## bank-grass
 
-File: [bank-grass-v1.png](bank-grass-v1.png)
+Former source: `bank-grass-v1.png` (removed after the v2 asset was approved)
 
 ```text
 Use case: stylized-concept.
@@ -16,7 +16,7 @@ Subject: one graceful, asymmetrical clump of pond-bank sedge, with about 16 long
 
 ## bank-shrub
 
-File: [bank-shrub-v1.png](bank-shrub-v1.png)
+Former source: `bank-shrub-v1.png` (removed after the v2 asset was approved)
 
 ```text
 Use case: stylized-concept.
@@ -28,7 +28,7 @@ Subject: one low, spreading, naturally asymmetrical freshwater-bank shrub, a rou
 
 ## bank-flowers
 
-File: [bank-flowers-v1.png](bank-flowers-v1.png)
+Former source: `bank-flowers-v1.png` (removed after the v2 asset was approved)
 
 ```text
 Use case: stylized-concept.
@@ -40,7 +40,7 @@ Subject: one small loose clump of wild daisies growing among short natural meado
 
 ## water-plants
 
-File: [water-plants-v1.png](water-plants-v1.png)
+Former source: `water-plants-v1.png` (removed after the v2 asset was approved)
 
 ```text
 Use case: stylized-concept.
@@ -52,7 +52,7 @@ Subject: one tall slender rooted clump of freshwater submerged aquatic plants. F
 
 ## cattails
 
-File: [cattails-v1.png](cattails-v1.png)
+Former source: `cattails-v1.png` (removed after the v2 asset was approved)
 
 ```text
 Use case: stylized-concept.
@@ -64,7 +64,7 @@ Subject: one elegant clump of freshwater cattails. Three slender stems carry rea
 
 ## lily-pad
 
-File: [lily-pad-v1.png](lily-pad-v1.png)
+Former source: `lily-pad-v1.png` (removed after the v2 asset was approved)
 
 ```text
 Use case: stylized-concept.
@@ -73,4 +73,3 @@ Subject: one realistic botanical water-lily pad, a nearly round fresh green leaf
 Style: carefully hand-painted game environment art, subtle branching radial veins, fine matte leaf texture, softly varied olive and moss greens, gentle lighter edge. Natural slightly irregular rim, no black outlines, no geometric color wedges, not vector clip art, not photorealistic.
 Output: genuinely transparent PNG alpha background including the cleft. Exactly one leaf, centered with 6% transparent padding. No water, stem, flower, insects, drop shadow, scenery, text, border or checkerboard. Soft even neutral lighting; clean antialiased edges with no white halo.
 ```
-

@@ -1,17 +1,16 @@
 # Bassfish
 
-> Inter-Agent Communication for Agent Teams. A local stdio MCP server for coding agents working in the same Git repository and its worktrees.
+> A local coordination layer for coding agents working in the same Git repository and its worktrees.
 
-Bassfish provides shared threads, durable notes, exclusive read/write turns, and versioned history in Dolt. Install the npm package `@bassfish/cli`, run `bassfish setup`, and connect each agent host to `bassfish mcp`.
+Bassfish provides shared threads, owned tickets with dependencies, advisory file reservations, durable notifications, and targeted-work listening through MCP Tasks. Its agent-facing MCP surface has 11 tools and opaque request and turn tokens. History, restore, project operations, and daemon management use the human CLI. File contents remain in the repository and are edited with native tools. Install the npm package `@bassfish/cli`, run `bassfish setup`, and connect each agent host to `bassfish mcp`.
 
 Requires Node.js >=24.12.0 <25, Git, and macOS or Linux on arm64 or x64. Read the setup guide before installing or calling tools.
 
 ## Documentation
 
 - [Agent skills](https://github.com/tfukaza/bassfish/tree/main/.agents/skills): Install `use-bassfish` and `manage-bassfish` with `npx skills add tfukaza/bassfish --skill use-bassfish --skill manage-bassfish -g` for coordination and operations guidance. MCP connection is still required.
-
-- [Install and use Bassfish]({{SITE_URL}}setup.md): Complete setup instructions, host configuration, verification, thread and note workflows, and troubleshooting in one Markdown document.
+- [Install and use Bassfish]({{SITE_URL}}setup.md): Complete setup instructions, host configuration, verification, thread, ticket, notification, and file-lock workflows, and troubleshooting in one Markdown document.
 - [Website as Markdown]({{SITE_URL}}index.md): A short explanation of the product.
 - [Source and README](https://github.com/tfukaza/bassfish): Implementation and current project documentation.
-- [Tool schemas](https://github.com/tfukaza/bassfish/blob/main/src/api.ts): Source definitions; the connected server's live schemas are authoritative for installed versions.
+- [MCP tool schemas](https://github.com/tfukaza/bassfish/blob/main/src/mcp-api.ts): Public source definitions; the connected server's live schemas are authoritative for installed versions.
 - [Host compatibility](https://github.com/tfukaza/bassfish/blob/main/docs/compatibility.md): Host setup and qualification status.

@@ -13,31 +13,35 @@
     "@here reaches online follower client-agent",
     "@here excludes its sender",
     "@here excludes offline followers",
-    "The client waits while API holds the note",
-    "The queued client receives the latest note",
-    "Both note edits are retained"
+    "Claude Code waits while Codex holds the file",
+    "After acquiring, Claude Code reads the latest saved file",
+    "Both native file edits are retained",
+    "The released file can be acquired again"
   ],
   "messages": [
     {
       "author": "client-agent",
-      "body": "What’s the response format?"
+      "body": "Hi, I’ll take the client."
     },
     {
       "author": "api-agent",
-      "body": "Use items + nextCursor. Null means the last page."
+      "body": "Hey! Welcome to the team."
     },
     {
       "author": "api-agent",
-      "body": "@reviewer, can you check the pagination change?"
+      "body": "@reviewer Can you check this?"
     },
     {
       "author": "reviewer",
-      "body": "Checked the last-page behavior. Looks good."
+      "body": "Looks good. Ship it."
     },
     {
       "author": "reviewer",
-      "body": "@here, review complete."
+      "body": "@here Review complete."
     }
   ],
-  "note": "# API pagination\nResponse: items + nextCursor\nHide Next when nextCursor is null\n"
+  "file": {
+    "path": "src/pagination.ts",
+    "text": "export const pageSize = 20;\nexport const lastPageCursor = null;\n"
+  }
 }

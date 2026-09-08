@@ -1,0 +1,22 @@
+/* Pond palette: water, soil, foliage. Accent dots are decorative, not status. */
+:root {
+  --ink: #242623;
+  --muted: #60695e;
+  --water: #39798b;
+  --soil: #8a6845;
+  --foliage: #64814c;
+  --water-ink: #326778;
+  --soil-ink: #795a39;
+  --olive: #4d663d;
+  --olive-dark: #34482b;
+  --olive-soft: #edf2e8;
+  --line: #e0e5dc;
+  --paper: #f7f8f5;
+  --code: #1c2420;
+  --code-line: #354139;
+  --code-ink: #e7ede5;
+  --code-muted: #adbaa8;
+  --code-water: #a0ccd7;
+  --code-soil: #dec49f;
+  --code-foliage: #bad5a3;
+}

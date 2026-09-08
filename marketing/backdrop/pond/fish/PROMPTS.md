@@ -1,6 +1,6 @@
 # Illustrated bass textures
 
-Generated with the built-in image generator on 2026-09-06. The pond concept in `../foliage/reference-concept.png` was supplied as a style reference. Original generated PNGs are preserved and copied here without image edits.
+Generated with the built-in image generator on 2026-09-06. The pond concept in `../foliage/reference-concept.png` was supplied as a style reference. The active body and fin maps are retained; the superseded v1 body source was removed after the v2 map was approved.
 
 The body map is opaque, with the tail root on the left and snout on the right. `bass.js` mirrors it onto both flanks, joining the dorsal ridge and belly. The fin map fans outward from each fin attachment. Shared vertex animation keeps the textured body and fins connected.
 
@@ -9,13 +9,13 @@ The body map is opaque, with the tail root on the left and snout on the right. `
 
 Original: `/Users/tomokif/.codex/generated_images/01a078de-6b0c-7d83-a1b2-fba11b756abc/exec-70896a07-2cd3-4816-afd6-4eba1e8c8f8c.png`
 
-Input: `bass-body-v1.png`. The eye is stretched in the flat source to compensate for the cheek's curved UV mapping, producing a round eye on the fish.
+Input: the former `bass-body-v1.png` source. The eye is stretched in the flat source to compensate for the cheek's curved UV mapping, producing a round eye on the fish.
 
 ```text
 Edit this opaque bass body UV texture, preserving its exact 2:1 framing and EVERY painted marking and color outside the eye. Change ONLY the eye: vertically elongate the entire gold iris, black pupil, and ivory glint to 2.4 times their current height, keeping the eye's horizontal width and its center exactly unchanged. The eye must look like a tall narrow oval in the texture. This is intentional UV compensation: the curved 3D fish mesh compresses the texture vertically at the cheek, so the eye will become round on the model. Do not add another eye or shift the eye. Do not change the mouth, gill, back, belly, stripe, or palette. Keep an opaque texture covering the entire canvas with no border, fish silhouette, background, or transparency.
 ```
 
-## bass-body-v1.png — initial source
+## bass-body-v1.png — initial source (not retained)
 
 Original: `/Users/tomokif/.codex/generated_images/01a078de-6b0c-7d83-a1b2-fba11b756abc/exec-ac47ee8e-2faf-44e4-8856-fcda7675a08f.png`
 

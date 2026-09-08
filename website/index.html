@@ -1,121 +1,390 @@
 <!doctype html>
 <html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Bassfish | Inter-Agent Communication for Agent Teams</title>
-  <meta name="description" content="Inter-Agent Communication for Agent Teams. Shared messages, notes, and turns for coding agents working in the same repository.">
-  <meta name="theme-color" content="#ffffff">
-  <link rel="canonical" href="{{SITE_URL}}">
-  <link rel="icon" href="./assets/icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="./style.css">
-  <link rel="preload" href="./assets/fonts/Geist-Variable.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="alternate" type="text/markdown" href="./index.md" title="This page as Markdown">
-  <link rel="describedby" href="./llms.txt" title="Documentation for agents">
-  <meta property="og:type" content="website">
-  <meta property="og:site_name" content="Bassfish">
-  <meta property="og:title" content="Bassfish | Inter-Agent Communication for Agent Teams">
-  <meta property="og:description" content="Inter-Agent Communication for Agent Teams. Shared messages, notes, and turns for coding agents working in the same repository.">
-  <meta property="og:url" content="{{SITE_URL}}">
-  <meta property="og:image" content="{{SITE_URL}}assets/bassfish-team-social-v1.jpg">
-  <meta property="og:image:type" content="image/jpeg">
-  <meta property="og:image:width" content="1200">
-  <meta property="og:image:height" content="630">
-  <meta property="og:image:alt" content="Bassfish — Inter-Agent Communication for Agent Teams. Four miniature ponds connected by a bass carrying microphones.">
-  <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="Bassfish | Inter-Agent Communication for Agent Teams">
-  <meta name="twitter:description" content="Inter-Agent Communication for Agent Teams. Shared messages, notes, and turns for coding agents working in the same repository.">
-  <meta name="twitter:image" content="{{SITE_URL}}assets/bassfish-team-social-v1.jpg">
-  <meta name="twitter:image:alt" content="Bassfish — Inter-Agent Communication for Agent Teams. Four miniature ponds connected by a bass carrying microphones.">
-</head>
-<body>
-  <a class="skip-link" href="#install">Skip story and install Bassfish</a>
-  <header class="accessible-header"><nav aria-label="Main navigation"><a href="#story">Bassfish story</a><a href="#install">Installation</a><a href="./setup.md">Agent guide</a><a href="https://github.com/tfukaza/bassfish">GitHub</a></nav></header>
-  <main id="main">
-    <section id="story" aria-labelledby="site-title">
-      <div class="story-stage">
-        <div id="pond" aria-hidden="true"><img class="pond-poster" src="./assets/pond.jpg" alt="" width="1440" height="1080" fetchpriority="high"></div>
-        <div class="landing-title"><h1 id="site-title">bassfish</h1><p>Inter-Agent Communication for Agent Teams</p></div>
-        <div class="bubble-layer" aria-hidden="true">
-          <div class="fish-bubble" data-bubble="0"><span></span><p></p></div>
-          <div class="fish-bubble" data-bubble="1"><span></span><p></p></div>
-          <div class="fish-bubble" data-bubble="2"><span></span><p></p></div>
-          <div class="fish-bubble" data-bubble="3"><span></span><p></p></div>
-          <div class="fish-bubble" data-bubble="4"><span></span><p></p></div>
-          <div class="fish-bubble" data-bubble="5"><span></span><p></p></div>
-          <div class="fish-bubble" data-bubble="6"><span></span><p></p></div>
-        </div>
-        <div class="chapter-heading" aria-hidden="true"><h2 id="chapter-title"></h2><p id="chapter-body"></p></div>
-        <div class="terminal-layer" aria-hidden="true" hidden></div>
-        <div class="story-navigation"><a id="scroll-cue" href="#chapter-one">Scroll to the surface <span aria-hidden="true">↓</span></a><div class="story-controls" hidden><span id="chapter-count" aria-hidden="true">00 / 06</span><button id="pause-pond" type="button" aria-pressed="false">Pause motion</button><a href="#install">Install <span aria-hidden="true">↘</span></a></div></div>
-      </div>
-      <div class="story-chapters">
-        <section id="chapter-one"><h2>One agent is easy to follow.</h2><p>A single bass surfaces in the pond: “Editing api.ts…”, “I have a question”, “Please approve this change.” Your agent works in your repository and surfaces when it needs you.</p></section>
-        <section><h2>But when you need multiple agents…</h2><p>Many agent frameworks hide the subagents below the surface, so it’s hard to monitor what’s happening. Three submerged bass each say “doing something”.</p></section>
-        <section><h2>Coordinating multiple agents by hand is hard.</h2><p>Three more ponds rotate into place, each with a visible agent in a separate session.</p></section>
-        <section><h2>Bassfish gives agents a way to communicate with you and with each other.</h2><p>A large bass flies toward you. Mechanical arms lower microphones above each fish, connecting sessions in the same local Git repository.</p></section>
-        <section><h2>Now you have a team of agents with full visibility into what they’re doing.</h2><p>The connected scene turns to show every pond. The agents swim in circles, exchange messages, and leave shared notes.</p></section>
-        <section><h2>Your team. In plain sight.</h2><p>The camera settles directly overhead. Four ponds become four terminal windows. In this illustrative session, Codex and Claude Code agents agree on an API, update shared notes one turn at a time, test the changes, and review the work. Every agent’s conversation stays visible.</p></section>
-      </div>
-    </section>
-    <div class="feature-sections wrap" id="features">
-<section class="feature-section" aria-labelledby="feature-team"><div class="feature-copy"><h2 id="feature-team">Build your team in the tools you already use.</h2><p>Open another connected agent in your repo to add a teammate. Codex and Claude Code can work together. Close a session when you’re done; shared conversations and notes stay.</p></div><div class="workflow-demo" data-demo="team">
- <div class="demo-toolbar"><span>Example session</span><div class="demo-controls" hidden><button type="button" data-demo-toggle aria-label="Pause team demo">Pause</button><button type="button" data-demo-replay aria-label="Replay team demo">Replay</button></div></div>
- <div class="demo-animation" aria-hidden="true"><div class="demo-hosts"><div class="demo-host"><span>Codex</span><strong>api-agent</strong><small class="online">Online</small></div><div class="demo-host" data-show-from="1"><span>Claude Code</span><strong>client-agent</strong><small class="online" data-show-from="1" data-show-until="3" hidden>Online</small><small data-show-from="3">Session closed</small></div></div>
-<div class="demo-thread"><div class="demo-resource"># API pagination <span>Shared conversation</span></div><p class="demo-empty" data-show-from="0" data-show-until="2" hidden>Ready for a teammate’s question.</p><div class="demo-message" data-show-from="2"><span>client-agent</span><p>What’s the response format?</p></div><div class="demo-message" data-show-from="2.5"><span>api-agent</span><p>Use items + nextCursor. Null means the last page.</p></div></div><div class="demo-outcome" data-show-from="3">Session closed. Conversation kept.</div></div>
- <ol class="demo-steps" aria-label="team workflow"><li>API agent starts in Codex.</li><li>Client agent joins from Claude Code.</li><li>They agree on the response format.</li><li>Client disconnects; the conversation stays.</li></ol>
- <div class="demo-progress" aria-hidden="true"><span></span></div>
-</div></section>
-<section class="feature-section" aria-labelledby="feature-mentions"><div class="feature-copy"><h2 id="feature-mentions">Get a teammate’s attention.</h2><p>Mention an agent directly, or use <code>@here</code> to reach online followers of the thread. Keep the question and the answer together.</p></div><div class="workflow-demo" data-demo="mentions">
- <div class="demo-toolbar"><span>Example session</span><div class="demo-controls" hidden><button type="button" data-demo-toggle aria-label="Pause mentions demo">Pause</button><button type="button" data-demo-replay aria-label="Replay mentions demo">Replay</button></div></div>
- <div class="demo-animation" aria-hidden="true"><div class="demo-thread"><div class="demo-resource"># API pagination <span>Team thread</span></div><div class="demo-message" data-show-from="0"><span>api-agent</span><p>@reviewer, can you check the pagination change?</p></div><div class="demo-message" data-show-from="2"><span>reviewer</span><p>Checked the last-page behavior. Looks good.</p></div><div class="demo-message" data-show-from="3"><span>reviewer</span><p>@here, review complete.</p></div></div><div class="demo-inbox"><span>Notifications</span><p data-show-from="1" data-show-until="3" hidden><b>reviewer</b> Direct mention from api-agent</p><p data-show-from="3"><b>api-agent · client-agent</b> @here from reviewer</p></div></div>
- <ol class="demo-steps" aria-label="mentions workflow"><li>API agent mentions the reviewer.</li><li>A direct-mention notification reaches the reviewer.</li><li>Reviewer reads the thread and replies.</li><li>@here notifies the other online followers.</li></ol>
- <div class="demo-progress" aria-hidden="true"><span></span></div>
-</div></section>
-<section class="feature-section" aria-labelledby="feature-notes"><div class="feature-copy"><h2 id="feature-notes">Leave context the next agent can use.</h2><p>Keep decisions in shared notes. Each note has its own turn, so the next agent reads your changes before adding theirs.</p></div><div class="workflow-demo" data-demo="notes">
- <div class="demo-toolbar"><span>Example session</span><div class="demo-controls" hidden><button type="button" data-demo-toggle aria-label="Pause notes demo">Pause</button><button type="button" data-demo-replay aria-label="Replay notes demo">Replay</button></div></div>
- <div class="demo-animation" aria-hidden="true"><div class="demo-note-status"><span data-show-from="0" data-show-until="2" hidden>api-agent holds the turn</span><span data-show-from="2" data-show-until="3" hidden>client-agent holds the turn</span><span data-show-from="3">Both edits saved</span><small data-show-from="1" data-show-until="2" hidden>client-agent is waiting</small></div><div class="demo-document"><div class="demo-resource">api-plan <span>Shared note</span></div><h3>API pagination</h3><p data-show-from="2">Response: items + nextCursor</p><p data-show-from="3">Hide Next when nextCursor is null</p></div><div class="demo-outcome" data-show-from="2" data-show-until="3" hidden>Client reads the API agent’s saved change.</div><div class="demo-outcome" data-show-from="3">The next agent sees both decisions.</div></div>
- <ol class="demo-steps" aria-label="notes workflow"><li>API agent acquires the api-plan note.</li><li>Client requests access and waits.</li><li>API saves the response format; client reads it.</li><li>Client adds the UI behavior. Both edits remain.</li></ol>
- <div class="demo-progress" aria-hidden="true"><span></span></div>
-</div></section>
-<p class="feature-disclosure">Example sessions illustrate Bassfish workflows, not recordings of Codex or Claude Code. Notifications become available to agents; whether a host wakes automatically depends on its integration.</p>
-</div>
-        <section id="install" class="install wrap" aria-label="Install Bassfish">
-      <div class="step agent-handoff">
-        <div class="step-heading"><h2>Hand this to your agent.</h2></div>
-        <div class="handoff-link"><a class="guide-url" href="./setup.md">{{SITE_HOST_PATH}}setup.md</a><button type="button" data-copy-url="setup.md" hidden>Copy link</button></div>
-      </div>
-      <p class="install-or">OR</p>
-      <ol class="install-steps" role="list" aria-label="Install it yourself">
-        <li class="step">
-          <div class="step-heading"><span class="step-number" aria-hidden="true">01</span><h2>Install Bassfish</h2></div>
-          <p>Node.js 24.12+ within v24, Git, and macOS or Linux.</p>
-          <div class="code-block"><div class="code-heading"><span>Terminal</span><button type="button" data-copy="install-code" hidden>Copy</button></div><pre><code id="install-code">npm install -g @bassfish/cli
-bassfish setup
-bassfish --version</code></pre></div>
-        </li>
-        <li class="step">
-          <div class="step-heading"><span class="step-number" aria-hidden="true">02</span><h2>Connect each agent</h2></div>
-          <p>Choose your host, then start a session in your repository.</p>
-          <div class="host-picker" aria-label="Choose your agent host">
-            <a id="tab-codex" href="#host-codex">Codex</a><a id="tab-claude" href="#host-claude">Claude Code</a><a id="tab-other" href="#host-other">Other MCP hosts</a>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Bassfish | A local coordination layer for coding agents</title>
+    <meta
+      name="description"
+      content="Coordinate coding agents in one local Git repository with shared threads, owned tickets, advisory file reservations, and notifications."
+    />
+    <meta name="theme-color" content="#ffffff" />
+    <link rel="canonical" href="{{SITE_URL}}" />
+    <link rel="icon" href="./assets/icon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="./style.css" />
+    <link
+      rel="preload"
+      href="./assets/fonts/Geist-Variable.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    <link rel="alternate" type="text/markdown" href="./index.md" title="This page as Markdown" />
+    <link rel="describedby" href="./llms.txt" title="Documentation for agents" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Bassfish" />
+    <meta
+      property="og:title"
+      content="Bassfish | A local coordination layer for coding agents"
+    />
+    <meta
+      property="og:description"
+      content="Coordinate coding agents in one local Git repository with shared threads, owned tickets, advisory file reservations, and notifications."
+    />
+    <meta property="og:url" content="{{SITE_URL}}" />
+    <meta property="og:image" content="{{SITE_URL}}assets/bassfish-team-social-v2.jpg" />
+    <meta property="og:image:type" content="image/jpeg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta
+      property="og:image:alt"
+      content="Bassfish: A local coordination layer for coding agents. Four miniature ponds connected by a bass carrying microphones."
+    />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta
+      name="twitter:title"
+      content="Bassfish | A local coordination layer for coding agents"
+    />
+    <meta
+      name="twitter:description"
+      content="Coordinate coding agents in one local Git repository with shared threads, owned tickets, advisory file reservations, and notifications."
+    />
+    <meta name="twitter:image" content="{{SITE_URL}}assets/bassfish-team-social-v2.jpg" />
+    <meta
+      name="twitter:image:alt"
+      content="Bassfish: A local coordination layer for coding agents. Four miniature ponds connected by a bass carrying microphones."
+    />
+  </head>
+  <body>
+    <a class="skip-link" href="#install">Skip story and install Bassfish</a>
+    <header class="accessible-header">
+      <nav aria-label="Main navigation">
+        <a href="#story">Bassfish story</a><a href="#install">Installation</a
+        ><a href="./docs.html">Documentation</a><a href="./setup.md">Agent guide</a
+        ><a href="https://github.com/tfukaza/bassfish">GitHub</a>
+      </nav>
+    </header>
+    <main id="main">
+      <section id="story" aria-labelledby="site-title">
+        <div class="story-stage">
+          <div id="pond" aria-hidden="true">
+            <img
+              class="pond-poster"
+              src="./assets/pond.jpg"
+              alt=""
+              width="1440"
+              height="1080"
+              fetchpriority="high"
+            />
           </div>
-          <div id="host-codex" class="host-panel"><h3 class="no-js-heading">Codex</h3><div class="code-block"><div class="code-heading"><span>Terminal</span><button type="button" data-copy="codex-code" hidden>Copy commands</button></div><pre><code id="codex-code">codex mcp add bassfish -- bassfish mcp
-codex mcp list</code></pre></div></div>
-          <div id="host-claude" class="host-panel"><h3 class="no-js-heading">Claude Code</h3><div class="code-block"><div class="code-heading"><span>Terminal</span><button type="button" data-copy="claude-code" hidden>Copy commands</button></div><pre><code id="claude-code">claude mcp add --scope user bassfish -- bassfish mcp
-claude mcp list</code></pre></div></div>
-          <div id="host-other" class="host-panel"><h3 class="no-js-heading">Other MCP hosts</h3><p>Configure a local stdio server with these values:</p><dl class="server-config"><div><dt>Command</dt><dd><code>bassfish</code></dd></div><div><dt>Arguments</dt><dd><code>mcp --workspace /absolute/path/to/project</code></dd></div></dl><p class="fine-print">Replace the path with your repository.</p></div>
-        </li>
-        <li class="step">
-          <div class="step-heading"><span class="step-number" aria-hidden="true">03</span><h2>Give your agents the skills</h2></div>
-          <div class="code-block"><div class="code-heading"><span>Terminal</span><button type="button" data-copy="skills-code" hidden>Copy</button></div><pre><code id="skills-code">npx skills add tfukaza/bassfish \
-  --skill use-bassfish --skill manage-bassfish -g</code></pre></div>
-        </li>
-      </ol>
-    </section>
-  </main>
-  <footer class="site-footer wrap"><a href="#story">bassfish</a><div><a href="./setup.md">Read the full docs ↗</a><a href="./llms.txt">llms.txt</a><a href="https://github.com/tfukaza/bassfish">GitHub ↗</a><a href="https://www.npmjs.com/package/@bassfish/cli">npm ↗</a><a href="https://github.com/tfukaza/bassfish/blob/main/LICENSE">MIT license</a></div></footer>
-  <p id="copy-status" class="copy-status" role="status" aria-live="polite"></p>
-  <script type="module" src="./main.js"></script>
-</body>
+          <div class="landing-title">
+            <h1 id="site-title">bassfish</h1>
+            <p>A local coordination layer for coding agents</p>
+            <a class="hero-install" href="./docs.html#install"
+              >Install Bassfish <span aria-hidden="true">↗</span></a
+            >
+          </div>
+          <div class="bubble-layer" aria-hidden="true">
+            <div class="fish-bubble" data-bubble="0">
+              <span></span>
+              <p></p>
+            </div>
+            <div class="fish-bubble" data-bubble="1">
+              <span></span>
+              <p></p>
+            </div>
+            <div class="fish-bubble" data-bubble="2">
+              <span></span>
+              <p></p>
+            </div>
+            <div class="fish-bubble" data-bubble="3">
+              <span></span>
+              <p></p>
+            </div>
+            <div class="fish-bubble" data-bubble="4">
+              <span></span>
+              <p></p>
+            </div>
+            <div class="fish-bubble" data-bubble="5">
+              <span></span>
+              <p></p>
+            </div>
+            <div class="fish-bubble" data-bubble="6">
+              <span></span>
+              <p></p>
+            </div>
+          </div>
+          <div class="chapter-heading" aria-hidden="true">
+            <h2 id="chapter-title"></h2>
+            <p id="chapter-body"></p>
+          </div>
+          <div class="terminal-layer" aria-hidden="true" hidden></div>
+        </div>
+        <div class="story-chapters">
+          <section id="chapter-one">
+            <h2>One agent is easy to follow.</h2>
+            <p>
+              A single bass surfaces in the pond: “Editing api.ts…”, “I have a question”, “Please
+              approve this change.” Your agent works in your repository and surfaces when it needs
+              you.
+            </p>
+          </section>
+          <section>
+            <h2>More agents split the context.</h2>
+            <p>
+              Parallel work can stay inside separate sessions, leaving you to connect their
+              questions, decisions, and progress. Three submerged bass each say “doing something”.
+            </p>
+          </section>
+          <section>
+            <h2>Separate sessions do not coordinate themselves.</h2>
+            <p>
+              Three more ponds rotate into place, each with a visible agent in a separate session.
+            </p>
+          </section>
+          <section>
+            <h2>Bassfish connects the sessions.</h2>
+            <p>
+              A large bass flies toward you. Mechanical arms lower microphones above each fish,
+              connecting sessions in the same local Git repository.
+            </p>
+          </section>
+          <section>
+            <h2>Now every agent can work from the same shared context.</h2>
+            <p>
+              The connected scene turns to show every pond. The agents exchange messages, assign
+              tickets, and coordinate shared files.
+            </p>
+          </section>
+          <section>
+            <h2>Your team. In plain sight.</h2>
+            <p>
+              The camera settles directly overhead. Four ponds become four terminal windows. In this
+              illustrative session, Codex and Claude Code agents agree on an API, track owned work,
+              reserve a shared plan, test the changes, and review the result. Their Bassfish thread,
+              tickets, and file handoffs remain visible to the team.
+            </p>
+          </section>
+        </div>
+      </section>
+      <div class="feature-sections wrap" id="features">
+        <section class="feature-section" aria-labelledby="feature-team">
+          <div class="feature-copy">
+            <h2 id="feature-team">Different agents. One team.</h2>
+            <p>
+              Codex and Claude Code can work together in the same repo. Connect your agents through
+              Bassfish so they can share context across tools and vendors.
+            </p>
+          </div>
+          <div class="workflow-demo" data-demo="team">
+            <div class="demo-animation scene-team" aria-hidden="true">
+              <div class="glass-window terminal-original">
+                <div class="window-chrome"><i></i><i></i><i></i><span>Codex · api-agent</span></div>
+                <div class="window-content">
+                  <p class="terminal-prompt">
+                    › Adding pagination<span class="terminal-caret">▍</span>
+                  </p>
+                  <p class="glass-reply" data-show-from="2.5">Hey! Welcome to the team.</p>
+                </div>
+              </div>
+              <div class="new-session-cue" data-show-from="0" data-show-until="1" hidden>
+                ＋<span class="demo-cursor">↖</span>
+              </div>
+              <div class="glass-window terminal-new" data-show-from="1">
+                <div class="window-chrome">
+                  <i></i><i></i><i></i><span>Claude Code · client-agent</span>
+                </div>
+                <div class="window-content">
+                  <p class="terminal-prompt" data-show-from="1.5">› Hi, I’ll take the client.</p>
+                  <p class="glass-reply" data-show-from="3">I can see your API plan.</p>
+                </div>
+              </div>
+            </div>
+            <ol class="demo-steps visually-hidden">
+              <li>API agent works in Codex.</li>
+              <li>Client agent joins from Claude Code and says hello.</li>
+              <li>API agent welcomes the new teammate.</li>
+              <li>Client can read the shared API plan.</li>
+            </ol>
+          </div>
+        </section>
+        <section class="feature-section" aria-labelledby="feature-mentions">
+          <div class="feature-copy">
+            <h2 id="feature-mentions">Mention a teammate.</h2>
+            <p>
+              Mention a specific teammate to route a question or request, even when agents use
+              different hosts. Use @here to notify the thread’s online followers.
+            </p>
+          </div>
+          <div class="workflow-demo" data-demo="mentions">
+            <div class="demo-animation scene-mentions" aria-hidden="true">
+              <div class="glass-window mention-window">
+                <div class="window-chrome"><i></i><i></i><i></i><span>api-agent</span></div>
+                <div class="window-content">
+                  <p class="terminal-prompt"><mark>@reviewer</mark> Can you check this?</p>
+                  <p class="glass-reply" data-show-from="2">Looks good. Ship it.</p>
+                </div>
+              </div>
+              <div class="mention-toast glass-pill" data-show-from="1" data-show-until="2" hidden>
+                <span class="agent-orb">r</span
+                ><span><b>reviewer</b><small>You were mentioned</small></span>
+              </div>
+              <div class="here-message fish-speech" data-show-from="3">
+                <mark>@here</mark> Review complete.
+              </div>
+              <div class="recipient-pair" data-show-from="3.3">
+                <span class="recipient">api-agent <i>✓</i></span
+                ><span class="recipient">client-agent <i>✓</i></span>
+              </div>
+            </div>
+            <ol class="demo-steps visually-hidden">
+              <li>API agent mentions reviewer using a structured mention.</li>
+              <li>A mention notification becomes available to reviewer.</li>
+              <li>Reviewer reads the thread and replies.</li>
+              <li>Reviewer mentions @here; API and client receive notifications.</li>
+            </ol>
+          </div>
+        </section>
+        <section class="feature-section" aria-labelledby="feature-files">
+          <div class="feature-copy">
+            <h2 id="feature-files">Reserve files. Take turns.</h2>
+            <p>
+              Agents reserve files or directories before editing. Bassfish queues overlapping
+              requests from participating agents, which reread the files after acquiring the
+              reservation. The reservation is advisory; other programs can still write.
+            </p>
+          </div>
+          <div class="workflow-demo" data-demo="files">
+            <div class="demo-animation scene-files" aria-hidden="true">
+              <div class="glass-window file-window">
+                <div class="window-chrome"><i></i><i></i><i></i><span>src/pagination.ts</span></div>
+                <div class="window-content">
+                  <p data-show-from="1.5">export const pageSize = 20;</p>
+                  <p data-show-from="3">export const lastPageCursor = null;</p>
+                </div>
+              </div>
+              <div class="file-owner glass-pill">
+                <span data-show-from="0" data-show-until="2" hidden
+                  >● Codex <small>editing</small></span
+                ><span data-show-from="2" data-show-until="3.5" hidden
+                  >● Claude Code <small>editing</small></span
+                ><span data-show-from="3.5">✓ Both changes saved</span>
+              </div>
+              <div class="file-waiter" data-show-from="1" data-show-until="2" hidden>
+                Claude Code is waiting
+              </div>
+            </div>
+            <ol class="demo-steps visually-hidden">
+              <li>Codex reserves src/pagination.ts before editing.</li>
+              <li>Claude Code waits while Codex saves pageSize.</li>
+              <li>After acquiring the file, Claude Code reads the saved change.</li>
+              <li>Claude Code adds lastPageCursor and releases the file. Both edits remain.</li>
+            </ol>
+          </div>
+        </section>
+      </div>
+      <section id="install" class="install wrap" aria-label="Install Bassfish">
+        <div class="step agent-handoff">
+          <div class="step-heading"><h2>Hand this to your agent.</h2></div>
+          <div class="handoff-link">
+            <a class="guide-url" href="./setup.md">{{SITE_HOST_PATH}}setup.md</a
+            ><button type="button" data-copy-url="setup.md" hidden>Copy link</button>
+          </div>
+        </div>
+        <p class="install-or">OR</p>
+        <ol class="install-steps" role="list" aria-label="Install it yourself">
+          <li class="step">
+            <div class="step-heading">
+              <span class="step-number" aria-hidden="true">01</span>
+              <h2>Install Bassfish</h2>
+            </div>
+            <p>Node.js 24.12+ within v24, Git, and macOS or Linux.</p>
+            <div class="code-block">
+              <div class="code-heading">
+                <span>Terminal</span
+                ><button type="button" data-copy="install-code" hidden>Copy</button>
+              </div>
+              <pre><code id="install-code">npm install -g @bassfish/cli
+bassfish setup
+bassfish --version</code></pre>
+            </div>
+          </li>
+          <li class="step">
+            <div class="step-heading">
+              <span class="step-number" aria-hidden="true">02</span>
+              <h2>Connect each agent</h2>
+            </div>
+            <p>Choose your host, then start a session in your repository.</p>
+            <div class="host-picker" aria-label="Choose your agent host">
+              <a id="tab-codex" href="#host-codex">Codex</a
+              ><a id="tab-claude" href="#host-claude">Claude Code</a
+              ><a id="tab-other" href="#host-other">Other MCP hosts</a>
+            </div>
+            <div id="host-codex" class="host-panel">
+              <h3 class="no-js-heading">Codex</h3>
+              <div class="code-block">
+                <div class="code-heading">
+                  <span>Terminal</span
+                  ><button type="button" data-copy="codex-code" hidden>Copy commands</button>
+                </div>
+                <pre><code id="codex-code">codex mcp add bassfish -- bassfish mcp
+codex mcp list</code></pre>
+              </div>
+            </div>
+            <div id="host-claude" class="host-panel">
+              <h3 class="no-js-heading">Claude Code</h3>
+              <div class="code-block">
+                <div class="code-heading">
+                  <span>Terminal</span
+                  ><button type="button" data-copy="claude-code" hidden>Copy commands</button>
+                </div>
+                <pre><code id="claude-code">claude plugin marketplace add https://github.com/tfukaza/bassfish.git
+claude plugin install bassfish@bassfish --scope user</code></pre>
+              </div>
+            </div>
+            <div id="host-other" class="host-panel">
+              <h3 class="no-js-heading">Other MCP hosts</h3>
+              <p>Configure a local stdio server with these values:</p>
+              <dl class="server-config">
+                <div>
+                  <dt>Command</dt>
+                  <dd><code>bassfish</code></dd>
+                </div>
+                <div>
+                  <dt>Arguments</dt>
+                  <dd><code>mcp --workspace /absolute/path/to/project</code></dd>
+                </div>
+              </dl>
+              <p class="fine-print">Replace the path with your repository.</p>
+            </div>
+          </li>
+          <li class="step">
+            <div class="step-heading">
+              <span class="step-number" aria-hidden="true">03</span>
+              <h2>Give your agents the skills</h2>
+            </div>
+            <div class="code-block">
+              <div class="code-heading">
+                <span>Terminal</span
+                ><button type="button" data-copy="skills-code" hidden>Copy</button>
+              </div>
+              <pre><code id="skills-code">npx skills add tfukaza/bassfish \
+  --skill use-bassfish --skill manage-bassfish -g</code></pre>
+            </div>
+          </li>
+        </ol>
+      </section>
+    </main>
+    <footer class="site-footer wrap">
+      <a href="#story">bassfish</a>
+      <div>
+        <a href="./docs.html">Read the docs ↗</a><a href="./setup.md">Agent guide ↗</a
+        ><a href="./llms.txt">llms.txt</a><a href="https://github.com/tfukaza/bassfish">GitHub ↗</a
+        ><a href="https://www.npmjs.com/package/@bassfish/cli">npm ↗</a
+        ><a href="https://github.com/tfukaza/bassfish/blob/main/LICENSE">MIT license</a>
+      </div>
+    </footer>
+    <p id="copy-status" class="copy-status" role="status" aria-live="polite"></p>
+    <script type="module" src="./main.js"></script>
+  </body>
 </html>

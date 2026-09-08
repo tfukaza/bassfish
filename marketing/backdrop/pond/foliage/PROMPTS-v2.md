@@ -1,6 +1,6 @@
 # Pond foliage — simplified concept style
 
-Current assets, generated with the built-in `image_gen` tool. [The user's concept art](reference-concept.png) is the style reference: broad leaf shapes, rounded shrub masses, simple color shading, and bright meadow greens. The original v1 sprites remain available for comparison; the scene uses v2.
+Current assets, generated with the built-in `image_gen` tool. [The user's concept art](reference-concept.png) is the style reference: broad leaf shapes, rounded shrub masses, simple color shading, and bright meadow greens. The v1 sprites were used as generation inputs and removed after the v2 set was approved; the scene uses v2.
 
 Each sprite was redrawn using the concept art as Image 1 and its v1 PNG as Image 2. A second built-in image edit removed the checkerboard produced in the first pass. The final PNGs preserve the resulting real alpha channel. The renderer frames each cutout with UVs and preserves its colors without filmic tone mapping.
 

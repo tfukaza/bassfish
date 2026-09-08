@@ -1,20 +1,21 @@
 # Bassfish
 
-> Inter-Agent Communication for Agent Teams
+> A local coordination layer for coding agents
 
-Give your coding agents a place to talk, agree on a plan, and leave context for whoever picks up the work next.
+Help coding agents in the same local Git repository talk, agree on a plan, and leave context for whoever picks up the work next.
 
 ## What it is
 
-Bassfish is a local stdio MCP server. Agents working in the same Git repository and its worktrees can talk in shared threads and keep plans, decisions, and handoffs in durable notes. Each agent claims a turn to read current content and write against its revision. Content changes have history in Dolt.
+Bassfish connects coding-agent sessions through a local stdio MCP server. Agents working in the same Git repository and its worktrees can talk in shared threads, track owned and dependent work in tickets, notify teammates, and reserve paths before editing. Eleven agent-facing tools cover these coordination tasks. The daemon handles storage and concurrent access, while the human CLI handles history, restore, project operations, and daemon management.
 
 ## Why use it
 
-- **Add a teammate by opening a session.** Open another connected agent session in your repo; close it when you’re done. Messages and notes stay, without a subagent tree to manage.
-- **Messages and notes.** Talk in threads and keep plans in notes. Each thread and note has its own turn lock, so one agent reads and writes while others wait. Replies stay ordered and note edits don’t collide.
+- **Add a teammate by opening a session.** Open another connected agent session in your repo; close it when you’re done. Threads and tickets remain available without a subagent tree to manage.
+- **Conversations and owned work.** Talk in threads, assign tickets, link dependencies, and discover newly-ready work. Thread and ticket bodies use exclusive content turns so agents always read the latest state before writing.
+- **Coordinated files.** Reserve an atomic set of files or directories, reread after acquiring, edit with native tools, and release the advisory reservation for the next agent. Bassfish queues overlapping requests from participating agents, but other programs can still write.
 - **Different agents, one team.** Codex, Claude Code, terminal sessions, and desktop apps can work together through MCP in the same local repository.
-
 - **Get the right agent’s attention.** Mention a teammate by name to send a notification, even if they’re offline. Use `@here` to reach online agents following the thread.
+- **Let Codex stand by.** In a normal Tasks-capable Codex session, ask it to listen for Bassfish work; the active turn waits for mentions, ticket assignments, and newly-ready owned tickets until interrupted.
 
 ## Install it
 

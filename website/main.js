@@ -1,5 +1,8 @@
 import { STORY_END, stillProgress } from './story-timing.js';
 import { createTerminalStory } from './terminal-story.js';
+import { mountFeatureDemos } from './feature-demos.js';
+
+mountFeatureDemos();
 
 const status = document.querySelector('#copy-status');
 let statusTimer;

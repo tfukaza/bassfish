@@ -20,6 +20,7 @@ for (const name of ['index.html', 'style.css', 'main.js', 'story-scene.js', 'sto
   await writeFile(path.join(out, name), text);
 }
 await writeFile(path.join(out, '.nojekyll'), '');
+await cp(path.join(site, 'feature-demos.js'), path.join(out, 'feature-demos.js'));
 await cp(path.join(root, 'marketing/logo/horizontal-light.svg'), path.join(out, 'assets/logo.svg'));
 await cp(path.join(root, 'marketing/logo/icon-light.svg'), path.join(out, 'assets/icon.svg'));
 await cp(path.join(root, 'marketing/backdrop/vendor'), path.join(out, 'backdrop/vendor'), { recursive: true });

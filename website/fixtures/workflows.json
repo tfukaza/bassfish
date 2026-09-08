@@ -1,0 +1,43 @@
+{
+  "kind": "Scripted examples validated through isolated Bassfish MCP clients",
+  "checks": [
+    "One session starts online",
+    "A second connected session joins",
+    "The API agent reads the client’s question",
+    "The client reads the API agent’s answer",
+    "Closing the client marks it offline",
+    "Shared messages survive disconnection",
+    "Structured direct mention delivers a notification",
+    "The reviewer reads the mentioned thread",
+    "@here reaches online follower api-agent",
+    "@here reaches online follower client-agent",
+    "@here excludes its sender",
+    "@here excludes offline followers",
+    "The client waits while API holds the note",
+    "The queued client receives the latest note",
+    "Both note edits are retained"
+  ],
+  "messages": [
+    {
+      "author": "client-agent",
+      "body": "What’s the response format?"
+    },
+    {
+      "author": "api-agent",
+      "body": "Use items + nextCursor. Null means the last page."
+    },
+    {
+      "author": "api-agent",
+      "body": "@reviewer, can you check the pagination change?"
+    },
+    {
+      "author": "reviewer",
+      "body": "Checked the last-page behavior. Looks good."
+    },
+    {
+      "author": "reviewer",
+      "body": "@here, review complete."
+    }
+  ],
+  "note": "# API pagination\nResponse: items + nextCursor\nHide Next when nextCursor is null\n"
+}

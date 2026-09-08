@@ -1,6 +1,6 @@
 # Bassfish website
 
-The homepage is a full-viewport pond followed by a scroll-driven story, four illustrated benefit cards, and a compact installation section.
+The homepage is a full-viewport pond followed by a scroll-driven story, three concrete workflow demos, and a compact installation section.
 
 The website tagline is **Inter-Agent Communication for Agent Teams**. The hero, browser title, social metadata, and text endpoints use this wording.
 
@@ -12,7 +12,7 @@ The website tagline is **Inter-Agent Communication for Agent Teams**. The hero, 
 4. **Separate sessions:** the camera pulls back as three more ponds rotate into place. The original pond sits at the bottom. The other ponds face outward at quarter-turn offsets. Each pond has one visible agent; their conversations are separate.
 5. **Bassfish arrives:** a larger bass swims along an S-shaped approach, turning and banking with the curve before settling above the ponds, facing down and right toward the camera. Two oval harness straps fit its cross-sections and follow the same body frame and lateral bend. Their mounts carry four articulated arms, which unfold and lower microphones above the fish.
 6. **Shared context:** signals travel along the arms. Agents exchange API, client, test, and review messages through Bassfish. The whole connected scene turns through a full revolution as the visitor scrolls, then continues a slow ambient orbit. Every surfaced agent swims in a circle.
-7. **The real workflow:** the rig retracts and lifts away. The camera takes the shortest turn from its current orbit to a straight overhead view, then locks. The four square ponds hold in a grid before their projected footprints become four HTML terminal windows. An illustrative, synchronized conversation scrolls through the terminals. The sticky stage then leaves naturally, followed by the benefit cards and installation.
+7. **The real workflow:** the rig retracts and lifts away. The camera takes the shortest turn from its current orbit to a straight overhead view, then locks. The four square ponds hold in a grid before their projected footprints become four HTML terminal windows. An illustrative, synchronized conversation scrolls through the terminals. The sticky stage then leaves naturally, followed by the feature sections and installation.
 
 ### Final transition timing
 
@@ -26,7 +26,9 @@ The shared scroll range ends at `8.4`. Existing chapters retain their timing thr
 | 6.92–8.3 | Reveal one shared conversation across all four sessions; longer output scrolls within each window. |
 | 8.4 onward | Release the sticky stage into ordinary document flow. |
 
-The terminal conversation is driven by scroll position, including when reversing. It never contacts an agent, runs commands, or announces each decorative log line to assistive technology. Reduced motion switches directly to complete overhead and terminal poses. The four cards cover connected session membership, per-thread/per-note turn locks, interoperability between MCP hosts in the same local repository, and direct mentions versus `@here` for online thread followers. Each has a lightweight HTML/CSS illustration; the two-column grid stacks on phones. They remain visible without JavaScript or WebGL.
+The terminal conversation is driven by scroll position, including when reversing. It never contacts an agent, runs commands, or announces each decorative log line to assistive technology. Reduced motion switches directly to complete overhead and terminal poses. Three alternating feature sections demonstrate connected sessions across hosts, structured mentions and online followers, and queued note edits. Their HTML/CSS examples share a 12-second playback controller. Only one visible demo advances; playback pauses offscreen, in a hidden tab, or through its keyboard-accessible controls. Completed examples hold until Replay. Reduced motion and no JavaScript show complete examples with the action sequence as ordinary text. Animated content is hidden from assistive technology to avoid repeated announcements.
+
+The examples use one API pagination change. Run `node website/scripts/capture-workflows.mjs` after building the CLI to validate them against isolated MCP clients. The capture uses temporary repository/data directories and saves only sanitized messages, note content, and assertions to `fixtures/workflows.json`. Host presentations are illustrative, and notifications do not imply automatic host wake-up. Ticket-tracker demonstrations are deferred until their workflow is specified.
 
 The four ponds represent agent sessions in the same local Git repository, not networked machines. The story is an illustration of the product, not a recording of live tool traffic.
 
@@ -81,6 +83,7 @@ To run browser checks with an existing Playwright installation:
 
 ```sh
 BASSFISH_PLAYWRIGHT_MODULE=/absolute/path/to/playwright npm run check:browser --prefix website
+BASSFISH_PLAYWRIGHT_MODULE=/absolute/path/to/playwright node website/scripts/check-features.cjs
 ```
 
 Run the preview server first. Screenshots and results go to ignored `website/qa/`. `BASSFISH_SITE_TEST_URL` can target a different preview or the deployed URL. Update `setup.md` with CLI/tool changes; examples must match `src/api.ts`, and the version and requirements must match the package being published.

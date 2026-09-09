@@ -349,6 +349,22 @@ test(
     const disconnected = once(admin.socket, 'close');
     process.kill(health.pid, 'SIGKILL');
     await disconnected;
+    // Closing one accepted socket does not mean the dying process has closed
+    // its listening socket yet. Wait for refusal before testing a fresh start.
+    const stoppedDeadline = performance.now() + 10000;
+    while (true) {
+      let connection;
+      try {
+        connection = await connectDaemon(data);
+      } catch (error) {
+        if (['ENOENT', 'ECONNREFUSED'].includes((error as NodeJS.ErrnoException).code ?? '')) break;
+        throw error;
+      } finally {
+        connection?.socket.destroy();
+      }
+      assert.ok(performance.now() < stoppedDeadline, 'Killed daemon listener did not close');
+      await delay(10);
+    }
     // New daemon opens the committed Turso state and fences previous ownership.
     await ensureDaemon(data, { turnTimeoutMs: 90000 });
     const restartedAdmin = await connectDaemon(data);

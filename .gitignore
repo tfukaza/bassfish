@@ -6,3 +6,6 @@ coverage/
 *.tsbuildinfo
 .DS_Store
 website/qa/
+/output/
+/outputs/
+/tmp/

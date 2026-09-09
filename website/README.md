@@ -28,7 +28,7 @@ The shared scroll range ends at `8.4`. Existing chapters retain their timing thr
 
 The terminal conversation is driven by scroll position, including when reversing. It never contacts an agent, runs commands, or announces each decorative log line to assistive technology. Reduced motion switches directly to complete overhead and terminal poses. Three alternating feature sections demonstrate connected sessions across hosts, structured mentions and online followers, and coordinated native file edits. Their HTML/CSS examples share a 12-second playback controller. Only one visible demo advances; playback pauses offscreen or in a hidden tab. Completed examples hold with no replay controls. Reduced motion and no JavaScript show complete examples; visually hidden action sequences remain available to screen readers. Animated content is hidden from assistive technology to avoid repeated announcements.
 
-The examples use one API pagination change. Run `node website/scripts/capture-workflows.mjs` after building the CLI to validate them against isolated MCP clients. The capture uses temporary repository/data directories and saves only sanitized messages, file content, and assertions to `fixtures/workflows.json`. Host presentations are illustrative, and notifications do not imply automatic host wake-up. Ticket-tracker demonstrations are deferred until their workflow is specified.
+The examples use one API pagination change. Run `node website/scripts/capture-workflows.mjs` after building the CLI to validate them against isolated MCP clients. The capture uses temporary repository/data directories and saves only sanitized messages, file content, and assertions to `fixtures/workflows.json`. Host presentations are illustrative; native plugins deliver actionable notifications at safe boundaries and coalesced generic activity at idle. Ticket-tracker demonstrations are deferred until their workflow is specified.
 
 The four ponds represent agent sessions in the same local Git repository, not networked machines. The story is an illustration of the product, not a recording of live tool traffic.
 
@@ -36,9 +36,9 @@ The title, chapter headings, and descriptions remain flat HTML. Chapter text scr
 
 ## Installation content
 
-The installation section offers two alternatives: an unnumbered agent handoff with a copyable setup link, or a manual installation. A large “OR” separates them. Steps 1–3 install the CLI/runtime, connect each agent host, and add `use-bassfish` and `manage-bassfish`. Detailed documentation and reference links live in the footer; the full guide includes the first conversation prompt.
+The installation section has three steps: install the latest CLI/runtime, choose a host to connect MCP and install both skills, then update the shared package and host plugins. Codex, Claude Code, and OpenCode each show a host-targeted Agent Skills command; other MCP hosts get a compact stdio fallback.
 
-`docs.html` is the browsable documentation page, covering capabilities, installation, host-specific setup, verification, the team workflow, and troubleshooting. `setup.md` is the complete agent-facing installation and usage guide; `llms.txt` indexes it, and `index.md` supplies a text overview. These are static files an agent can fetch, not executable installers.
+`docs.html` is the complete browsable documentation page, covering capabilities, installation, host-specific setup, verification, upgrades, the team workflow, and troubleshooting. `llms.txt` indexes the documentation, and `index.md` supplies an agent-readable text overview with installation commands. These are static files an agent can fetch, not executable installers.
 
 Geist Sans and Geist Mono are self-hosted in `assets/fonts/`, with their SIL Open Font License included. The build does not fetch fonts or call a font CDN.
 
@@ -86,7 +86,7 @@ BASSFISH_PLAYWRIGHT_MODULE=/absolute/path/to/playwright npm run check:browser --
 BASSFISH_PLAYWRIGHT_MODULE=/absolute/path/to/playwright node website/scripts/check-features.cjs
 ```
 
-Run the preview server first. Screenshots and results go to ignored `website/qa/`. `BASSFISH_SITE_TEST_URL` can target a different preview or the deployed URL. Update `setup.md` with CLI/tool changes; examples must match `src/mcp-api.ts`, and the version and requirements must match the package being published.
+Run the preview server first. Screenshots and results go to ignored `website/qa/`. `BASSFISH_SITE_TEST_URL` can target a different preview or the deployed URL. Keep installation commands aligned across `README.md`, `docs.html`, and `index.md`; tool examples must match `src/mcp-api.ts`, and the version and requirements must match the package being published.
 
 ## Local visual revision
 

@@ -1,6 +1,6 @@
 {
   "kind": "Scripted terminal session with captured real Bassfish MCP calls",
-  "capturedAt": "2026-09-07T02:53:22.876Z",
+  "capturedAt": "2026-09-08T04:56:45.648Z",
   "agents": [
     "api-agent",
     "client-agent"
@@ -44,46 +44,38 @@
   },
   "writes": [
     {
-      "baseRevision": "1",
+      "revisionRead": "1",
       "result": {
-        "resourceId": "e3c140b7-4636-48ab-b1e5-949379859582",
-        "previousRevision": "1",
+        "threadId": "7f0f6e7c-60ea-45e9-847f-5ae2bca1fc31",
         "revision": "2",
-        "doltCommit": "su815l8nc61qhjpllr0ag7ch9jrk7e66",
-        "messageId": "43453934-104f-4124-a160-41a7a20a914b",
+        "messageId": "a9fdf8d3-4a30-41d5-9a28-37b86520bc2f",
         "sequence": "1"
       }
     },
     {
-      "baseRevision": "2",
+      "revisionRead": "2",
       "result": {
-        "resourceId": "e3c140b7-4636-48ab-b1e5-949379859582",
-        "previousRevision": "2",
+        "threadId": "7f0f6e7c-60ea-45e9-847f-5ae2bca1fc31",
         "revision": "3",
-        "doltCommit": "1a3h8b6ht82qem0vguru2a3a86q44tne",
-        "messageId": "c145a37a-d5bf-4137-a4cf-aac921e224ca",
+        "messageId": "bd988659-c7c5-4153-a85d-2d7c6b071831",
         "sequence": "2"
       }
     },
     {
-      "baseRevision": "3",
+      "revisionRead": "3",
       "result": {
-        "resourceId": "e3c140b7-4636-48ab-b1e5-949379859582",
-        "previousRevision": "3",
+        "threadId": "7f0f6e7c-60ea-45e9-847f-5ae2bca1fc31",
         "revision": "4",
-        "doltCommit": "r32j8obljnb01a9su1h91vf2hrqgdtde",
-        "messageId": "13248678-cd42-4743-afb5-29e7faf7c701",
+        "messageId": "030a0701-5edb-4794-9d12-470390040232",
         "sequence": "3"
       }
     },
     {
-      "baseRevision": "4",
+      "revisionRead": "4",
       "result": {
-        "resourceId": "e3c140b7-4636-48ab-b1e5-949379859582",
-        "previousRevision": "4",
+        "threadId": "7f0f6e7c-60ea-45e9-847f-5ae2bca1fc31",
         "revision": "5",
-        "doltCommit": "old0fd2ag9u4sf6suf4gl41ajmjupd0f",
-        "messageId": "ad1aab33-d7fc-4f8e-9cfe-32f3fe0c31c9",
+        "messageId": "b8d6eef1-aa42-467e-a475-41112d8be81f",
         "sequence": "4"
       }
     }
@@ -98,567 +90,339 @@
   "tests": {
     "passed": 3,
     "failed": 0,
-    "stdout": "✔ existing /items still returns an array (0.401208ms)\n✔ /v2/items includes pagination metadata (0.332583ms)\n✔ client uses /v2/items and returns its items (0.07775ms)\nℹ tests 3\nℹ suites 0\nℹ pass 3\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 39.823375\n"
+    "stdout": "✔ existing /items still returns an array (0.315ms)\n✔ /v2/items includes pagination metadata (0.268875ms)\n✔ client uses /v2/items and returns its items (0.058459ms)\nℹ tests 3\nℹ suites 0\nℹ pass 3\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 30.49925\n"
   },
   "transcript": [
     {
       "actor": "api-agent",
-      "tool": "getSession",
+      "tool": "getContext",
       "input": {},
       "output": {
-        "projectId": "p_092555ae2baa49488330f397324e0960",
-        "identityId": "d0bfc768-8652-4b4f-8a61-c0090997e51c",
-        "adapterInstanceId": "2f5d739f-e34d-44e8-a0fd-0e386634b4dd",
-        "name": "api-agent",
-        "recovering": false,
-        "pendingRequests": [],
-        "pendingCommits": []
+        "agentName": "api-agent",
+        "agents": [
+          {
+            "name": "client-agent",
+            "online": true
+          }
+        ],
+        "pendingTurns": [],
+        "unreadNotificationCount": 0
       }
     },
     {
       "actor": "client-agent",
-      "tool": "getSession",
+      "tool": "getContext",
       "input": {},
       "output": {
-        "projectId": "p_092555ae2baa49488330f397324e0960",
-        "identityId": "042b3a37-1c1d-425a-b4b8-de9592ca2545",
-        "adapterInstanceId": "96f2b218-fcb1-4593-bc4d-22d16ba9c385",
-        "name": "client-agent",
-        "recovering": false,
-        "pendingRequests": [],
-        "pendingCommits": []
+        "agentName": "client-agent",
+        "agents": [
+          {
+            "name": "api-agent",
+            "online": true
+          }
+        ],
+        "pendingTurns": [],
+        "unreadNotificationCount": 0
       }
     },
     {
       "actor": "api-agent",
-      "tool": "createThread",
+      "tool": "createResource",
       "input": {
+        "resourceType": "thread",
         "title": "API pagination",
         "description": ""
       },
       "output": {
-        "threadId": "e3c140b7-4636-48ab-b1e5-949379859582",
-        "title": "API pagination",
-        "state": "active",
-        "resourceId": "e3c140b7-4636-48ab-b1e5-949379859582",
-        "previousRevision": "0",
-        "revision": "1",
-        "doltCommit": "oqe5k4v9e1o0de1kg9bbqquuds29fo5b"
+        "threadId": "7f0f6e7c-60ea-45e9-847f-5ae2bca1fc31",
+        "revision": "1"
       }
     },
     {
       "actor": "api-agent",
-      "tool": "requestTurn",
+      "tool": "acquireTurn",
       "input": {
         "target": {
           "type": "thread",
-          "id": "e3c140b7-4636-48ab-b1e5-949379859582"
+          "threadId": "7f0f6e7c-60ea-45e9-847f-5ae2bca1fc31"
         }
       },
       "output": {
-        "state": "offered",
-        "requestId": "38c9d907-bb93-40e0-81ed-ba305819d327",
-        "target": {
-          "type": "thread",
-          "id": "e3c140b7-4636-48ab-b1e5-949379859582"
+        "state": "claimed",
+        "requestToken": "ff6f71a9-1fde-4520-8891-e28aad123d28",
+        "turnToken": "4a8ff9bd-2f9f-4f8a-90e3-502e79e4fd61",
+        "expiresAt": "2026-09-08T04:57:45.504Z",
+        "resource": {
+          "threadId": "7f0f6e7c-60ea-45e9-847f-5ae2bca1fc31",
+          "title": "API pagination",
+          "descriptionPreview": "",
+          "state": "active",
+          "revision": "1",
+          "following": true,
+          "createdAt": "2026-09-08T04:56:45.485Z"
         },
-        "offerId": "c6d143af-22cf-490a-9ff1-2b2193e08015",
-        "claimBy": "2026-09-07T02:53:52.705Z"
-      }
-    },
-    {
-      "actor": "api-agent",
-      "tool": "claimTurn",
-      "input": {
-        "offerId": "c6d143af-22cf-490a-9ff1-2b2193e08015"
-      },
-      "output": {
-        "requestId": "38c9d907-bb93-40e0-81ed-ba305819d327",
-        "target": {
-          "type": "thread",
-          "id": "e3c140b7-4636-48ab-b1e5-949379859582"
-        },
-        "turn": {
-          "id": "fabe6ea2-ae47-4193-8591-5f9487cc51e9",
-          "fencingToken": "1",
-          "expiresAt": "2026-09-07T02:53:52.712Z"
-        },
-        "snapshot": {
-          "commit": "oqe5k4v9e1o0de1kg9bbqquuds29fo5b",
-          "revision": "1"
-        },
-        "page": {
-          "type": "thread",
-          "thread": {
-            "id": "e3c140b7-4636-48ab-b1e5-949379859582",
-            "title": "API pagination",
-            "description": "",
-            "state": "active",
-            "revision": "1",
-            "headSequence": "0",
-            "creator": "d0bfc768-8652-4b4f-8a61-c0090997e51c",
-            "createdAt": "2026-09-07T02:53:22.693Z"
-          },
-          "messages": [],
-          "truncated": false
-        },
-        "nextCursor": null,
-        "serverTime": "2026-09-07T02:53:22.712Z"
+        "messages": [],
+        "nextCursor": null
       }
     },
     {
       "actor": "api-agent",
       "tool": "commitTurn",
       "input": {
-        "turn": {
-          "id": "fabe6ea2-ae47-4193-8591-5f9487cc51e9",
-          "fencingToken": "1"
-        },
-        "baseRevision": "1",
+        "turnToken": "4a8ff9bd-2f9f-4f8a-90e3-502e79e4fd61",
         "mutation": {
           "kind": "appendMessage",
           "body": "Adding pagination: /items will return { items, total }."
         }
       },
       "output": {
-        "resourceId": "e3c140b7-4636-48ab-b1e5-949379859582",
-        "previousRevision": "1",
+        "threadId": "7f0f6e7c-60ea-45e9-847f-5ae2bca1fc31",
         "revision": "2",
-        "doltCommit": "su815l8nc61qhjpllr0ag7ch9jrk7e66",
-        "messageId": "43453934-104f-4124-a160-41a7a20a914b",
+        "messageId": "a9fdf8d3-4a30-41d5-9a28-37b86520bc2f",
         "sequence": "1"
       }
     },
     {
       "actor": "client-agent",
-      "tool": "requestTurn",
+      "tool": "acquireTurn",
       "input": {
         "target": {
           "type": "thread",
-          "id": "e3c140b7-4636-48ab-b1e5-949379859582"
+          "threadId": "7f0f6e7c-60ea-45e9-847f-5ae2bca1fc31"
         }
       },
       "output": {
-        "state": "offered",
-        "requestId": "9e5fa6ca-4b16-446a-94b9-056b9866f7b5",
-        "target": {
-          "type": "thread",
-          "id": "e3c140b7-4636-48ab-b1e5-949379859582"
+        "state": "claimed",
+        "requestToken": "6e9ebfe5-b653-415e-a64f-34450eaa4974",
+        "turnToken": "8fb9c9ad-47ac-46ca-a41e-f1331c23eeeb",
+        "expiresAt": "2026-09-08T04:57:45.529Z",
+        "resource": {
+          "threadId": "7f0f6e7c-60ea-45e9-847f-5ae2bca1fc31",
+          "title": "API pagination",
+          "descriptionPreview": "",
+          "state": "active",
+          "revision": "2",
+          "following": true,
+          "createdAt": "2026-09-08T04:56:45.485Z"
         },
-        "offerId": "916ec4c8-d0b2-4da2-a5ef-8da16eeedf88",
-        "claimBy": "2026-09-07T02:53:52.727Z"
-      }
-    },
-    {
-      "actor": "client-agent",
-      "tool": "claimTurn",
-      "input": {
-        "offerId": "916ec4c8-d0b2-4da2-a5ef-8da16eeedf88"
-      },
-      "output": {
-        "requestId": "9e5fa6ca-4b16-446a-94b9-056b9866f7b5",
-        "target": {
-          "type": "thread",
-          "id": "e3c140b7-4636-48ab-b1e5-949379859582"
-        },
-        "turn": {
-          "id": "63fa2c50-3364-435b-b40b-774ca574d291",
-          "fencingToken": "2",
-          "expiresAt": "2026-09-07T02:53:52.733Z"
-        },
-        "snapshot": {
-          "commit": "su815l8nc61qhjpllr0ag7ch9jrk7e66",
-          "revision": "2"
-        },
-        "page": {
-          "type": "thread",
-          "thread": {
-            "id": "e3c140b7-4636-48ab-b1e5-949379859582",
-            "title": "API pagination",
-            "description": "",
-            "state": "active",
-            "revision": "2",
-            "headSequence": "1",
-            "creator": "d0bfc768-8652-4b4f-8a61-c0090997e51c",
-            "createdAt": "2026-09-07T02:53:22.693Z"
-          },
-          "messages": [
-            {
-              "id": "43453934-104f-4124-a160-41a7a20a914b",
-              "threadId": "e3c140b7-4636-48ab-b1e5-949379859582",
-              "sequence": "1",
-              "identityId": "d0bfc768-8652-4b4f-8a61-c0090997e51c",
-              "name": "api-agent",
-              "instanceId": "2f5d739f-e34d-44e8-a0fd-0e386634b4dd",
-              "createdAt": "2026-09-07T02:53:22.718Z",
-              "body": "Adding pagination: /items will return { items, total }."
-            }
-          ],
-          "truncated": false
-        },
-        "nextCursor": null,
-        "serverTime": "2026-09-07T02:53:22.733Z"
+        "messages": [
+          {
+            "messageId": "a9fdf8d3-4a30-41d5-9a28-37b86520bc2f",
+            "sequence": "1",
+            "author": "api-agent",
+            "createdAt": "2026-09-08T04:56:45.511Z",
+            "body": "Adding pagination: /items will return { items, total }."
+          }
+        ],
+        "nextCursor": null
       }
     },
     {
       "actor": "client-agent",
       "tool": "commitTurn",
       "input": {
-        "turn": {
-          "id": "63fa2c50-3364-435b-b40b-774ca574d291",
-          "fencingToken": "2"
-        },
-        "baseRevision": "2",
+        "turnToken": "8fb9c9ad-47ac-46ca-a41e-f1331c23eeeb",
         "mutation": {
           "kind": "appendMessage",
           "body": "loadItems() expects an array. Keep /items; add /v2/items."
         }
       },
       "output": {
-        "resourceId": "e3c140b7-4636-48ab-b1e5-949379859582",
-        "previousRevision": "2",
+        "threadId": "7f0f6e7c-60ea-45e9-847f-5ae2bca1fc31",
         "revision": "3",
-        "doltCommit": "1a3h8b6ht82qem0vguru2a3a86q44tne",
-        "messageId": "c145a37a-d5bf-4137-a4cf-aac921e224ca",
+        "messageId": "bd988659-c7c5-4153-a85d-2d7c6b071831",
         "sequence": "2"
       }
     },
     {
       "actor": "api-agent",
-      "tool": "requestTurn",
+      "tool": "acquireTurn",
       "input": {
         "target": {
           "type": "thread",
-          "id": "e3c140b7-4636-48ab-b1e5-949379859582"
+          "threadId": "7f0f6e7c-60ea-45e9-847f-5ae2bca1fc31"
         }
       },
       "output": {
-        "state": "offered",
-        "requestId": "7c895184-83d2-4c9b-9578-b53fd4503436",
-        "target": {
-          "type": "thread",
-          "id": "e3c140b7-4636-48ab-b1e5-949379859582"
+        "state": "claimed",
+        "requestToken": "0820dae1-d1a5-4c2c-b8ce-309cafddd32c",
+        "turnToken": "e12446b9-8597-4ecd-bf22-f1ab275cac45",
+        "expiresAt": "2026-09-08T04:57:45.549Z",
+        "resource": {
+          "threadId": "7f0f6e7c-60ea-45e9-847f-5ae2bca1fc31",
+          "title": "API pagination",
+          "descriptionPreview": "",
+          "state": "active",
+          "revision": "3",
+          "following": true,
+          "createdAt": "2026-09-08T04:56:45.485Z"
         },
-        "offerId": "90e83785-383a-4a56-8ff3-03b521ed9e40",
-        "claimBy": "2026-09-07T02:53:52.750Z"
-      }
-    },
-    {
-      "actor": "api-agent",
-      "tool": "claimTurn",
-      "input": {
-        "offerId": "90e83785-383a-4a56-8ff3-03b521ed9e40"
-      },
-      "output": {
-        "requestId": "7c895184-83d2-4c9b-9578-b53fd4503436",
-        "target": {
-          "type": "thread",
-          "id": "e3c140b7-4636-48ab-b1e5-949379859582"
-        },
-        "turn": {
-          "id": "41fa9038-95f3-43c3-9a49-fb5b875d4f7f",
-          "fencingToken": "3",
-          "expiresAt": "2026-09-07T02:53:52.757Z"
-        },
-        "snapshot": {
-          "commit": "1a3h8b6ht82qem0vguru2a3a86q44tne",
-          "revision": "3"
-        },
-        "page": {
-          "type": "thread",
-          "thread": {
-            "id": "e3c140b7-4636-48ab-b1e5-949379859582",
-            "title": "API pagination",
-            "description": "",
-            "state": "active",
-            "revision": "3",
-            "headSequence": "2",
-            "creator": "d0bfc768-8652-4b4f-8a61-c0090997e51c",
-            "createdAt": "2026-09-07T02:53:22.693Z"
+        "messages": [
+          {
+            "messageId": "a9fdf8d3-4a30-41d5-9a28-37b86520bc2f",
+            "sequence": "1",
+            "author": "api-agent",
+            "createdAt": "2026-09-08T04:56:45.511Z",
+            "body": "Adding pagination: /items will return { items, total }."
           },
-          "messages": [
-            {
-              "id": "43453934-104f-4124-a160-41a7a20a914b",
-              "threadId": "e3c140b7-4636-48ab-b1e5-949379859582",
-              "sequence": "1",
-              "identityId": "d0bfc768-8652-4b4f-8a61-c0090997e51c",
-              "name": "api-agent",
-              "instanceId": "2f5d739f-e34d-44e8-a0fd-0e386634b4dd",
-              "createdAt": "2026-09-07T02:53:22.718Z",
-              "body": "Adding pagination: /items will return { items, total }."
-            },
-            {
-              "id": "c145a37a-d5bf-4137-a4cf-aac921e224ca",
-              "threadId": "e3c140b7-4636-48ab-b1e5-949379859582",
-              "sequence": "2",
-              "identityId": "042b3a37-1c1d-425a-b4b8-de9592ca2545",
-              "name": "client-agent",
-              "instanceId": "96f2b218-fcb1-4593-bc4d-22d16ba9c385",
-              "createdAt": "2026-09-07T02:53:22.738Z",
-              "body": "loadItems() expects an array. Keep /items; add /v2/items."
-            }
-          ],
-          "truncated": false
-        },
-        "nextCursor": null,
-        "serverTime": "2026-09-07T02:53:22.758Z"
+          {
+            "messageId": "bd988659-c7c5-4153-a85d-2d7c6b071831",
+            "sequence": "2",
+            "author": "client-agent",
+            "createdAt": "2026-09-08T04:56:45.533Z",
+            "body": "loadItems() expects an array. Keep /items; add /v2/items."
+          }
+        ],
+        "nextCursor": null
       }
     },
     {
       "actor": "api-agent",
       "tool": "commitTurn",
       "input": {
-        "turn": {
-          "id": "41fa9038-95f3-43c3-9a49-fb5b875d4f7f",
-          "fencingToken": "3"
-        },
-        "baseRevision": "3",
+        "turnToken": "e12446b9-8597-4ecd-bf22-f1ab275cac45",
         "mutation": {
           "kind": "appendMessage",
           "body": "Agreed. /items stays unchanged. Adding /v2/items."
         }
       },
       "output": {
-        "resourceId": "e3c140b7-4636-48ab-b1e5-949379859582",
-        "previousRevision": "3",
+        "threadId": "7f0f6e7c-60ea-45e9-847f-5ae2bca1fc31",
         "revision": "4",
-        "doltCommit": "r32j8obljnb01a9su1h91vf2hrqgdtde",
-        "messageId": "13248678-cd42-4743-afb5-29e7faf7c701",
+        "messageId": "030a0701-5edb-4794-9d12-470390040232",
         "sequence": "3"
       }
     },
     {
       "actor": "client-agent",
-      "tool": "requestTurn",
+      "tool": "acquireTurn",
       "input": {
         "target": {
           "type": "thread",
-          "id": "e3c140b7-4636-48ab-b1e5-949379859582"
+          "threadId": "7f0f6e7c-60ea-45e9-847f-5ae2bca1fc31"
         }
       },
       "output": {
-        "state": "offered",
-        "requestId": "cb3fc866-ec25-4602-a6ee-8c5175599dc4",
-        "target": {
-          "type": "thread",
-          "id": "e3c140b7-4636-48ab-b1e5-949379859582"
+        "state": "claimed",
+        "requestToken": "fe898f61-b947-4cad-a915-1a4d56ac6efe",
+        "turnToken": "70dd70a0-5b9d-424c-b721-13a50271ffb4",
+        "expiresAt": "2026-09-08T04:57:45.568Z",
+        "resource": {
+          "threadId": "7f0f6e7c-60ea-45e9-847f-5ae2bca1fc31",
+          "title": "API pagination",
+          "descriptionPreview": "",
+          "state": "active",
+          "revision": "4",
+          "following": true,
+          "createdAt": "2026-09-08T04:56:45.485Z"
         },
-        "offerId": "85128cbd-ef0d-4e8c-83a5-de94ccdf3dc3",
-        "claimBy": "2026-09-07T02:53:52.773Z"
-      }
-    },
-    {
-      "actor": "client-agent",
-      "tool": "claimTurn",
-      "input": {
-        "offerId": "85128cbd-ef0d-4e8c-83a5-de94ccdf3dc3"
-      },
-      "output": {
-        "requestId": "cb3fc866-ec25-4602-a6ee-8c5175599dc4",
-        "target": {
-          "type": "thread",
-          "id": "e3c140b7-4636-48ab-b1e5-949379859582"
-        },
-        "turn": {
-          "id": "037568cf-d376-4a31-b009-9b27f3fa1382",
-          "fencingToken": "4",
-          "expiresAt": "2026-09-07T02:53:52.779Z"
-        },
-        "snapshot": {
-          "commit": "r32j8obljnb01a9su1h91vf2hrqgdtde",
-          "revision": "4"
-        },
-        "page": {
-          "type": "thread",
-          "thread": {
-            "id": "e3c140b7-4636-48ab-b1e5-949379859582",
-            "title": "API pagination",
-            "description": "",
-            "state": "active",
-            "revision": "4",
-            "headSequence": "3",
-            "creator": "d0bfc768-8652-4b4f-8a61-c0090997e51c",
-            "createdAt": "2026-09-07T02:53:22.693Z"
+        "messages": [
+          {
+            "messageId": "a9fdf8d3-4a30-41d5-9a28-37b86520bc2f",
+            "sequence": "1",
+            "author": "api-agent",
+            "createdAt": "2026-09-08T04:56:45.511Z",
+            "body": "Adding pagination: /items will return { items, total }."
           },
-          "messages": [
-            {
-              "id": "43453934-104f-4124-a160-41a7a20a914b",
-              "threadId": "e3c140b7-4636-48ab-b1e5-949379859582",
-              "sequence": "1",
-              "identityId": "d0bfc768-8652-4b4f-8a61-c0090997e51c",
-              "name": "api-agent",
-              "instanceId": "2f5d739f-e34d-44e8-a0fd-0e386634b4dd",
-              "createdAt": "2026-09-07T02:53:22.718Z",
-              "body": "Adding pagination: /items will return { items, total }."
-            },
-            {
-              "id": "c145a37a-d5bf-4137-a4cf-aac921e224ca",
-              "threadId": "e3c140b7-4636-48ab-b1e5-949379859582",
-              "sequence": "2",
-              "identityId": "042b3a37-1c1d-425a-b4b8-de9592ca2545",
-              "name": "client-agent",
-              "instanceId": "96f2b218-fcb1-4593-bc4d-22d16ba9c385",
-              "createdAt": "2026-09-07T02:53:22.738Z",
-              "body": "loadItems() expects an array. Keep /items; add /v2/items."
-            },
-            {
-              "id": "13248678-cd42-4743-afb5-29e7faf7c701",
-              "threadId": "e3c140b7-4636-48ab-b1e5-949379859582",
-              "sequence": "3",
-              "identityId": "d0bfc768-8652-4b4f-8a61-c0090997e51c",
-              "name": "api-agent",
-              "instanceId": "2f5d739f-e34d-44e8-a0fd-0e386634b4dd",
-              "createdAt": "2026-09-07T02:53:22.762Z",
-              "body": "Agreed. /items stays unchanged. Adding /v2/items."
-            }
-          ],
-          "truncated": false
-        },
-        "nextCursor": null,
-        "serverTime": "2026-09-07T02:53:22.779Z"
+          {
+            "messageId": "bd988659-c7c5-4153-a85d-2d7c6b071831",
+            "sequence": "2",
+            "author": "client-agent",
+            "createdAt": "2026-09-08T04:56:45.533Z",
+            "body": "loadItems() expects an array. Keep /items; add /v2/items."
+          },
+          {
+            "messageId": "030a0701-5edb-4794-9d12-470390040232",
+            "sequence": "3",
+            "author": "api-agent",
+            "createdAt": "2026-09-08T04:56:45.554Z",
+            "body": "Agreed. /items stays unchanged. Adding /v2/items."
+          }
+        ],
+        "nextCursor": null
       }
     },
     {
       "actor": "client-agent",
       "tool": "commitTurn",
       "input": {
-        "turn": {
-          "id": "037568cf-d376-4a31-b009-9b27f3fa1382",
-          "fencingToken": "4"
-        },
-        "baseRevision": "4",
+        "turnToken": "70dd70a0-5b9d-424c-b721-13a50271ffb4",
         "mutation": {
           "kind": "appendMessage",
           "body": "I'll switch loadItems() to /v2/items."
         }
       },
       "output": {
-        "resourceId": "e3c140b7-4636-48ab-b1e5-949379859582",
-        "previousRevision": "4",
+        "threadId": "7f0f6e7c-60ea-45e9-847f-5ae2bca1fc31",
         "revision": "5",
-        "doltCommit": "old0fd2ag9u4sf6suf4gl41ajmjupd0f",
-        "messageId": "ad1aab33-d7fc-4f8e-9cfe-32f3fe0c31c9",
+        "messageId": "b8d6eef1-aa42-467e-a475-41112d8be81f",
         "sequence": "4"
       }
     },
     {
       "actor": "api-agent",
-      "tool": "requestTurn",
+      "tool": "acquireTurn",
       "input": {
         "target": {
           "type": "thread",
-          "id": "e3c140b7-4636-48ab-b1e5-949379859582"
+          "threadId": "7f0f6e7c-60ea-45e9-847f-5ae2bca1fc31"
         }
       },
       "output": {
-        "state": "offered",
-        "requestId": "43104ee1-da7e-48ed-aeaa-489c350350e6",
-        "target": {
-          "type": "thread",
-          "id": "e3c140b7-4636-48ab-b1e5-949379859582"
+        "state": "claimed",
+        "requestToken": "ec965572-701c-4613-b516-3faaa4809e5b",
+        "turnToken": "16a7c6d2-c99f-4159-acc7-679d86bae7ee",
+        "expiresAt": "2026-09-08T04:57:45.644Z",
+        "resource": {
+          "threadId": "7f0f6e7c-60ea-45e9-847f-5ae2bca1fc31",
+          "title": "API pagination",
+          "descriptionPreview": "",
+          "state": "active",
+          "revision": "5",
+          "following": true,
+          "createdAt": "2026-09-08T04:56:45.485Z"
         },
-        "offerId": "51cb4568-3d3d-4aef-8726-1691591d30a3",
-        "claimBy": "2026-09-07T02:53:52.862Z"
-      }
-    },
-    {
-      "actor": "api-agent",
-      "tool": "claimTurn",
-      "input": {
-        "offerId": "51cb4568-3d3d-4aef-8726-1691591d30a3"
-      },
-      "output": {
-        "requestId": "43104ee1-da7e-48ed-aeaa-489c350350e6",
-        "target": {
-          "type": "thread",
-          "id": "e3c140b7-4636-48ab-b1e5-949379859582"
-        },
-        "turn": {
-          "id": "d8b2a562-b3bb-4039-a273-527bc3945c6d",
-          "fencingToken": "5",
-          "expiresAt": "2026-09-07T02:53:52.870Z"
-        },
-        "snapshot": {
-          "commit": "old0fd2ag9u4sf6suf4gl41ajmjupd0f",
-          "revision": "5"
-        },
-        "page": {
-          "type": "thread",
-          "thread": {
-            "id": "e3c140b7-4636-48ab-b1e5-949379859582",
-            "title": "API pagination",
-            "description": "",
-            "state": "active",
-            "revision": "5",
-            "headSequence": "4",
-            "creator": "d0bfc768-8652-4b4f-8a61-c0090997e51c",
-            "createdAt": "2026-09-07T02:53:22.693Z"
+        "messages": [
+          {
+            "messageId": "a9fdf8d3-4a30-41d5-9a28-37b86520bc2f",
+            "sequence": "1",
+            "author": "api-agent",
+            "createdAt": "2026-09-08T04:56:45.511Z",
+            "body": "Adding pagination: /items will return { items, total }."
           },
-          "messages": [
-            {
-              "id": "43453934-104f-4124-a160-41a7a20a914b",
-              "threadId": "e3c140b7-4636-48ab-b1e5-949379859582",
-              "sequence": "1",
-              "identityId": "d0bfc768-8652-4b4f-8a61-c0090997e51c",
-              "name": "api-agent",
-              "instanceId": "2f5d739f-e34d-44e8-a0fd-0e386634b4dd",
-              "createdAt": "2026-09-07T02:53:22.718Z",
-              "body": "Adding pagination: /items will return { items, total }."
-            },
-            {
-              "id": "c145a37a-d5bf-4137-a4cf-aac921e224ca",
-              "threadId": "e3c140b7-4636-48ab-b1e5-949379859582",
-              "sequence": "2",
-              "identityId": "042b3a37-1c1d-425a-b4b8-de9592ca2545",
-              "name": "client-agent",
-              "instanceId": "96f2b218-fcb1-4593-bc4d-22d16ba9c385",
-              "createdAt": "2026-09-07T02:53:22.738Z",
-              "body": "loadItems() expects an array. Keep /items; add /v2/items."
-            },
-            {
-              "id": "13248678-cd42-4743-afb5-29e7faf7c701",
-              "threadId": "e3c140b7-4636-48ab-b1e5-949379859582",
-              "sequence": "3",
-              "identityId": "d0bfc768-8652-4b4f-8a61-c0090997e51c",
-              "name": "api-agent",
-              "instanceId": "2f5d739f-e34d-44e8-a0fd-0e386634b4dd",
-              "createdAt": "2026-09-07T02:53:22.762Z",
-              "body": "Agreed. /items stays unchanged. Adding /v2/items."
-            },
-            {
-              "id": "ad1aab33-d7fc-4f8e-9cfe-32f3fe0c31c9",
-              "threadId": "e3c140b7-4636-48ab-b1e5-949379859582",
-              "sequence": "4",
-              "identityId": "042b3a37-1c1d-425a-b4b8-de9592ca2545",
-              "name": "client-agent",
-              "instanceId": "96f2b218-fcb1-4593-bc4d-22d16ba9c385",
-              "createdAt": "2026-09-07T02:53:22.784Z",
-              "body": "I'll switch loadItems() to /v2/items."
-            }
-          ],
-          "truncated": false
-        },
-        "nextCursor": null,
-        "serverTime": "2026-09-07T02:53:22.870Z"
+          {
+            "messageId": "bd988659-c7c5-4153-a85d-2d7c6b071831",
+            "sequence": "2",
+            "author": "client-agent",
+            "createdAt": "2026-09-08T04:56:45.533Z",
+            "body": "loadItems() expects an array. Keep /items; add /v2/items."
+          },
+          {
+            "messageId": "030a0701-5edb-4794-9d12-470390040232",
+            "sequence": "3",
+            "author": "api-agent",
+            "createdAt": "2026-09-08T04:56:45.554Z",
+            "body": "Agreed. /items stays unchanged. Adding /v2/items."
+          },
+          {
+            "messageId": "b8d6eef1-aa42-467e-a475-41112d8be81f",
+            "sequence": "4",
+            "author": "client-agent",
+            "createdAt": "2026-09-08T04:56:45.575Z",
+            "body": "I'll switch loadItems() to /v2/items."
+          }
+        ],
+        "nextCursor": null
       }
     },
     {
       "actor": "api-agent",
       "tool": "releaseTurn",
       "input": {
-        "turn": {
-          "id": "d8b2a562-b3bb-4039-a273-527bc3945c6d",
-          "fencingToken": "5"
-        }
+        "turnToken": "16a7c6d2-c99f-4159-acc7-679d86bae7ee"
       },
       "output": {
-        "state": "released",
-        "requestId": "43104ee1-da7e-48ed-aeaa-489c350350e6",
-        "target": {
-          "type": "thread",
-          "id": "e3c140b7-4636-48ab-b1e5-949379859582"
-        },
-        "expiresAt": "2026-09-07T02:53:52.870Z"
+        "released": true
       }
     }
   ]

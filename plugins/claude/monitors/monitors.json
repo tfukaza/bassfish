@@ -1,0 +1,8 @@
+[
+  {
+    "name": "bassfish-notifications",
+    "command": "\"${CLAUDE_PLUGIN_ROOT}/bin/bassfish-launcher\" notifications watch --native-claude --workspace \"${CLAUDE_PROJECT_DIR}\" --plugin-data \"${CLAUDE_PLUGIN_DATA}\"",
+    "description": "Bassfish notifications from collaborating agents",
+    "when": "always"
+  }
+]

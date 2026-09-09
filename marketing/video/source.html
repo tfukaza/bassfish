@@ -1,16 +1,119 @@
 <!doctype html>
 <html lang="en">
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Bassfish · terminal demo source</title>
-<style>body{margin:0;background:#FAFAF8;color:#242623;font:16px "Helvetica Neue",Helvetica,Arial,sans-serif}main{max-width:1280px;margin:auto}#stage svg{width:100%;height:auto;display:block}nav{display:flex;flex-wrap:wrap;gap:20px;align-items:center;padding:20px}button{font:inherit;padding:10px 24px;background:#D4D7D0;border:0;border-radius:0;color:#242623}input{flex:1;min-width:120px;accent-color:#242623}button:focus-visible,input:focus-visible{outline:2px solid #242623;outline-offset:4px}p{padding:0 20px}a{color:#242623}</style>
-<main><div id="stage" role="img" aria-label="Scripted two-agent terminal session using captured real Bassfish MCP calls."></div><nav aria-label="Animation controls"><button id="play">Play</button><input id="seek" aria-label="Timeline in seconds" type="range" min="0" max="25" value="0" step="0.033333"><output id="time">0.0 / 25s</output></nav><p><a href="../index.html">All assets</a> · Scripted session. <a href="transcript.md">Read the descriptive transcript</a> · <a href="bassfish-preview.mp4">Open exported MP4</a></p></main>
-<script type="module">
-import {frame,DURATION} from '../scripts/artwork.mjs';
-let playing=false,t=0,last=0;const stage=document.querySelector('#stage'),seek=document.querySelector('#seek'),button=document.querySelector('#play');
-function draw(){stage.innerHTML=frame(Math.min(t,DURATION-.001));seek.value=t;document.querySelector('#time').value=`${t.toFixed(1)} / ${DURATION}s`;}
-button.onclick=()=>{if(t>=DURATION)t=0;playing=!playing;button.textContent=playing?'Pause':'Play';};
-seek.oninput=()=>{t=Number(seek.value);draw();};
-function tick(now){if(playing){t=Math.min(DURATION,t+(now-last)/1000);if(t>=DURATION){playing=false;button.textContent='Play';}draw();}last=now;requestAnimationFrame(tick);}draw();requestAnimationFrame(tick);
-</script>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Bassfish · terminal demo source</title>
+  <style>
+    body {
+      margin: 0;
+      background: #fafaf8;
+      color: #242623;
+      font:
+        16px 'Helvetica Neue',
+        Helvetica,
+        Arial,
+        sans-serif;
+    }
+    main {
+      max-width: 1280px;
+      margin: auto;
+    }
+    #stage svg {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+    nav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+      align-items: center;
+      padding: 20px;
+    }
+    button {
+      font: inherit;
+      padding: 10px 24px;
+      background: #d4d7d0;
+      border: 0;
+      border-radius: 0;
+      color: #242623;
+    }
+    input {
+      flex: 1;
+      min-width: 120px;
+      accent-color: #242623;
+    }
+    button:focus-visible,
+    input:focus-visible {
+      outline: 2px solid #242623;
+      outline-offset: 4px;
+    }
+    p {
+      padding: 0 20px;
+    }
+    a {
+      color: #242623;
+    }
+  </style>
+  <main>
+    <div
+      id="stage"
+      role="img"
+      aria-label="Scripted two-agent terminal session using captured real Bassfish MCP calls."
+    ></div>
+    <nav aria-label="Animation controls">
+      <button id="play">Play</button
+      ><input
+        id="seek"
+        aria-label="Timeline in seconds"
+        type="range"
+        min="0"
+        max="25"
+        value="0"
+        step="0.033333"
+      /><output id="time">0.0 / 25s</output>
+    </nav>
+    <p>
+      <a href="../index.html">All assets</a> · Scripted session.
+      <a href="transcript.md">Read the descriptive transcript</a> ·
+      <a href="bassfish-preview.mp4">Open exported MP4</a>
+    </p>
+  </main>
+  <script type="module">
+    import { frame, DURATION } from '../scripts/artwork.mjs';
+    let playing = false,
+      t = 0,
+      last = 0;
+    const stage = document.querySelector('#stage'),
+      seek = document.querySelector('#seek'),
+      button = document.querySelector('#play');
+    function draw() {
+      stage.innerHTML = frame(Math.min(t, DURATION - 0.001));
+      seek.value = t;
+      document.querySelector('#time').value = `${t.toFixed(1)} / ${DURATION}s`;
+    }
+    button.onclick = () => {
+      if (t >= DURATION) t = 0;
+      playing = !playing;
+      button.textContent = playing ? 'Pause' : 'Play';
+    };
+    seek.oninput = () => {
+      t = Number(seek.value);
+      draw();
+    };
+    function tick(now) {
+      if (playing) {
+        t = Math.min(DURATION, t + (now - last) / 1000);
+        if (t >= DURATION) {
+          playing = false;
+          button.textContent = 'Play';
+        }
+        draw();
+      }
+      last = now;
+      requestAnimationFrame(tick);
+    }
+    draw();
+    requestAnimationFrame(tick);
+  </script>
 </html>

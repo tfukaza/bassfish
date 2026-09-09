@@ -1,4 +1,4 @@
 interface:
   display_name: "Use Bassfish"
-  short_description: "Coordinate agent teams through Bassfish MCP"
-  default_prompt: "Use $use-bassfish to coordinate this work with the other agents and record the outcome."
+  short_description: "Coordinate proactive agent peers through Bassfish"
+  default_prompt: "Use $use-bassfish to coordinate this work as proactive peers who contribute independent recommendations, own outcomes, challenge material decisions, and peer-review high-impact results."

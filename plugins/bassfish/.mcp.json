@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "bassfish": {
+      "command": "bassfish",
+      "args": ["mcp"],
+      "env": {
+        "BASSFISH_CODEX_NATIVE": "1"
+      }
+    }
+  }
+}

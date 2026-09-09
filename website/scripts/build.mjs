@@ -31,14 +31,11 @@ for (const name of [
   'story-scene.js',
   'story-timing.js',
   'terminal-story.js',
-  'setup.md',
   'llms.txt',
   'index.md',
 ]) {
   const source = await readFile(path.join(site, name), 'utf8');
-  const text = source
-    .replaceAll('{{SITE_URL}}', siteURL.href)
-    .replaceAll('{{SITE_HOST_PATH}}', `${siteURL.host}${siteURL.pathname}`);
+  const text = source.replaceAll('{{SITE_URL}}', siteURL.href);
   await writeFile(path.join(out, name), text);
 }
 await writeFile(path.join(out, '.nojekyll'), '');

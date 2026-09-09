@@ -10,7 +10,11 @@ export function exclusiveLock(path: string, waitMs = 0): () => void {
   try {
     db.exec(`PRAGMA busy_timeout=${Math.trunc(waitMs)}; BEGIN EXCLUSIVE;`);
   } catch {
-    db.close(); throw new BassfishError('ALREADY_RUNNING', 'Another process holds the service ownership lock.');
+    db.close();
+    throw new BassfishError('ALREADY_RUNNING', 'Another process holds the service ownership lock.');
   }
-  return () => { db.exec('ROLLBACK'); db.close(); };
+  return () => {
+    db.exec('ROLLBACK');
+    db.close();
+  };
 }

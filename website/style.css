@@ -842,56 +842,22 @@ nav a:hover,
   padding-block: 80px;
   border-top: 1px solid var(--line);
 }
+.install-heading {
+  margin-bottom: 64px;
+}
+.install-heading h2 {
+  font-size: clamp(42px, 7vw, 68px);
+  font-weight: 520;
+  letter-spacing: -0.055em;
+  line-height: 0.96;
+}
 .install-steps {
   list-style: none;
   margin: 0;
   padding: 0;
 }
-.install-or {
-  display: flex;
-  align-items: center;
-  gap: 24px;
-  margin: 44px 0;
-  font-size: clamp(36px, 5vw, 54px);
-  font-weight: 500;
-  line-height: 1;
-  letter-spacing: -0.05em;
-}
-.install-or:before,
-.install-or:after {
-  content: '';
-  flex: 1;
-  height: 1px;
-  background: var(--line);
-}
 .step {
   min-width: 0;
-}
-.handoff-link {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 20px;
-  padding: 16px 18px;
-  margin-top: 18px;
-  background: var(--paper);
-  border: 1px solid var(--line);
-  border-radius: 6px;
-}
-.guide-url {
-  font:
-    12px/1.6 'Geist Mono',
-    monospace;
-  color: var(--olive);
-  overflow-wrap: anywhere;
-  text-decoration: underline;
-  text-underline-offset: 4px;
-  min-width: 0;
-}
-.handoff-link button {
-  font-size: 11px;
-  white-space: nowrap;
-  min-height: 28px;
 }
 .step + .step {
   margin-top: 35px;
@@ -923,6 +889,7 @@ nav a:hover,
 }
 .code-block {
   margin-top: 18px;
+  margin-bottom: 24px;
   background: var(--paper);
   border: 1px solid var(--line);
   border-radius: 6px;
@@ -949,6 +916,10 @@ nav a:hover,
   line-height: 1.9;
   font-size: 12px;
   tab-size: 2;
+  font-variant-ligatures: none;
+  font-feature-settings:
+    'liga' 0,
+    'calt' 0;
 }
 .step .fine-print {
   font-size: 11px;
@@ -968,6 +939,8 @@ nav a:hover,
   gap: 22px;
   margin-top: 21px;
   border-bottom: 1px solid var(--line);
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
 }
 .host-picker a {
   font-size: 11px;
@@ -1154,15 +1127,8 @@ nav a:hover,
     width: calc(100% - 40px);
     padding-block: 52px;
   }
-  .handoff-link {
-    gap: 12px;
-    padding: 12px;
-  }
-  .guide-url {
-    font-size: 10px;
-  }
-  .handoff-link button {
-    font-size: 10px;
+  .install-heading {
+    margin-bottom: 42px;
   }
   .step h2 {
     font-size: 21px;

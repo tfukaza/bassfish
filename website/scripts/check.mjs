@@ -23,7 +23,6 @@ for (const name of [
   'docs.html',
   'docs.css',
   'docs.js',
-  'setup.md',
   'llms.txt',
   'index.md',
   '.nojekyll',
@@ -75,6 +74,7 @@ assert(
   !files.includes(path.join(out, 'backdrop/scene.js')),
   'Retired open-water demo was published',
 );
+assert(!files.includes(path.join(out, 'setup.md')), 'Retired setup guide was published');
 // Sharing crawlers read metadata without running the pond scene. Verify the actual image artifact.
 const html = await readFile(path.join(out, 'index.html'), 'utf8');
 const metadata = new Map();
@@ -101,7 +101,6 @@ assert.equal(Number(metadata.get('og:image:width')), image.width);
 assert.equal(Number(metadata.get('og:image:height')), image.height);
 assert.equal(image.width, 1200);
 assert.equal(image.height, 630);
-const setup = await readFile(path.join(out, 'setup.md'), 'utf8');
 const docs = await readFile(path.join(out, 'docs.html'), 'utf8');
 const indexText = await readFile(path.join(out, 'index.md'), 'utf8');
 const llms = await readFile(path.join(out, 'llms.txt'), 'utf8');
@@ -110,23 +109,17 @@ const publicInterface = JSON.parse(
 );
 const toolNames = publicInterface.tools;
 const documentedTools = [...docs.matchAll(/data-tool="([^"]+)"/g)].map(match => match[1]);
-assert.equal(toolNames.length, 11);
+assert.equal(toolNames.length, 13);
 assert.deepEqual(
   documentedTools,
   toolNames,
   'Documentation tool inventory must match the validated public interface fixture',
 );
 assert(docs.includes('v' + publicInterface.version));
-assert(setup.includes('version ' + publicInterface.version));
-assert(
-  setup.includes('"kind":"appendMessage"') &&
-    publicInterface.mutationKinds.includes('appendMessage'),
-);
-assert(setup.includes('"resourceType":"ticket"') && setup.includes('"type":"files"'));
-const publishedGuidance = [html, docs, setup, indexText, llms].join('\n');
+const publishedGuidance = [html, docs, indexText, llms].join('\n');
 for (const [pattern, label] of [
   [/v0\.3\.0/, 'v0.3 label'],
-  [/\b13(?:-tool| Bassfish tools)/, '13-tool claim'],
+  [/\b12(?:-tool| Bassfish tools)/, '12-tool claim'],
   [/"resourceType":"note"/, 'retired note resource'],
   [/"type":"note"/, 'retired note turn'],
   [/\b(?:appendNote|replaceNote|bassfish note)\b/, 'retired note operation'],
@@ -134,14 +127,21 @@ for (const [pattern, label] of [
 ])
   assert(!pattern.test(publishedGuidance), 'Published guidance contains ' + label);
 for (const command of [
-  'npm install -g @bassfish/cli',
+  'npm install -g @bassfish/cli@latest',
   'bassfish setup',
-  'codex mcp add bassfish -- bassfish mcp',
+  'codex plugin marketplace add tfukaza/bassfish',
+  'codex plugin add bassfish@bassfish',
   'claude plugin install bassfish@bassfish --scope user',
+  'opencode plugin @bassfish/cli --global',
+  '--agent codex --global --yes',
+  '--agent claude-code --global --yes',
+  '--agent opencode --global --yes',
+  'skills@latest update',
+  'use-bassfish manage-bassfish --global --yes',
 ]) {
-  assert(setup.includes(command));
   assert(html.includes(command));
   assert(docs.includes(command));
+  assert(indexText.includes(command));
 }
 console.log(
   `Static checks passed: ${files.length} files, ${(bytes / 1e6).toFixed(2)} MB, relative links and agent instructions verified.`,

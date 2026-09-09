@@ -22,7 +22,7 @@ export const chapters = [
   { title: 'Separate sessions do not coordinate themselves.', body: '' },
   { title: 'Bassfish connects the sessions.', body: '' },
   {
-    title: 'Now every agent can work from the same shared context.',
+    title: 'The connected agents can now coordinate their work.',
     body: '',
   },
   { title: 'Your team. In plain sight.', body: '' },

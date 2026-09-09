@@ -14,28 +14,16 @@ function announce(message) {
   }, 4500);
 }
 
-for (const button of document.querySelectorAll('[data-copy], [data-copy-url]')) {
+for (const button of document.querySelectorAll('[data-copy]')) {
   button.hidden = false;
   button.addEventListener('click', async () => {
-    const value = button.dataset.copyUrl
-      ? new URL(button.dataset.copyUrl, new URL('./', location.href)).href
-      : document.getElementById(button.dataset.copy).textContent.trim();
+    const target = document.getElementById(button.dataset.copy);
+    const value = target.textContent.trim();
     try {
       await navigator.clipboard.writeText(value);
-      announce(
-        button.dataset.copyUrl
-          ? 'Setup link copied. Paste it into your agent’s chat.'
-          : 'Copied to clipboard.',
-      );
+      announce('Copied to clipboard.');
     } catch {
-      // Keep the link or commands visible and selectable when clipboard access is unavailable.
-      const target = button.dataset.copyUrl
-        ? document.querySelector('.guide-url')
-        : document.getElementById(button.dataset.copy);
-      if (button.dataset.copyUrl) {
-        target.textContent = value;
-        target.href = value;
-      }
+      // Keep the commands visible and selectable when clipboard access is unavailable.
       const selection = getSelection(),
         range = document.createRange();
       range.selectNodeContents(target);

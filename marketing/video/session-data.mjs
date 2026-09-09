@@ -23,46 +23,38 @@ export const demo = {
   ],
   "writes": [
     {
-      "baseRevision": "1",
+      "revisionRead": "1",
       "result": {
-        "resourceId": "e3c140b7-4636-48ab-b1e5-949379859582",
-        "previousRevision": "1",
+        "threadId": "7f0f6e7c-60ea-45e9-847f-5ae2bca1fc31",
         "revision": "2",
-        "doltCommit": "su815l8nc61qhjpllr0ag7ch9jrk7e66",
-        "messageId": "43453934-104f-4124-a160-41a7a20a914b",
+        "messageId": "a9fdf8d3-4a30-41d5-9a28-37b86520bc2f",
         "sequence": "1"
       }
     },
     {
-      "baseRevision": "2",
+      "revisionRead": "2",
       "result": {
-        "resourceId": "e3c140b7-4636-48ab-b1e5-949379859582",
-        "previousRevision": "2",
+        "threadId": "7f0f6e7c-60ea-45e9-847f-5ae2bca1fc31",
         "revision": "3",
-        "doltCommit": "1a3h8b6ht82qem0vguru2a3a86q44tne",
-        "messageId": "c145a37a-d5bf-4137-a4cf-aac921e224ca",
+        "messageId": "bd988659-c7c5-4153-a85d-2d7c6b071831",
         "sequence": "2"
       }
     },
     {
-      "baseRevision": "3",
+      "revisionRead": "3",
       "result": {
-        "resourceId": "e3c140b7-4636-48ab-b1e5-949379859582",
-        "previousRevision": "3",
+        "threadId": "7f0f6e7c-60ea-45e9-847f-5ae2bca1fc31",
         "revision": "4",
-        "doltCommit": "r32j8obljnb01a9su1h91vf2hrqgdtde",
-        "messageId": "13248678-cd42-4743-afb5-29e7faf7c701",
+        "messageId": "030a0701-5edb-4794-9d12-470390040232",
         "sequence": "3"
       }
     },
     {
-      "baseRevision": "4",
+      "revisionRead": "4",
       "result": {
-        "resourceId": "e3c140b7-4636-48ab-b1e5-949379859582",
-        "previousRevision": "4",
+        "threadId": "7f0f6e7c-60ea-45e9-847f-5ae2bca1fc31",
         "revision": "5",
-        "doltCommit": "old0fd2ag9u4sf6suf4gl41ajmjupd0f",
-        "messageId": "ad1aab33-d7fc-4f8e-9cfe-32f3fe0c31c9",
+        "messageId": "b8d6eef1-aa42-467e-a475-41112d8be81f",
         "sequence": "4"
       }
     }
@@ -70,7 +62,7 @@ export const demo = {
   "tests": {
     "passed": 3,
     "failed": 0,
-    "stdout": "✔ existing /items still returns an array (0.401208ms)\n✔ /v2/items includes pagination metadata (0.332583ms)\n✔ client uses /v2/items and returns its items (0.07775ms)\nℹ tests 3\nℹ suites 0\nℹ pass 3\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 39.823375\n"
+    "stdout": "✔ existing /items still returns an array (0.315ms)\n✔ /v2/items includes pagination metadata (0.268875ms)\n✔ client uses /v2/items and returns its items (0.058459ms)\nℹ tests 3\nℹ suites 0\nℹ pass 3\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 30.49925\n"
   },
   "files": {
     "apiBefore": "const items = [{ id: 1, name: 'Field notes' }];\nexport function get(path) {\n  if (path === '/items') return items;\n  throw new Error('Route not found');\n}\n",

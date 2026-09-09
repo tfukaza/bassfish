@@ -1,0 +1,55 @@
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "mcp_tool",
+            "server": "plugin:bassfish:bassfish",
+            "tool": "deliverHostNotifications",
+            "input": {
+              "sessionId": "${session_id}",
+              "phase": "prompt"
+            },
+            "timeout": 5,
+            "statusMessage": "Restoring Bassfish session identity"
+          }
+        ]
+      }
+    ],
+    "PostToolBatch": [
+      {
+        "hooks": [
+          {
+            "type": "mcp_tool",
+            "server": "plugin:bassfish:bassfish",
+            "tool": "deliverHostNotifications",
+            "input": {
+              "sessionId": "${session_id}",
+              "phase": "active"
+            },
+            "timeout": 5,
+            "statusMessage": "Checking Bassfish notifications"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "mcp_tool",
+            "server": "plugin:bassfish:bassfish",
+            "tool": "deliverHostNotifications",
+            "input": {
+              "sessionId": "${session_id}",
+              "phase": "idle"
+            },
+            "timeout": 5,
+            "statusMessage": "Checking Bassfish notifications"
+          }
+        ]
+      }
+    ]
+  }
+}

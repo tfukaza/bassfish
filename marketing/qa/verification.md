@@ -1,6 +1,6 @@
 # Asset checks
 
-Export and layout checks rerun September 6, 2026 (Pacific time), after the README and feature-label refresh. The existing terminal video and its capture were retained.
+Export and layout checks rerun September 7, 2026 (Pacific time), after the v0.4 documentation and feature-label refresh. The terminal evidence was recaptured against the current MCP surface.
 
 - All 14 SVG/PNG pairs match in dimensions and rendered pixels.
 - Both workflow arrows connect to the circular nodes on the same horizontal axis.
@@ -12,7 +12,7 @@ Export and layout checks rerun September 6, 2026 (Pacific time), after the READM
 
 The social card, banner, workflow, terminal poster, mobile gallery, and video contact sheet were inspected visually. These checks verify layout and export behavior; they do not measure aesthetic quality.
 
-The demo capture used two real stdio MCP clients and an isolated Bassfish daemon with Dolt. All 18 calls succeeded. Four messages were saved at revisions 2 through 5, and each recipient read the preceding message before replying. The temporary API/client fixture passed three tests. The terminal display is scripted and rendered from that capture.
+The demo capture used two real stdio MCP clients and an isolated Bassfish daemon with Dolt. All 13 calls succeeded across `getContext`, `createResource`, `acquireTurn`, `commitTurn`, and `releaseTurn`. Four messages were saved at revisions 2 through 5, and each recipient read the preceding message before replying. The temporary API/client fixture passed three tests. The terminal display is scripted and rendered from that capture.
 
 Raw results: [exports](export-checks.json), [layout](layout-checks.json). Commands are in the [build instructions](../README.md).
 
@@ -20,8 +20,8 @@ Raw results: [exports](export-checks.json), [layout](layout-checks.json). Comman
 
 - All 16 README links and anchors resolve locally. All three embedded images load and have descriptive alt text.
 - A local Markdown preview using GitHub-style CSS was inspected at 1100 px and 390 px, with no page-level horizontal overflow.
-- The refreshed banner, social card, workflow, and brand reference were inspected visually. Chat and notes are described as available in the local preview.
+- The refreshed banner, social card, workflow, and brand reference were inspected visually. Threads, tickets, file locks, and notifications are described as available in version 0.4.
 - The project build, TypeScript check, compiled CLI help, and TypeScript CLI help passed. The Dolt setup command found the existing local installation.
-- The README's JSON configuration was used to launch two MCP clients against an isolated temporary Git repository and data directory. Automatic agent identities, shared project context, thread creation, FIFO waiting, commit/read/release, a shared-note handoff, daemon status, and doctor all passed. The temporary daemon was stopped and its data removed.
+- The README's JSON configuration was used to launch two MCP clients against an isolated temporary Git repository and data directory. Automatic agent identities, shared project context, thread creation, FIFO waiting, commit/read/release, daemon status, and doctor all passed. The temporary daemon was stopped and its data removed.
 
-The README identifies the film as an earlier preview with older tool names. No new demo capture was made; the original capture and gallery-interaction results above describe the earlier terminal video verification.
+The refreshed capture uses the v0.4 tool names and compact response fields, including plural `pendingTurns`. The gallery-interaction and export results above apply to the current terminal video.

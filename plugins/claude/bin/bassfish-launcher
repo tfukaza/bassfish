@@ -1,0 +1,54 @@
+#!/bin/sh
+
+# Claude starts plugin MCP commands before its interactive shell snapshot is
+# available. Resolve the globally installed CLI through the user's shell when
+# it is not already on PATH, then include the CLI's directory so its
+# /usr/bin/env node shebang resolves under version managers such as nvm.
+
+fail() {
+  printf '%s\n' \
+    'Bassfish could not find the `bassfish` executable.' \
+    'Install it with `npm install -g @bassfish/cli@latest` and ensure your login shell can run `bassfish --version`.' >&2
+  exit 127
+}
+
+resolve_executable() {
+  candidate=$(command -v bassfish 2>/dev/null || true)
+  case "$candidate" in
+    /*)
+      if [ -x "$candidate" ]; then
+        printf '%s\n' "$candidate"
+        return 0
+      fi
+      ;;
+  esac
+
+  user_shell=${SHELL:-/bin/sh}
+  [ -x "$user_shell" ] || user_shell=/bin/sh
+  shell_output=$(
+    "$user_shell" -lic 'command -v bassfish' 2>/dev/null
+  ) || true
+
+  resolved=
+  while IFS= read -r candidate; do
+    case "$candidate" in
+      /*)
+        if [ -x "$candidate" ]; then
+          resolved=$candidate
+        fi
+        ;;
+    esac
+  done <<EOF
+$shell_output
+EOF
+
+  [ -n "$resolved" ] || return 1
+  printf '%s\n' "$resolved"
+}
+
+bassfish_executable=$(resolve_executable) || fail
+bassfish_bin=${bassfish_executable%/*}
+PATH=$bassfish_bin${PATH:+:$PATH}
+export PATH
+
+exec "$bassfish_executable" "$@"

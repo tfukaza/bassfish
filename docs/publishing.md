@@ -17,7 +17,7 @@ npm view @bassfish/cli@0.1.0 name version dist.integrity
 
 The first publication uses maintainer authentication and 2FA. Do not create a `v0.1.0` publish tag after this manual bootstrap; automated tag publication starts with the next version.
 
-Once the package page exists, configure its GitHub Actions trusted publisher for repository `tfukaza/bassfish`, workflow `publish.yml`, with direct publishing allowed. With a current npm CLI, the equivalent command is:
+Once the package page exists, configure its GitHub Actions trusted publisher for repository `tfukaza/bassfish`, workflow `publish.yml`, with direct publishing allowed. The `npm trust` command requires npm 11.15.0 or later. With that version, run:
 
 ```sh
 npm trust github @bassfish/cli \
@@ -28,9 +28,11 @@ npm trust github @bassfish/cli \
 
 No npm token is stored in GitHub. The workflow uses OIDC and npm attaches provenance to releases from this public repository.
 
+If the installed npm version is older than 11.15.0, configure the trusted publisher on the npm package settings page instead of running `npm trust`.
+
 ## Subsequent releases
 
-1. Update the version in both `package.json` and `package-lock.json`.
+1. Update the version in `package.json`, `package-lock.json`, the Claude plugin and marketplace manifests, and the Codex plugin manifest.
 2. Run `npm run release:check` and complete the live host/OS qualification in [release-qualification.md](release-qualification.md).
 3. Commit the release, create the exact tag `v<package-version>`, and push the tag.
 4. Confirm both operating-system qualification jobs and the publish job pass.

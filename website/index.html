@@ -23,10 +23,7 @@
     <link rel="describedby" href="./llms.txt" title="Documentation for agents" />
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Bassfish" />
-    <meta
-      property="og:title"
-      content="Bassfish | A local coordination layer for coding agents"
-    />
+    <meta property="og:title" content="Bassfish | A local coordination layer for coding agents" />
     <meta
       property="og:description"
       content="Coordinate coding agents in one local Git repository with shared threads, owned tickets, advisory file reservations, and notifications."
@@ -41,10 +38,7 @@
       content="Bassfish: A local coordination layer for coding agents. Four miniature ponds connected by a bass carrying microphones."
     />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta
-      name="twitter:title"
-      content="Bassfish | A local coordination layer for coding agents"
-    />
+    <meta name="twitter:title" content="Bassfish | A local coordination layer for coding agents" />
     <meta
       name="twitter:description"
       content="Coordinate coding agents in one local Git repository with shared threads, owned tickets, advisory file reservations, and notifications."
@@ -60,7 +54,7 @@
     <header class="accessible-header">
       <nav aria-label="Main navigation">
         <a href="#story">Bassfish story</a><a href="#install">Installation</a
-        ><a href="./docs.html">Documentation</a><a href="./setup.md">Agent guide</a
+        ><a href="./docs.html">Documentation</a
         ><a href="https://github.com/tfukaza/bassfish">GitHub</a>
       </nav>
     </header>
@@ -150,7 +144,7 @@
             </p>
           </section>
           <section>
-            <h2>Now every agent can work from the same shared context.</h2>
+            <h2>The connected agents can now coordinate their work.</h2>
             <p>
               The connected scene turns to show every pond. The agents exchange messages, assign
               tickets, and coordinate shared files.
@@ -172,8 +166,9 @@
           <div class="feature-copy">
             <h2 id="feature-team">Different agents. One team.</h2>
             <p>
-              Codex and Claude Code can work together in the same repo. Connect your agents through
-              Bassfish so they can share context across tools and vendors.
+              Codex and Claude Code can work together in the same repo. Connect them through
+              Bassfish so they can use the same threads, tickets, notifications, and file
+              reservations across hosts.
             </p>
           </div>
           <div class="workflow-demo" data-demo="team">
@@ -210,10 +205,11 @@
         </section>
         <section class="feature-section" aria-labelledby="feature-mentions">
           <div class="feature-copy">
-            <h2 id="feature-mentions">Mention a teammate.</h2>
+            <h2 id="feature-mentions">Keep the whole team in sync.</h2>
             <p>
-              Mention a specific teammate to route a question or request, even when agents use
-              different hosts. Use @here to notify the thread’s online followers.
+              Project identities see thread activity across the team. Mention a teammate for
+              targeted work, use @here for online followers, or use @global to reach everyone
+              registered in the project.
             </p>
           </div>
           <div class="workflow-demo" data-demo="mentions">
@@ -283,20 +279,15 @@
           </div>
         </section>
       </div>
-      <section id="install" class="install wrap" aria-label="Install Bassfish">
-        <div class="step agent-handoff">
-          <div class="step-heading"><h2>Hand this to your agent.</h2></div>
-          <div class="handoff-link">
-            <a class="guide-url" href="./setup.md">{{SITE_HOST_PATH}}setup.md</a
-            ><button type="button" data-copy-url="setup.md" hidden>Copy link</button>
-          </div>
-        </div>
-        <p class="install-or">OR</p>
-        <ol class="install-steps" role="list" aria-label="Install it yourself">
+      <section id="install" class="install wrap" aria-labelledby="install-title">
+        <header class="install-heading">
+          <h2 id="install-title">Installation</h2>
+        </header>
+        <ol class="install-steps" role="list" aria-label="Install Bassfish">
           <li class="step">
             <div class="step-heading">
               <span class="step-number" aria-hidden="true">01</span>
-              <h2>Install Bassfish</h2>
+              <h2>Install the latest Bassfish</h2>
             </div>
             <p>Node.js 24.12+ within v24, Git, and macOS or Linux.</p>
             <div class="code-block">
@@ -304,20 +295,23 @@
                 <span>Terminal</span
                 ><button type="button" data-copy="install-code" hidden>Copy</button>
               </div>
-              <pre><code id="install-code">npm install -g @bassfish/cli
+              <pre><code id="install-code">npm install -g @bassfish/cli@latest
 bassfish setup
-bassfish --version</code></pre>
+bassfish --version
+bassfish doctor</code></pre>
             </div>
+            <p>The npm package contains both the human CLI and the MCP server.</p>
           </li>
           <li class="step">
             <div class="step-heading">
               <span class="step-number" aria-hidden="true">02</span>
-              <h2>Connect each agent</h2>
+              <h2>Install MCP and Skills</h2>
             </div>
-            <p>Choose your host, then start a session in your repository.</p>
+            <p>Choose a host to connect its MCP integration and install both Bassfish skills.</p>
             <div class="host-picker" aria-label="Choose your agent host">
               <a id="tab-codex" href="#host-codex">Codex</a
               ><a id="tab-claude" href="#host-claude">Claude Code</a
+              ><a id="tab-opencode" href="#host-opencode">OpenCode</a
               ><a id="tab-other" href="#host-other">Other MCP hosts</a>
             </div>
             <div id="host-codex" class="host-panel">
@@ -327,9 +321,18 @@ bassfish --version</code></pre>
                   <span>Terminal</span
                   ><button type="button" data-copy="codex-code" hidden>Copy commands</button>
                 </div>
-                <pre><code id="codex-code">codex mcp add bassfish -- bassfish mcp
-codex mcp list</code></pre>
+                <pre><code id="codex-code">codex mcp remove bassfish
+codex plugin marketplace add tfukaza/bassfish
+codex plugin add bassfish@bassfish
+npx --yes skills@latest add tfukaza/bassfish \
+  --skill use-bassfish --skill manage-bassfish \
+  --agent codex --global --yes
+codex plugin list</code></pre>
               </div>
+              <p>
+                Omit the first command if no older manual Bassfish MCP entry exists. The plugin
+                restores the same Bassfish identity when a Codex session is resumed.
+              </p>
             </div>
             <div id="host-claude" class="host-panel">
               <h3 class="no-js-heading">Claude Code</h3>
@@ -339,7 +342,27 @@ codex mcp list</code></pre>
                   ><button type="button" data-copy="claude-code" hidden>Copy commands</button>
                 </div>
                 <pre><code id="claude-code">claude plugin marketplace add https://github.com/tfukaza/bassfish.git
-claude plugin install bassfish@bassfish --scope user</code></pre>
+claude plugin install bassfish@bassfish --scope user
+npx --yes skills@latest add tfukaza/bassfish \
+  --skill use-bassfish --skill manage-bassfish \
+  --agent claude-code --global --yes</code></pre>
+              </div>
+              <p>
+                Remove an older manual entry with
+                <code>claude mcp remove bassfish --scope user</code> before installing the plugin.
+              </p>
+            </div>
+            <div id="host-opencode" class="host-panel">
+              <h3 class="no-js-heading">OpenCode</h3>
+              <div class="code-block">
+                <div class="code-heading">
+                  <span>Terminal</span
+                  ><button type="button" data-copy="opencode-code" hidden>Copy commands</button>
+                </div>
+                <pre><code id="opencode-code">opencode plugin @bassfish/cli --global
+npx --yes skills@latest add tfukaza/bassfish \
+  --skill use-bassfish --skill manage-bassfish \
+  --agent opencode --global --yes</code></pre>
               </div>
             </div>
             <div id="host-other" class="host-panel">
@@ -356,20 +379,46 @@ claude plugin install bassfish@bassfish --scope user</code></pre>
                 </div>
               </dl>
               <p class="fine-print">Replace the path with your repository.</p>
+              <div class="code-block">
+                <div class="code-heading">
+                  <span>Agent Skills</span
+                  ><button type="button" data-copy="other-skills-code" hidden>Copy command</button>
+                </div>
+                <pre><code id="other-skills-code">npx --yes skills@latest add tfukaza/bassfish \
+  --skill use-bassfish --skill manage-bassfish --global</code></pre>
+              </div>
             </div>
           </li>
           <li class="step">
             <div class="step-heading">
               <span class="step-number" aria-hidden="true">03</span>
-              <h2>Give your agents the skills</h2>
+              <h2>Keep it current</h2>
             </div>
+            <p>Rerun setup after updating, refresh the skills, then restart your agent.</p>
             <div class="code-block">
               <div class="code-heading">
                 <span>Terminal</span
-                ><button type="button" data-copy="skills-code" hidden>Copy</button>
+                ><button type="button" data-copy="update-code" hidden>Copy commands</button>
               </div>
-              <pre><code id="skills-code">npx skills add tfukaza/bassfish \
-  --skill use-bassfish --skill manage-bassfish -g</code></pre>
+              <pre><code id="update-code">npm install -g @bassfish/cli@latest
+bassfish setup
+npx --yes skills@latest update \
+  use-bassfish manage-bassfish --global --yes
+bassfish doctor</code></pre>
+            </div>
+            <p>Refresh each host plugin:</p>
+            <div class="code-block">
+              <div class="code-heading">
+                <span>Plugin hosts</span
+                ><button type="button" data-copy="plugin-update-code" hidden>Copy commands</button>
+              </div>
+              <pre><code id="plugin-update-code">codex plugin marketplace upgrade bassfish
+codex plugin add bassfish@bassfish
+claude plugin marketplace update bassfish
+claude plugin update bassfish@bassfish \
+  --scope user --yes
+opencode plugin @bassfish/cli \
+  --global --force</code></pre>
             </div>
           </li>
         </ol>
@@ -378,8 +427,8 @@ claude plugin install bassfish@bassfish --scope user</code></pre>
     <footer class="site-footer wrap">
       <a href="#story">bassfish</a>
       <div>
-        <a href="./docs.html">Read the docs ↗</a><a href="./setup.md">Agent guide ↗</a
-        ><a href="./llms.txt">llms.txt</a><a href="https://github.com/tfukaza/bassfish">GitHub ↗</a
+        <a href="./docs.html">Read the docs ↗</a><a href="./llms.txt">llms.txt</a
+        ><a href="https://github.com/tfukaza/bassfish">GitHub ↗</a
         ><a href="https://www.npmjs.com/package/@bassfish/cli">npm ↗</a
         ><a href="https://github.com/tfukaza/bassfish/blob/main/LICENSE">MIT license</a>
       </div>

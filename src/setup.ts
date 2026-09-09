@@ -18,8 +18,20 @@ export function normalizedArchitecture(arch: string = process.arch): string {
   return arch === 'x64' ? 'amd64' : arch;
 }
 
-export function managedDoltBinary(dataDir: string, platform = process.platform, arch = process.arch): string {
-  return join(dataDir, 'tools', 'dolt', DOLT_VERSION, `${platform}-${normalizedArchitecture(arch)}`, 'bin', 'dolt');
+export function managedDoltBinary(
+  dataDir: string,
+  platform = process.platform,
+  arch = process.arch,
+): string {
+  return join(
+    dataDir,
+    'tools',
+    'dolt',
+    DOLT_VERSION,
+    `${platform}-${normalizedArchitecture(arch)}`,
+    'bin',
+    'dolt',
+  );
 }
 
 export async function readDoltVersion(binary: string): Promise<string | undefined> {
@@ -27,14 +39,21 @@ export async function readDoltVersion(binary: string): Promise<string | undefine
     const result = await promisify(execFile)(binary, ['version'], { timeout: 5_000 });
     const match = result.stdout.match(/(?:^|\s)(\d+\.\d+\.\d+)(?:\s|$)/);
     return match?.[1];
-  } catch { return undefined; }
+  } catch {
+    return undefined;
+  }
 }
 
 export function verifyDoltArchive(name: string, bytes: Uint8Array): void {
   const expected = checksums[name];
-  if (!expected) throw new BassfishError('UNSUPPORTED_PLATFORM', `No verified Dolt ${DOLT_VERSION} archive exists for this platform.`);
+  if (!expected)
+    throw new BassfishError(
+      'UNSUPPORTED_PLATFORM',
+      `No verified Dolt ${DOLT_VERSION} archive exists for this platform.`,
+    );
   const actual = createHash('sha256').update(bytes).digest('hex');
-  if (actual !== expected) throw new BassfishError('DOLT_CHECKSUM', 'Dolt checksum mismatch. Nothing was installed.');
+  if (actual !== expected)
+    throw new BassfishError('DOLT_CHECKSUM', 'Dolt checksum mismatch. Nothing was installed.');
 }
 
 type Fetcher = (input: string | URL | Request, init?: RequestInit) => Promise<Response>;
@@ -52,32 +71,54 @@ export interface SetupDoltResult {
   installed: boolean;
 }
 
-export async function setupDolt(dataDir: string, options: SetupDoltOptions = {}): Promise<SetupDoltResult> {
-  const override = options.overrideBinary === undefined ? process.env.BASSFISH_DOLT_BIN : options.overrideBinary ?? undefined;
+export async function setupDolt(
+  dataDir: string,
+  options: SetupDoltOptions = {},
+): Promise<SetupDoltResult> {
+  const override =
+    options.overrideBinary === undefined
+      ? process.env.BASSFISH_DOLT_BIN
+      : (options.overrideBinary ?? undefined);
   if (override) {
-    const path = resolve(override); const version = await readDoltVersion(path);
-    if (version !== DOLT_VERSION) throw new BassfishError('DOLT_VERSION', `BASSFISH_DOLT_BIN must point to Dolt ${DOLT_VERSION}.`);
+    const path = resolve(override);
+    const version = await readDoltVersion(path);
+    if (version !== DOLT_VERSION)
+      throw new BassfishError(
+        'DOLT_VERSION',
+        `BASSFISH_DOLT_BIN must point to Dolt ${DOLT_VERSION}.`,
+      );
     return { version, path, source: 'override', installed: false };
   }
 
   const platform = options.platform ?? process.platform;
   const arch = normalizedArchitecture(options.arch ?? process.arch);
   if (!['darwin', 'linux'].includes(platform) || !['amd64', 'arm64'].includes(arch)) {
-    throw new BassfishError('UNSUPPORTED_PLATFORM', `Bassfish setup supports macOS and Linux on arm64 or x64. Set BASSFISH_DOLT_BIN to Dolt ${DOLT_VERSION} on other platforms.`);
+    throw new BassfishError(
+      'UNSUPPORTED_PLATFORM',
+      `Bassfish setup supports macOS and Linux on arm64 or x64. Set BASSFISH_DOLT_BIN to Dolt ${DOLT_VERSION} on other platforms.`,
+    );
   }
   const archiveBase = `dolt-${platform}-${arch}`;
   const archiveName = `${archiveBase}.tar.gz`;
   const target = join(dataDir, 'tools', 'dolt', DOLT_VERSION, `${platform}-${arch}`);
   const binary = join(target, 'bin', 'dolt');
-  if (await readDoltVersion(binary) === DOLT_VERSION) return { version: DOLT_VERSION, path: binary, source: 'managed', installed: false };
+  if ((await readDoltVersion(binary)) === DOLT_VERSION)
+    return { version: DOLT_VERSION, path: binary, source: 'managed', installed: false };
 
   const parent = join(dataDir, 'tools', 'dolt', DOLT_VERSION);
   await mkdir(parent, { recursive: true, mode: 0o700 });
   const temporary = await mkdtemp(join(parent, '.install-'));
   let backup: string | undefined;
   try {
-    const response = await (options.fetcher ?? fetch)(`https://github.com/dolthub/dolt/releases/download/v${DOLT_VERSION}/${archiveName}`, { signal: AbortSignal.timeout(120_000) });
-    if (!response.ok) throw new BassfishError('DOLT_DOWNLOAD', `Dolt download returned HTTP ${response.status}. Nothing was installed.`);
+    const response = await (options.fetcher ?? fetch)(
+      `https://github.com/dolthub/dolt/releases/download/v${DOLT_VERSION}/${archiveName}`,
+      { signal: AbortSignal.timeout(120_000) },
+    );
+    if (!response.ok)
+      throw new BassfishError(
+        'DOLT_DOWNLOAD',
+        `Dolt download returned HTTP ${response.status}. Nothing was installed.`,
+      );
     const bytes = new Uint8Array(await response.arrayBuffer());
     verifyDoltArchive(archiveName, bytes);
     const archivePath = join(temporary, archiveName);
@@ -86,10 +127,15 @@ export async function setupDolt(dataDir: string, options: SetupDoltOptions = {})
     const extracted = join(temporary, archiveBase);
     const extractedBinary = join(extracted, 'bin', 'dolt');
     await chmod(extractedBinary, 0o755);
-    if (await readDoltVersion(extractedBinary) !== DOLT_VERSION) throw new BassfishError('DOLT_VERSION', `Downloaded archive did not contain Dolt ${DOLT_VERSION}. Nothing was installed.`);
+    if ((await readDoltVersion(extractedBinary)) !== DOLT_VERSION)
+      throw new BassfishError(
+        'DOLT_VERSION',
+        `Downloaded archive did not contain Dolt ${DOLT_VERSION}. Nothing was installed.`,
+      );
 
     // Another setup process may have completed while this archive was downloading.
-    if (await readDoltVersion(binary) === DOLT_VERSION) return { version: DOLT_VERSION, path: binary, source: 'managed', installed: false };
+    if ((await readDoltVersion(binary)) === DOLT_VERSION)
+      return { version: DOLT_VERSION, path: binary, source: 'managed', installed: false };
     try {
       await access(target);
       backup = join(parent, `.replaced-${platform}-${arch}-${process.pid}-${Date.now()}`);
@@ -97,12 +143,16 @@ export async function setupDolt(dataDir: string, options: SetupDoltOptions = {})
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
     }
-    try { await rename(extracted, target); }
-    catch (error) {
+    try {
+      await rename(extracted, target);
+    } catch (error) {
       if (backup) await rename(backup, target).catch(() => {});
       throw error;
     }
-    if (backup) { await rm(backup, { recursive: true, force: true }); backup = undefined; }
+    if (backup) {
+      await rm(backup, { recursive: true, force: true });
+      backup = undefined;
+    }
     return { version: DOLT_VERSION, path: binary, source: 'managed', installed: true };
   } finally {
     if (backup) await rename(backup, target).catch(() => {});

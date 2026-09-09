@@ -1,0 +1,11 @@
+{
+  "name": "bassfish",
+  "version": "0.4.0",
+  "description": "A local coordination layer for coding agents",
+  "author": {
+    "name": "Bassfish"
+  },
+  "homepage": "https://github.com/tfukaza/bassfish",
+  "repository": "https://github.com/tfukaza/bassfish",
+  "license": "MIT"
+}

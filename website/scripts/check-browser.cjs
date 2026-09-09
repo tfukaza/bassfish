@@ -387,25 +387,36 @@ const assert = require('node:assert/strict');
       ),
     );
     check(
-      'Installation is ordered handoff, install, connect, skills',
-      JSON.stringify(await page.locator('.step-heading h2').allTextContents()) ===
-        JSON.stringify([
-          'Hand this to your agent.',
-          'Install Bassfish',
-          'Connect each agent',
-          'Give your agents the skills',
-        ]),
+      'Installation is ordered install, connect, update',
+      (await page.locator('#install-title').textContent()) === 'Installation' &&
+        JSON.stringify(await page.locator('.step-heading h2').allTextContents()) ===
+          JSON.stringify([
+            'Install the latest Bassfish',
+            'Install MCP and Skills',
+            'Keep it current',
+          ]),
     );
     check(
-      'The handoff is a separate alternative to steps 1–3',
-      (await page.locator('.agent-handoff .step-number').count()) === 0 &&
-        (await page.locator('.install-steps > li').count()) === 3 &&
-        (await page.locator('.install-or').textContent()) === 'OR',
+      'Terminal commands keep literal double dashes and have room below',
+      await page.locator('#install-code').evaluate(code => {
+        const block = code.closest('.code-block');
+        const next = block.nextElementSibling;
+        return (
+          code.textContent.includes('bassfish --version') &&
+          getComputedStyle(code).fontVariantLigatures === 'none' &&
+          parseFloat(getComputedStyle(block).marginBottom) >= 20 &&
+          (!next || next.getBoundingClientRect().top - block.getBoundingClientRect().bottom >= 20)
+        );
+      }),
     );
     check(
-      'Detailed documentation links are in the footer',
-      (await page.locator('.site-footer a[href="./setup.md"]').count()) === 1 &&
-        (await page.locator('#install a').count()) === 4,
+      'Installation has three direct steps and four host choices',
+      (await page.locator('.install-steps > li').count()) === 3 &&
+        (await page.locator('.host-picker a').count()) === 4,
+    );
+    check(
+      'The retired setup guide is not linked',
+      (await page.locator('a[href*="setup.md"]').count()) === 0,
     );
     for (const width of [1440, 390]) {
       await page.setViewportSize({ width, height: width === 1440 ? 1000 : 844 });
@@ -415,48 +426,45 @@ const assert = require('node:assert/strict');
         .screenshot({ path: path.join(output, `${width}-install.png`) });
     }
     await page.setViewportSize({ width: 1440, height: 1000 });
-    await page.locator('[data-copy="skills-code"]').click();
-    const skillCommand = await page.evaluate(() => navigator.clipboard.readText());
+    await page.locator('#host-codex [data-copy]').click();
+    const codexCommand = await page.evaluate(() => navigator.clipboard.readText());
     check(
-      'Copy skills command includes both skills',
-      skillCommand.includes('--skill use-bassfish --skill manage-bassfish -g') &&
-        skillCommand.startsWith('npx skills add tfukaza/bassfish'),
+      'Codex commands include the plugin and targeted skills',
+      codexCommand.startsWith('codex mcp remove bassfish') &&
+        codexCommand.includes('codex plugin marketplace add tfukaza/bassfish') &&
+        codexCommand.includes('codex plugin add bassfish@bassfish') &&
+        codexCommand.includes('--skill use-bassfish --skill manage-bassfish') &&
+        codexCommand.includes('--agent codex --global --yes'),
     );
     await page.locator('[data-copy="install-code"]').click();
     check(
       'Copy installation commands',
       (await page.evaluate(() => navigator.clipboard.readText())) ===
-        'npm install -g @bassfish/cli\nbassfish setup\nbassfish --version',
+        'npm install -g @bassfish/cli@latest\nbassfish setup\nbassfish --version\nbassfish doctor',
     );
     await page.getByRole('tab', { name: 'Claude Code' }).click();
     await page.locator('#host-claude [data-copy]').click();
     check(
-      'Host tabs and copied commands work',
+      'Claude commands include the plugin and targeted skills',
       (await page.evaluate(() => navigator.clipboard.readText())).startsWith(
         'claude plugin marketplace add https://github.com/tfukaza/bassfish.git',
-      ),
+      ) &&
+        (await page.evaluate(() => navigator.clipboard.readText())).includes(
+          '--agent claude-code --global --yes',
+        ),
     );
     await page.getByRole('tab', { name: 'Claude Code' }).focus();
     await page.keyboard.press('ArrowRight');
     check(
       'Host picker supports keyboard navigation',
-      (await page.getByRole('tab', { name: 'Other MCP hosts' }).getAttribute('aria-selected')) ===
-        'true',
+      (await page.getByRole('tab', { name: 'OpenCode' }).getAttribute('aria-selected')) === 'true',
     );
     await page.keyboard.press('Home');
-    await page.locator('[data-copy-url]').click();
     check(
-      'Agent guide link preserves the project path',
-      (await page.evaluate(() => navigator.clipboard.readText())) ===
-        new URL('setup.md', base).href,
+      'The retired setup guide is not published',
+      !(await page.request.get(new URL('setup.md', base).href)).ok(),
     );
-    check(
-      'The first conversation is available in the full documentation',
-      (await (await page.request.get(new URL('setup.md', base).href)).text()).includes(
-        '## Start a conversation',
-      ),
-    );
-    for (const name of ['setup.md', 'llms.txt', 'index.md']) {
+    for (const name of ['llms.txt', 'index.md']) {
       const response = await page.request.get(new URL(name, base).href);
       check(
         `${name} is readable and includes skills`,
@@ -495,6 +503,8 @@ const assert = require('node:assert/strict');
       'Docs list the exact compact MCP surface',
       JSON.stringify(documentedTools) ===
         JSON.stringify([
+          'bindHostSession',
+          'deliverHostNotifications',
           'getContext',
           'setAgentName',
           'notifications',
@@ -523,10 +533,16 @@ const assert = require('node:assert/strict');
     check(
       'Docs include current setup commands',
       [
-        'npm install -g @bassfish/cli',
-        'codex mcp add bassfish -- bassfish mcp',
+        'npm install -g @bassfish/cli@latest',
+        'codex plugin marketplace add tfukaza/bassfish',
+        'codex plugin add bassfish@bassfish',
         'claude plugin install bassfish@bassfish --scope user',
         'opencode plugin @bassfish/cli --global',
+        '--agent codex --global --yes',
+        '--agent claude-code --global --yes',
+        '--agent opencode --global --yes',
+        'skills@latest update',
+        'use-bassfish manage-bassfish --global --yes',
       ].every(command => docsText.includes(command)),
     );
     await docsPage.locator('[data-copy="codex-code"]').click();
@@ -536,7 +552,7 @@ const assert = require('node:assert/strict');
     check(
       'Docs copy controls work',
       (await docsPage.evaluate(() => navigator.clipboard.readText())).includes(
-        'codex mcp add bassfish',
+        'codex plugin add bassfish@bassfish',
       ),
     );
     await docsPage.locator('.troubleshooting details').first().locator('summary').click();
@@ -636,11 +652,14 @@ const assert = require('node:assert/strict');
       (await noJS.locator('.story-chapters').isVisible()) &&
         (await noJS.locator('#host-claude').isVisible()) &&
         (await noJS.locator('#host-codex').isVisible()) &&
+        (await noJS.locator('#host-opencode').isVisible()) &&
         (await noJS.locator('.feature-section').count()) === 3,
     );
     check(
       'No-JavaScript view has no inactive copy controls',
-      await noJS.locator('[data-copy-url]').isHidden(),
+      await noJS
+        .locator('[data-copy]')
+        .evaluateAll(buttons => buttons.every(button => button.hidden)),
     );
     await noJS.close();
     const preview = await context.newPage();

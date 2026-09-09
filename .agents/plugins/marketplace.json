@@ -1,0 +1,20 @@
+{
+  "name": "bassfish",
+  "interface": {
+    "displayName": "Bassfish"
+  },
+  "plugins": [
+    {
+      "name": "bassfish",
+      "source": {
+        "source": "local",
+        "path": "./plugins/bassfish"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

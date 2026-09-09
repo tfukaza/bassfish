@@ -1,7 +1,7 @@
 {
   "name": "@bassfish/cli",
-  "version": "0.2.1",
-  "description": "Headless inter-agent communication for agent teams",
+  "version": "0.4.0",
+  "description": "A local coordination layer for coding agents",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -19,6 +19,11 @@
     "dolt"
   ],
   "type": "module",
+  "main": "dist/opencode-plugin.js",
+  "exports": {
+    ".": "./dist/opencode-plugin.js",
+    "./server": "./dist/opencode-plugin.js"
+  },
   "engines": {
     "node": ">=24.12.0 <25"
   },
@@ -26,7 +31,9 @@
     "bassfish": "dist/cli.js"
   },
   "files": [
+    ".claude-plugin",
     "dist",
+    "plugins",
     "README.md",
     "LICENSE"
   ],
@@ -35,29 +42,40 @@
     "registry": "https://registry.npmjs.org/"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
+    "build": "node scripts/build.mjs",
     "check": "tsc --noEmit",
+    "check:dead-code": "knip",
+    "format": "prettier --write --ignore-unknown .",
+    "format:check": "prettier --check --ignore-unknown .",
     "test": "node --import tsx --test test/*.test.ts",
     "test:integration": "node --import tsx --test --test-concurrency=1 test/integration/*.test.ts",
     "test:hosts": "node scripts/host-smoke.mjs",
     "test:soak": "node scripts/soak.mjs",
     "package:check": "node scripts/package-smoke.mjs",
     "release:check": "npm run ci && npm run package:check && npm run test:hosts",
-    "ci": "npm run check && npm test && npm run build && npm run test:integration",
+    "ci": "npm run format:check && npm run check && npm run check:dead-code && npm test && npm run build && npm run test:integration",
     "dev": "tsx src/cli.ts",
     "setup:dolt": "tsx src/cli.ts setup",
     "prepack": "npm run build"
   },
   "dependencies": {
+    "@dagrejs/dagre": "^3.1.1",
     "@modelcontextprotocol/server": "2.0.0",
     "fflate": "^0.8.2",
+    "ink": "^7.1.1",
     "mysql2": "3.24.3",
     "re2-wasm": "^1.0.2",
+    "react": "^19.2.8",
+    "string-width": "^8.2.2",
     "zod": "4.5.4"
   },
   "devDependencies": {
     "@modelcontextprotocol/client": "2.0.0",
     "@types/node": "24.13.3",
+    "@types/react": "^19.2.18",
+    "ink-testing-library": "^4.0.0",
+    "knip": "6.34.0",
+    "prettier": "3.9.6",
     "tsx": "4.23.13",
     "typescript": "7.0.2"
   }

@@ -671,6 +671,7 @@ pre {
 }
 .code-block {
   margin-top: 20px;
+  margin-bottom: 20px;
   background: var(--code);
   border: 1px solid var(--code-line);
   border-radius: 6px;
@@ -684,6 +685,10 @@ pre {
   line-height: 1.8;
   overflow: auto;
   white-space: pre;
+  font-variant-ligatures: none;
+  font-feature-settings:
+    'liga' 0,
+    'calt' 0;
 }
 .detail-note {
   margin-top: 14px !important;
@@ -1071,6 +1076,13 @@ pre {
   border-radius: 7px;
   background: var(--olive-soft);
 }
+.upgrade-section > .code-block {
+  max-width: 740px;
+  margin-bottom: 20px;
+}
+.upgrade-card + .upgrade-card {
+  margin-top: 16px;
+}
 .upgrade-card strong {
   font-size: 14px;
   font-weight: 590;
@@ -1082,9 +1094,6 @@ pre {
 }
 .upgrade-card .code-block {
   margin-top: 0;
-}
-.skills-section > .code-block {
-  max-width: 740px;
 }
 .skill-grid {
   display: grid;

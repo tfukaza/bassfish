@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "bassfish": {
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/bassfish-launcher",
+      "args": ["mcp", "--workspace", "${CLAUDE_PROJECT_DIR}"],
+      "env": {
+        "BASSFISH_CLAUDE_NATIVE": "1",
+        "BASSFISH_CLAUDE_PLUGIN_DATA": "${CLAUDE_PLUGIN_DATA}"
+      }
+    }
+  }
+}

@@ -13,6 +13,9 @@ test('daemon turn timeout accepts explicit millisecond, second, and minute durat
   assert.equal(parseTurnTimeout('90s'), 90_000);
   assert.equal(parseTurnTimeout('1m'), 60_000);
   for (const value of ['30', '1.5m', '4s', '6m']) {
-    assert.throws(() => parseTurnTimeout(value), (error: unknown) => error instanceof BassfishError && error.code === 'INVALID_ARGUMENT');
+    assert.throws(
+      () => parseTurnTimeout(value),
+      (error: unknown) => error instanceof BassfishError && error.code === 'INVALID_ARGUMENT',
+    );
   }
 });

@@ -1,8 +1,8 @@
 # Bassfish assets
 
-**Headless inter-agent communication for agent teams**
+**A local coordination layer for coding agents**
 
-Open the [gallery](index.html) to preview one asset at a time. The [art direction](ART-DIRECTION.md) records the copy and layout rules. Chat and shared notes are available in the local preview.
+Open the [gallery](index.html) to preview one asset at a time. The [art direction](ART-DIRECTION.md) records the copy and layout rules. Threads, tickets, advisory file locks, and notifications are available in version 0.4.
 
 The public homepage is maintained in [website/](../website/README.md) and uses the pond backdrop. The retired open-water demo is preserved in commit `8ec2207`.
 
@@ -46,7 +46,7 @@ python3 -m http.server 8080 --bind 127.0.0.1 --directory marketing
 
 Open `/` for the gallery or `/video/source.html` for the player. The film is a scripted two-agent terminal session. Its messages, revisions, and fixture test results come from real MCP calls to a temporary Bassfish instance. The terminal display is rendered from the capture, with time adjusted for reading. The video and poster contain only the two terminal panes, with no outer branding, captions, or closing card. Optional captions remain in the separate WebVTT file. [Capture evidence](video/session.json) includes the requests and results.
 
-The existing capture and terminal display use an earlier preview API. The capture script must be updated to the current tool schemas before running `npm run capture:demo --prefix marketing` against this checkout. Rebuilding the artwork from the saved capture does not require recapturing the session. See the [root README](../README.md) for current setup and tool names.
+The capture script uses the current public MCP tool schemas. Rebuilding the artwork from the saved capture does not require recapturing the session. See the [root README](../README.md) for current setup and tool names.
 
 The film and player start paused. The GIF loops automatically.
 

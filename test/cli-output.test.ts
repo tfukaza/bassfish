@@ -68,7 +68,7 @@ test('human lifecycle results are concise and preserve recovery paths', () => {
   const doctor = renderHuman(
     { command: 'doctor' },
     {
-      version: '0.5.1',
+      version: '0.5.2',
       node: '24.12.0',
       platform: 'darwin-arm64',
       dataDir: '/tmp/bassfish',
@@ -77,7 +77,7 @@ test('human lifecycle results are concise and preserve recovery paths', () => {
     },
     options,
   );
-  assert.match(doctor, /^Bassfish 0\.5\.1/m);
+  assert.match(doctor, /^Bassfish 0\.5\.2/m);
   assert.match(doctor, /Turso\s+0\.7\.2 ✓/);
   assert.match(doctor, /Daemon\s+stopped ○/);
   assert.doesNotMatch(doctor, /\u001b/);
@@ -146,7 +146,7 @@ test('the CLI bootstrap suppresses only the SQLite experimental warning', async 
   const version = await exec(process.execPath, ['--import', 'tsx', 'src/cli.ts', '--version'], {
     env,
   });
-  assert.equal(version.stdout, '0.5.1\n');
+  assert.equal(version.stdout, '0.5.2\n');
   assert.equal(version.stderr, '');
   const doctor = await exec(
     process.execPath,

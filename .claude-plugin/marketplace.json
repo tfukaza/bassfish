@@ -9,7 +9,7 @@
       "name": "bassfish",
       "source": "./plugins/claude",
       "description": "A local coordination layer for coding agents",
-      "version": "0.5.1"
+      "version": "0.5.2"
     }
   ]
 }

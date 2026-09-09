@@ -1,3 +1,4 @@
+import { packageVersion } from '../src/config.js';
 import { mapAsync } from '../src/async.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -365,7 +366,10 @@ test('Codex marketplace plugin enables native MCP and delivers at safe boundarie
   const marketplace = JSON.parse(
     await readFile(join(process.cwd(), '.agents', 'plugins', 'marketplace.json'), 'utf8'),
   ) as Record<string, any>;
-  assert.match(manifest.version, /^0\.5\.0\+codex\.\d{14}$/);
+  assert.match(
+    manifest.version,
+    new RegExp(`^${packageVersion.replaceAll('.', '\\.')}\\+codex\\.\\d{14}$`),
+  );
   assert.equal(mcp.mcpServers.bassfish.env.BASSFISH_CODEX_NATIVE, '1');
   assert.equal(
     portableManifest.$schema,

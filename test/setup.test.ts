@@ -7,6 +7,6 @@ test('published native targets define the supported platforms', () => {
   assert.doesNotThrow(() => requireSupportedPlatform('linux', 'x64', '2.39'));
   assert.doesNotThrow(() => requireSupportedPlatform('linux', 'arm64', '2.39'));
   assert.throws(() => requireSupportedPlatform('darwin', 'x64', undefined), /Intel Mac/);
-  assert.throws(() => requireSupportedPlatform('linux', 'x64', undefined), /musl Linux/);
+  assert.throws(() => requireSupportedPlatform('linux', 'x64', ''), /musl Linux/);
   assert.throws(() => requireSupportedPlatform('win32', 'x64', undefined), /Windows/);
 });

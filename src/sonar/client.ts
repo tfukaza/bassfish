@@ -58,7 +58,7 @@ export class SonarClient {
   async once(): Promise<ObservationSnapshot | null> {
     try {
       this.connection = await RpcClient.connect(socketPath(this.dataDir));
-      await this.connection.call('openObserver', { workspace: this.workspace, protocolVersion: 1 });
+      await this.connection.call('openObserver', { workspace: this.workspace, protocolVersion: 2 });
       return await this.read<ObservationSnapshot>({ kind: 'snapshot', filter: this.filter });
     } catch (error) {
       if (['ENOENT', 'ECONNREFUSED'].includes((error as NodeJS.ErrnoException).code ?? ''))
@@ -76,7 +76,7 @@ export class SonarClient {
         this.generation++;
         await this.connection.call(
           'openObserver',
-          { workspace: this.workspace, protocolVersion: 1 },
+          { workspace: this.workspace, protocolVersion: 2 },
           this.stopSignal.signal,
         );
         await this.refresh();

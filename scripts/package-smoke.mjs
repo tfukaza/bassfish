@@ -43,6 +43,8 @@ try {
     'plugins/claude/skills/coordinate-peers/SKILL.md',
     'plugins/bassfish/.codex-plugin/plugin.json',
     'plugins/bassfish/.mcp.json',
+    'plugins/bassfish/plugin.json',
+    'plugins/bassfish/mcp.json',
     'plugins/bassfish/hooks/hooks.json',
     'plugins/opencode/README.md',
   ])
@@ -51,6 +53,10 @@ try {
     'dist/agent-runner.js',
     'dist/agents/opencode.js',
     'dist/agents/wake-source.js',
+    'dist/sql-worker.js',
+    'dist/storage/dolt.js',
+    'dist/storage/control.js',
+    'dist/storage/restartable-content.js',
     'plugins/opencode/bassfish.js',
   ])
     assert.equal(paths.includes(removed), false, `obsolete runner artifact ${removed}`);
@@ -97,6 +103,12 @@ try {
       'utf8',
     ),
   );
+  const portableCodexPlugin = JSON.parse(
+    await readFile(join(installedRoot, 'plugins', 'bassfish', 'plugin.json'), 'utf8'),
+  );
+  const portableCodexMcp = JSON.parse(
+    await readFile(join(installedRoot, 'plugins', 'bassfish', 'mcp.json'), 'utf8'),
+  );
   assert.equal(
     marketplace.plugins.find(plugin => plugin.name === 'bassfish')?.version,
     packageJson.version,
@@ -106,6 +118,12 @@ try {
     codexPlugin.version,
     new RegExp(`^${packageJson.version.replaceAll('.', '\\.')}\\+codex\\.\\d{14}$`),
   );
+  assert.equal(portableCodexPlugin.version, packageJson.version);
+  assert.equal(portableCodexPlugin.name, codexPlugin.name);
+  assert.equal(portableCodexPlugin.description, codexPlugin.description);
+  assert.deepEqual(portableCodexPlugin.extensions['com.openai'].interface, codexPlugin.interface);
+  assert.equal(portableCodexPlugin.extensions['com.openai'].hooks, './hooks/hooks.json');
+  assert.equal(portableCodexMcp.mcpServers.bassfish.type, 'stdio');
   assert.equal((await exec(binary, ['--version'])).stdout.trim(), packageJson.version);
   assert.match((await exec(binary, ['--help'])).stdout, /bassfish setup/);
 
@@ -113,13 +131,13 @@ try {
   runtimeEnv = env;
   const first = JSON.parse((await exec(binary, ['setup'], { env, timeout: 180_000 })).stdout);
   const second = JSON.parse((await exec(binary, ['setup'], { env, timeout: 30_000 })).stdout);
-  assert.equal(first.version, '2.3.2');
-  assert.equal(second.version, '2.3.2');
-  assert.equal(second.installed, false);
+  assert.equal(first.version, '0.7.2');
+  assert.equal(second.version, '0.7.2');
+  assert.equal(second.state, 'ready');
   const doctor = JSON.parse((await exec(binary, ['doctor'], { env })).stdout);
   assert.equal(doctor.version, packageJson.version);
-  assert.equal(doctor.dolt.state, 'ready');
-  assert.equal(doctor.daemon.state, 'stopped');
+  assert.equal(doctor.storage.state, 'ready');
+  assert.equal(doctor.daemon.state, 'ready');
 
   const repo = join(temporary, 'repo');
   await exec('git', ['init', repo]);
@@ -132,7 +150,10 @@ try {
   });
   transport.stderr?.on('data', () => {});
   await client.connect(transport);
-  assert.equal((await client.listTools()).tools.length, 13);
+  assert.match(client.getInstructions() ?? '', /inspect the latest relevant discussions/);
+  const tools = (await client.listTools()).tools;
+  assert.equal(tools.length, 13);
+  assert.ok(tools.every(tool => tool.outputSchema?.type === 'object'));
   const session = await client.callTool({ name: 'getContext', arguments: {} });
   assert.notEqual(session.isError, true);
   assert.ok(session.structuredContent?.agentName);

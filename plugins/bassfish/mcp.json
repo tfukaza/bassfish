@@ -1,0 +1,13 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json",
+  "mcpServers": {
+    "bassfish": {
+      "type": "stdio",
+      "command": "bassfish",
+      "args": ["mcp"],
+      "env": {
+        "BASSFISH_CODEX_NATIVE": "1"
+      }
+    }
+  }
+}

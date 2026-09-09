@@ -1,11 +1,8 @@
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import mysql from 'mysql2/promise';
-import { startSql } from '../dist/supervisor.js';
-import { doltBinary } from '../dist/config.js';
-import { DoltContent } from '../dist/storage/dolt.js';
-import { SqliteControl } from '../dist/storage/control.js';
+import { TursoControl } from '../dist/storage/coordination.js';
+import { TursoContent } from '../dist/storage/content.js';
 import { Bassfish } from '../dist/service.js';
 import { SystemClock } from '../dist/runtime.js';
 
@@ -18,13 +15,12 @@ if (!Number.isInteger(durationMs) || durationMs < 1000)
 const root = await mkdtemp(
   join(process.platform === 'darwin' ? '/private/tmp' : tmpdir(), 'bf-soak-'),
 );
-let sql, content, control;
+let content, control;
 let operations = 0;
 const startedAt = Date.now();
 try {
-  sql = await startSql(root, doltBinary());
-  content = new DoltContent(sql.endpoint);
-  control = new SqliteControl(join(root, 'control.sqlite'));
+  control = await TursoControl.open(join(root, 'bassfish.db'));
+  content = new TursoContent(control.store);
   const service = new Bassfish(control, content, new SystemClock(), { instanceMs: 300_000 }, root);
   await service.initialize();
   const alice = await service.open('/soak/.git', 'Alice'),
@@ -54,18 +50,16 @@ try {
     }
     operations++;
   }
-  const projectId = alice.session.projectId;
-  const connection = await mysql.createConnection({
-    ...sql.endpoint,
-    user: 'root',
-    database: projectId,
+  await control.activity.publish();
+  const snapshot = await content.snapshot(alice.session.projectId, threadId, 1);
+  if (snapshot.thread.headSequence !== String(operations))
+    throw new Error('Missing committed messages after soak.');
+  await control.store.read(async tx => {
+    const violations = await tx.all('PRAGMA foreign_key_check');
+    if (violations.length) throw new Error('Foreign-key violations after soak.');
+    const pending = await tx.get('SELECT COUNT(*) AS count FROM activityOutbox');
+    if (pending.count) throw new Error('Activity outbox did not drain.');
   });
-  try {
-    const [dirty] = await connection.query('SELECT * FROM dolt_status');
-    if (dirty.length) throw new Error('Dolt working set is dirty after soak.');
-  } finally {
-    await connection.end();
-  }
   process.stdout.write(
     JSON.stringify({
       status: 'pass',
@@ -76,7 +70,6 @@ try {
   );
 } finally {
   await content?.close();
-  control?.close();
-  await sql?.close();
+  await control?.close();
   await rm(root, { recursive: true, force: true });
 }

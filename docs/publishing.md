@@ -8,7 +8,6 @@ The package must exist before its npm trusted publisher can be configured. From 
 
 ```sh
 npm ci
-npm run setup:dolt
 npm run ci
 npm run package:check
 npm publish --access public

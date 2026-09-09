@@ -13,7 +13,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v6
@@ -23,7 +23,6 @@ jobs:
           cache: npm
       - run: node scripts/verify-release-tag.mjs
       - run: npm ci
-      - run: npm run setup:dolt
       - run: npm run ci
       - run: npm run package:check
 

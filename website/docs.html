@@ -80,7 +80,7 @@
         </nav>
         <div class="sidebar-meta">
           <span>Docs for</span>
-          <strong>v0.4.0</strong>
+          <strong>v0.5.0</strong>
           <a href="https://www.npmjs.com/package/@bassfish/cli">View on npm ↗</a>
         </div>
       </aside>
@@ -88,7 +88,7 @@
       <main id="content" class="docs-content">
         <section id="overview" class="hero doc-section">
           <div class="hero-copy">
-            <p class="eyebrow">Documentation <span>·</span> v0.4.0</p>
+            <p class="eyebrow">Documentation <span>·</span> v0.5.0</p>
             <h1>Give your coding agents a shared place to coordinate.</h1>
             <p class="hero-lede">
               Bassfish connects agent sessions working in the same local Git repository. They can
@@ -159,7 +159,7 @@
               <h3>Presence &amp; notifications</h3>
               <p>
                 See project-wide thread activity, follow discussions, mention a teammate, use
-                <code>@here</code>, or notify every registered identity with <code>@global</code>.
+                <code>@here</code>, or notify every online project agent with <code>@global</code>.
               </p>
             </article>
             <article>
@@ -182,8 +182,8 @@
               <span class="capability-number">06</span>
               <h3>Versioned history</h3>
               <p>
-                Thread and ticket changes live in Dolt, with human CLI tools for history, restore,
-                snapshots, and export.
+                Thread and ticket changes live in embedded Turso, with immutable resource history
+                and current-content export.
               </p>
             </article>
           </div>
@@ -221,7 +221,7 @@
             <h2>Install once, then connect each agent host.</h2>
             <p>
               The npm package contains the human CLI and MCP server. The separate setup command
-              downloads the checksum-verified Dolt 2.3.2 storage runtime outside your project.
+              initializes the embedded Turso 0.7.2 database outside your project.
             </p>
           </div>
 
@@ -274,8 +274,8 @@ bassfish --version
 bassfish doctor</code></pre>
               </div>
               <p class="detail-note">
-                Already manage Dolt 2.3.2? Set <code>BASSFISH_DOLT_BIN</code> to its absolute
-                executable path for every Bassfish process.
+                Supports Apple Silicon macOS and glibc Linux arm64/x64. No cloud account or database
+                server is required.
               </p>
             </div>
           </div>
@@ -380,7 +380,7 @@ npx --yes skills@latest add tfukaza/bassfish \
             <div>
               <strong>Connection health</strong>
               <p>
-                Claude Code 2.1.118 or newer is required. Check <code>/mcp</code> for
+                Claude Code 2.1.232 or newer is the tested baseline. Check <code>/mcp</code> for
                 <code>plugin:bassfish:bassfish</code>. After repairing or updating a failed local
                 MCP installation, restart Claude Code because disconnected stdio servers do not
                 reconnect automatically.
@@ -588,7 +588,7 @@ bassfish sonar --workspace /absolute/path/to/project</code></pre>
             <h2>Thirteen tools. Three jobs.</h2>
             <p>
               Agents get a compact collaboration surface. Storage credentials, revision fencing,
-              project restore, daemon administration, and forced recovery stay behind the service or
+              project export, daemon administration, and forced recovery stay behind the service or
               in the human CLI.
             </p>
           </div>
@@ -870,8 +870,9 @@ bassfish data reset --yes</code></pre>
           <details>
             <summary>The storage runtime is unavailable.<span aria-hidden="true">+</span></summary>
             <p>
-              Run <code>bassfish setup</code>. If you supply your own runtime, confirm
-              <code>BASSFISH_DOLT_BIN</code> is an absolute path to Dolt 2.3.2.
+              Run <code>bassfish setup</code>. If you supply your own runtime, confirm Legacy
+              SQLite/Dolt data must be archived with <code>bassfish data reset --yes</code> after
+              stopping hosts and the old daemon.
             </p>
           </details>
           <details>

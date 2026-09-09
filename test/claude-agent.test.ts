@@ -1,3 +1,4 @@
+import { mapAsync } from '../src/async.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
@@ -12,13 +13,11 @@ import {
   readOrCreateOpenCodeClientId,
   selectNativeCandidate,
 } from '../src/agents/claude-native.js';
-import { SqliteControl } from '../src/storage/control.js';
+import { TursoControl } from '../src/storage/coordination.js';
 import { Bassfish } from '../src/service.js';
 import { fixture } from './support.js';
 import { formatClaudeDeliveryNotification } from '../src/notifications-cli.js';
-
 const exec = promisify(execFile);
-
 test('Claude plugin client ID is stable, private, and UUID-shaped', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'bassfish-claude-'));
   const first = await readOrCreateClaudeClientId(dir);
@@ -27,7 +26,6 @@ test('Claude plugin client ID is stable, private, and UUID-shaped', async () => 
   assert.match(first, /^[0-9a-f-]{36}$/);
   assert.equal((await stat(join(dir, 'bassfish-client-id'))).mode & 0o777, 0o600);
 });
-
 test('OpenCode plugin client ID is stable in the Bassfish data directory', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'bassfish-opencode-'));
   const first = await readOrCreateOpenCodeClientId(dir);
@@ -36,7 +34,6 @@ test('OpenCode plugin client ID is stable in the Bassfish data directory', async
   assert.match(first, /^[0-9a-f-]{36}$/);
   assert.equal((await stat(join(dir, 'native', 'opencode', 'client-id'))).mode & 0o777, 0o600);
 });
-
 test('process ancestry parsing is bounded and native matching fails closed on ambiguity', () => {
   assert.deepEqual(ancestryFromProcessTable('10 9\n9 2\n2 1\n1 0\n', 10), [10, 9, 2, 1]);
   const monitor = [20, 10, 5, 1];
@@ -65,7 +62,6 @@ test('process ancestry parsing is bounded and native matching fails closed on am
     undefined,
   );
 });
-
 test('native host session IDs durably bind identity without becoming installation defaults', async t => {
   const f = await fixture();
   t.after(f.close);
@@ -93,11 +89,17 @@ test('native host session IDs durably bind identity without becoming installatio
   assert.equal(attached.identityId, original.identityId);
   assert.equal(attached.name, original.name);
   assert.notEqual(attached.adapterInstanceId, original.adapterInstanceId);
-
-  f.service.requestName(first.agentHandle, 'Reviewer');
-  assert.equal((f.service.info(concurrent.agentHandle) as { name: string }).name, 'Reviewer');
-  f.service.disconnect(first.agentHandle);
-  f.service.disconnect(concurrent.agentHandle);
+  await f.service.requestName(first.agentHandle, 'Reviewer');
+  assert.equal(
+    (
+      (await f.service.info(concurrent.agentHandle)) as {
+        name: string;
+      }
+    ).name,
+    'Reviewer',
+  );
+  await f.service.disconnect(first.agentHandle);
+  await f.service.disconnect(concurrent.agentHandle);
   const resumed = await f.service.open(
     '/repo/.git',
     undefined,
@@ -105,9 +107,22 @@ test('native host session IDs durably bind identity without becoming installatio
     '/repo/.git',
     'session-one',
   );
-  assert.equal((resumed.session as { identityId: string }).identityId, original.identityId);
-  assert.equal((resumed.session as { name: string }).name, 'Reviewer');
-
+  assert.equal(
+    (
+      resumed.session as {
+        identityId: string;
+      }
+    ).identityId,
+    original.identityId,
+  );
+  assert.equal(
+    (
+      resumed.session as {
+        name: string;
+      }
+    ).name,
+    'Reviewer',
+  );
   const otherClaude = await f.service.open(
     '/repo/.git',
     undefined,
@@ -115,9 +130,22 @@ test('native host session IDs durably bind identity without becoming installatio
     '/repo/.git',
     'session-two',
   );
-  assert.notEqual((otherClaude.session as { identityId: string }).identityId, original.identityId);
-  assert.notEqual((otherClaude.session as { name: string }).name, 'Reviewer');
-
+  assert.notEqual(
+    (
+      otherClaude.session as {
+        identityId: string;
+      }
+    ).identityId,
+    original.identityId,
+  );
+  assert.notEqual(
+    (
+      otherClaude.session as {
+        name: string;
+      }
+    ).name,
+    'Reviewer',
+  );
   const sameOpaqueIdOnCodex = await f.service.open(
     '/repo/.git',
     undefined,
@@ -126,7 +154,11 @@ test('native host session IDs durably bind identity without becoming installatio
     'session-one',
   );
   assert.notEqual(
-    (sameOpaqueIdOnCodex.session as { identityId: string }).identityId,
+    (
+      sameOpaqueIdOnCodex.session as {
+        identityId: string;
+      }
+    ).identityId,
     original.identityId,
   );
   const sameSessionInAnotherProject = await f.service.open(
@@ -137,14 +169,22 @@ test('native host session IDs durably bind identity without becoming installatio
     'session-one',
   );
   assert.notEqual(
-    (sameSessionInAnotherProject.session as { identityId: string }).identityId,
+    (
+      sameSessionInAnotherProject.session as {
+        identityId: string;
+      }
+    ).identityId,
     original.identityId,
   );
   await assert.rejects(
     f.service.open('/repo/.git', 'Reviewer', native(), '/repo/.git', 'session-three'),
-    (error: unknown) => (error as { code?: string }).code === 'NAME_BOUND_TO_SESSION',
+    (error: unknown) =>
+      (
+        error as {
+          code?: string;
+        }
+      ).code === 'NAME_BOUND_TO_SESSION',
   );
-
   const restarted = new Bassfish(f.control, f.content, f.clock);
   await restarted.initialize();
   const afterDaemonRestart = await restarted.open(
@@ -155,12 +195,22 @@ test('native host session IDs durably bind identity without becoming installatio
     'session-one',
   );
   assert.equal(
-    (afterDaemonRestart.session as { identityId: string }).identityId,
+    (
+      afterDaemonRestart.session as {
+        identityId: string;
+      }
+    ).identityId,
     original.identityId,
   );
-  assert.equal((afterDaemonRestart.session as { name: string }).name, 'Reviewer');
+  assert.equal(
+    (
+      afterDaemonRestart.session as {
+        name: string;
+      }
+    ).name,
+    'Reviewer',
+  );
 });
-
 test('control schema v5 requires an explicit reset', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'bassfish-schema-'));
   const path = join(dir, 'control.sqlite');
@@ -173,12 +223,16 @@ test('control schema v5 requires an explicit reset', async () => {
     PRAGMA user_version=5;
   `);
   old.close();
-  assert.throws(
-    () => new SqliteControl(path),
-    (error: unknown) => (error as { code?: string }).code === 'SCHEMA_MISMATCH',
+  await assert.rejects(
+    async () => await TursoControl.open(path),
+    (error: unknown) =>
+      (
+        error as {
+          code?: string;
+        }
+      ).code === 'SCHEMA_MISMATCH',
   );
 });
-
 test('control schema v6 requires an explicit reset', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'bassfish-schema-v6-'));
   const path = join(dir, 'control.sqlite');
@@ -195,12 +249,16 @@ test('control schema v6 requires an explicit reset', async () => {
     PRAGMA user_version=6;
   `);
   old.close();
-  assert.throws(
-    () => new SqliteControl(path),
-    (error: unknown) => (error as { code?: string }).code === 'SCHEMA_MISMATCH',
+  await assert.rejects(
+    async () => await TursoControl.open(path),
+    (error: unknown) =>
+      (
+        error as {
+          code?: string;
+        }
+      ).code === 'SCHEMA_MISMATCH',
   );
 });
-
 test('Claude marketplace plugin binds sessions and checks notifications at safe boundaries', async () => {
   const root = join(process.cwd(), 'plugins', 'claude');
   const manifest = JSON.parse(
@@ -239,10 +297,9 @@ test('Claude marketplace plugin binds sessions and checks notifications at safe 
   assert.match(coordinationSkill, /held, refused, dropped, unavailable, or ambiguous/);
   assert.equal(marketplace.plugins[0].source, './plugins/claude');
 });
-
 test('Claude launcher resolves Bassfish through the login shell and preserves arguments', async t => {
   const dir = await mkdtemp(join(tmpdir(), 'bassfish-claude-launcher-'));
-  t.after(() => rm(dir, { recursive: true, force: true }));
+  t.after(async () => await rm(dir, { recursive: true, force: true }));
   const launcher = join(process.cwd(), 'plugins', 'claude', 'bin', 'bassfish-launcher');
   const fakeBin = join(dir, 'managed-bin');
   const fakeBassfish = join(fakeBin, 'bassfish');
@@ -256,8 +313,9 @@ test('Claude launcher resolves Bassfish through the login shell and preserves ar
     'utf8',
   );
   await writeFile(fakeShell, `#!/bin/sh\nprintf '%s\\n' '${fakeBassfish}'\n`, 'utf8');
-  await Promise.all([fakeBassfish, fakeNode, fakeShell].map(path => chmod(path, 0o755)));
-
+  await Promise.all(
+    await mapAsync([fakeBassfish, fakeNode, fakeShell], async path => await chmod(path, 0o755)),
+  );
   const result = await exec(launcher, ['mcp', '--workspace', '/repo with spaces'], {
     env: { PATH: '/usr/bin:/bin', SHELL: fakeShell },
   });
@@ -271,26 +329,35 @@ test('Claude launcher resolves Bassfish through the login shell and preserves ar
     new RegExp(`path=${fakeBin.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}:`),
   );
 });
-
 test('Claude launcher reports an actionable error when Bassfish is unavailable', async () => {
   const launcher = join(process.cwd(), 'plugins', 'claude', 'bin', 'bassfish-launcher');
   await assert.rejects(
     exec(launcher, ['--version'], { env: { PATH: '/usr/bin:/bin', SHELL: '/bin/false' } }),
     (error: unknown) => {
-      const failure = error as { code?: number; stderr?: string };
+      const failure = error as {
+        code?: number;
+        stderr?: string;
+      };
       assert.equal(failure.code, 127);
       assert.match(failure.stderr ?? '', /npm install -g @bassfish\/cli@latest/);
       return true;
     },
   );
 });
-
 test('Codex marketplace plugin enables native MCP and delivers at safe boundaries', async () => {
   const root = join(process.cwd(), 'plugins', 'bassfish');
   const manifest = JSON.parse(
     await readFile(join(root, '.codex-plugin', 'plugin.json'), 'utf8'),
   ) as Record<string, any>;
   const mcp = JSON.parse(await readFile(join(root, '.mcp.json'), 'utf8')) as Record<string, any>;
+  const portableManifest = JSON.parse(await readFile(join(root, 'plugin.json'), 'utf8')) as Record<
+    string,
+    any
+  >;
+  const portableMcp = JSON.parse(await readFile(join(root, 'mcp.json'), 'utf8')) as Record<
+    string,
+    any
+  >;
   const hooks = JSON.parse(await readFile(join(root, 'hooks', 'hooks.json'), 'utf8')) as Record<
     string,
     any
@@ -298,8 +365,15 @@ test('Codex marketplace plugin enables native MCP and delivers at safe boundarie
   const marketplace = JSON.parse(
     await readFile(join(process.cwd(), '.agents', 'plugins', 'marketplace.json'), 'utf8'),
   ) as Record<string, any>;
-  assert.match(manifest.version, /^0\.4\.0\+codex\.\d{14}$/);
+  assert.match(manifest.version, /^0\.5\.0\+codex\.\d{14}$/);
   assert.equal(mcp.mcpServers.bassfish.env.BASSFISH_CODEX_NATIVE, '1');
+  assert.equal(
+    portableManifest.$schema,
+    'https://agent-plugins.org/schemas/1.0.0/plugin.schema.json',
+  );
+  assert.equal(portableManifest.extensions['com.openai'].hooks, './hooks/hooks.json');
+  assert.equal(portableMcp.mcpServers.bassfish.type, 'stdio');
+  assert.equal(portableMcp.mcpServers.bassfish.env.BASSFISH_CODEX_NATIVE, '1');
   assert.equal(hooks.hooks.UserPromptSubmit[0].hooks[0].tool, 'deliverHostNotifications');
   assert.equal(hooks.hooks.UserPromptSubmit[0].hooks[0].input.sessionId, '${session_id}');
   assert.equal(hooks.hooks.PostToolUse[0].hooks[0].input.phase, 'active');
@@ -307,7 +381,6 @@ test('Codex marketplace plugin enables native MCP and delivers at safe boundarie
   assert.equal(marketplace.name, 'bassfish');
   assert.equal(marketplace.plugins[0].source.path, './plugins/bassfish');
 });
-
 test('Claude monitor emits content-bearing native notifications', () => {
   const notification = formatClaudeDeliveryNotification({
     kind: 'actionable',

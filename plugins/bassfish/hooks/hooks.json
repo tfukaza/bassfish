@@ -11,7 +11,7 @@
               "sessionId": "${session_id}",
               "phase": "prompt"
             },
-            "timeout": 5,
+            "timeout": 15,
             "statusMessage": "Restoring Bassfish session identity"
           }
         ]
@@ -29,7 +29,7 @@
               "sessionId": "${session_id}",
               "phase": "active"
             },
-            "timeout": 5,
+            "timeout": 15,
             "statusMessage": "Checking Bassfish notifications"
           }
         ]
@@ -46,7 +46,7 @@
               "sessionId": "${session_id}",
               "phase": "idle"
             },
-            "timeout": 5,
+            "timeout": 15,
             "statusMessage": "Checking Bassfish notifications"
           }
         ]

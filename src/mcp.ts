@@ -3,10 +3,12 @@ import type {
   JSONRPCMessage,
   StandardSchemaWithJSON,
   Transport,
+  TransportSendOptions,
 } from '@modelcontextprotocol/server';
+import { SUBSCRIPTION_ID_META_KEY } from '@modelcontextprotocol/server';
 import { serveStdio, StdioServerTransport } from '@modelcontextprotocol/server/stdio';
 import { BassfishError } from './domain.js';
-import { mcpDescriptions, mcpSchemas } from './mcp-api.js';
+import { mcpDescriptions, mcpOutputSchemas, mcpSchemas } from './mcp-api.js';
 import type { McpToolName } from './mcp-api.js';
 import { presentMentionTask, presentNotifications, presentTask } from './mcp-presenters.js';
 import { connectDaemon, ensureDaemon } from './daemon.js';
@@ -24,7 +26,6 @@ import {
   wireTaskNotification,
 } from './tasks.js';
 import { packageVersion } from './config.js';
-import { MentionTaskRegistry } from './mention-tasks.js';
 import { formatDeliveryContext, type DeliveryBatch } from './notification-delivery.js';
 import { z } from 'zod';
 import {
@@ -34,6 +35,8 @@ import {
 } from './agents/claude-native.js';
 
 const hostSessionRouteKey = '__bassfishHostSessionId';
+const mcpInstructions =
+  'Before acting, call getContext and inspect the latest relevant discussions and tickets. Check ticket dependencies and current owners to avoid duplicate work. Acquire an advisory file turn before editing, reread files after acquiring it, and release it when done. Use existing threads—especially Introductions—instead of creating duplicates. Process injected Bassfish notifications before drawing conclusions, and leave a handoff when work changes ownership.';
 const hostSessionIdSchema = z.string().min(1).max(200);
 function routedToolSchema(schema: z.ZodType): StandardSchemaWithJSON {
   const standard = schema['~standard'];
@@ -72,12 +75,40 @@ function routedHostSessionId(args: unknown): string | undefined {
   return parsed.data;
 }
 
+async function within<T>(work: Promise<T>, timeoutMs: number): Promise<T> {
+  let timer: NodeJS.Timeout | undefined;
+  try {
+    return await Promise.race([
+      work,
+      new Promise<never>((_resolve, reject) => {
+        timer = setTimeout(
+          () =>
+            reject(
+              new BassfishError(
+                'BACKEND_UNAVAILABLE',
+                'Bassfish notification delivery exceeded its hook deadline.',
+              ),
+            ),
+          timeoutMs,
+        );
+        timer.unref();
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
 export class TaskAwareStdioTransport implements Transport {
   onclose?: () => void;
   onerror?: (error: Error) => void;
   onmessage?: (message: JSONRPCMessage) => void;
-  private taskIds = new Set<string>();
-  private subscriptionMeta: Record<string, unknown> | undefined;
+  private readonly pending = new Map<string, Set<string>>();
+  private readonly subscriptions = new Map<
+    string,
+    { taskIds: Set<string>; meta: Record<string, unknown> }
+  >();
+  private protocolVersion?: string;
   constructor(
     private readonly subscribe: (ids: string[]) => void,
     private readonly inner: Transport = new StdioServerTransport(),
@@ -87,6 +118,15 @@ export class TaskAwareStdioTransport implements Transport {
     this.inner.onerror = error => this.onerror?.(error);
     this.inner.onmessage = message => {
       const raw = message as unknown as Record<string, unknown>;
+      if (raw.method === 'notifications/cancelled') {
+        const requestId = (raw.params as Record<string, unknown> | undefined)?.requestId;
+        if (requestId !== undefined) {
+          const key = String(requestId);
+          this.pending.delete(key);
+          this.subscriptions.delete(key);
+          this.publishSubscriptions();
+        }
+      }
       if (raw.method === 'subscriptions/listen') {
         const clone = structuredClone(raw) as Record<string, unknown>;
         const params = clone.params as Record<string, unknown> | undefined;
@@ -99,7 +139,7 @@ export class TaskAwareStdioTransport implements Transport {
           const envelope = meta?.['io.modelcontextprotocol/clientCapabilities']
             ? { clientCapabilities: meta['io.modelcontextprotocol/clientCapabilities'] }
             : undefined;
-          if (!hasTasksCapability(envelope)) {
+          if (this.protocolVersion !== '2026-07-28' || !hasTasksCapability(envelope, 'modern')) {
             void this.inner.send({
               jsonrpc: '2.0',
               id: raw.id as string,
@@ -111,9 +151,9 @@ export class TaskAwareStdioTransport implements Transport {
             } as JSONRPCMessage);
             return;
           }
-          this.taskIds = new Set(ids);
+          this.pending.set(String(raw.id), new Set(ids));
           delete notifications!.taskIds;
-          this.subscribe(ids);
+          this.publishSubscriptions();
         }
         this.onmessage?.(clone as unknown as JSONRPCMessage);
         return;
@@ -123,19 +163,50 @@ export class TaskAwareStdioTransport implements Transport {
     await this.inner.start();
   }
   async close(): Promise<void> {
+    this.pending.clear();
+    this.subscriptions.clear();
+    this.publishSubscriptions();
     await this.inner.close();
   }
-  async send(message: JSONRPCMessage): Promise<void> {
+  setProtocolVersion(version: string): void {
+    this.protocolVersion = version;
+    this.inner.setProtocolVersion?.(version);
+  }
+  setSupportedProtocolVersions(versions: string[]): void {
+    this.inner.setSupportedProtocolVersions?.(versions);
+  }
+  async send(message: JSONRPCMessage, options?: TransportSendOptions): Promise<void> {
     const raw = structuredClone(message) as unknown as Record<string, unknown>;
-    if (raw.method === 'notifications/subscriptions/acknowledged' && this.taskIds.size) {
+    if (raw.method === 'notifications/subscriptions/acknowledged') {
       const params = raw.params as Record<string, unknown>;
+      const meta = (params._meta ?? {}) as Record<string, unknown>;
+      const subscriptionId = meta[SUBSCRIPTION_ID_META_KEY];
+      const taskIds =
+        subscriptionId === undefined ? undefined : this.pending.get(String(subscriptionId));
+      if (taskIds?.size) {
+        this.pending.delete(String(subscriptionId));
+        this.subscriptions.set(String(subscriptionId), { taskIds, meta });
+        this.publishSubscriptions();
+      }
       const notifications = (params.notifications ??= {}) as Record<string, unknown>;
-      notifications.taskIds = [...this.taskIds];
-      this.subscriptionMeta = params._meta as Record<string, unknown> | undefined;
+      if (taskIds?.size) notifications.taskIds = [...taskIds];
     }
-    if (raw.method === 'notifications/tasks' && this.subscriptionMeta) {
+    if (raw.method === 'notifications/tasks') {
       const params = raw.params as Record<string, unknown>;
-      params._meta = { ...(params._meta as object | undefined), ...this.subscriptionMeta };
+      const taskId = String(params.taskId ?? '');
+      for (const subscription of this.subscriptions.values())
+        if (subscription.taskIds.has(taskId))
+          await this.inner.send(
+            {
+              ...(raw as object),
+              params: {
+                ...params,
+                _meta: { ...(params._meta as object | undefined), ...subscription.meta },
+              },
+            } as JSONRPCMessage,
+            options,
+          );
+      return;
     }
     const result = raw.result as Record<string, unknown> | undefined;
     const structured = result?.structuredContent as Record<string, unknown> | undefined;
@@ -144,17 +215,22 @@ export class TaskAwareStdioTransport implements Transport {
         ...wireTask(structured.__bassfishTask as Record<string, unknown>, 'task'),
         ...(result?._meta ? { _meta: result._meta } : {}),
       };
-    await this.inner.send(raw as unknown as JSONRPCMessage);
+    await this.inner.send(raw as unknown as JSONRPCMessage, options);
+  }
+  private publishSubscriptions(): void {
+    this.subscribe([
+      ...new Set(
+        [
+          ...this.pending.values(),
+          ...[...this.subscriptions.values()].map(value => value.taskIds),
+        ].flatMap(value => [...value]),
+      ),
+    ]);
   }
 }
 
 /** Stdio adapter: MCP validation and transport around the shared Bassfish daemon. */
-export async function runMcp(
-  workspace: string,
-  dataDir: string,
-  binary: string,
-  name?: string,
-): Promise<void> {
+export async function runMcp(workspace: string, dataDir: string, name?: string): Promise<void> {
   let client: RpcClient | undefined;
   let connecting: Promise<RpcClient> | undefined;
   let heartbeat: NodeJS.Timeout | undefined;
@@ -176,7 +252,7 @@ export async function runMcp(
   async function connection(): Promise<RpcClient> {
     if (client && !client.socket.destroyed) return client;
     return (connecting ??= (async () => {
-      await ensureDaemon(dataDir, binary);
+      await ensureDaemon(dataDir);
       const opened = await connectDaemon(dataDir);
       try {
         if (
@@ -239,20 +315,16 @@ export async function runMcp(
     }));
   }
   const taskRoutes = new Map<string, string | undefined>();
-  const mentionTasks = new MentionTaskRegistry(async (hostSessionId, signal) => {
-    while (!signal.aborted) {
-      const backend = await connection();
-      const batch = await backend.call<{
-        notifications: Record<string, unknown>[];
-        moreAvailable: boolean;
-      }>('waitWork', { timeoutMs: 20_000, ...(hostSessionId ? { hostSessionId } : {}) }, signal);
-      if (batch.notifications.length > 0) return batch;
-    }
-    throw new BassfishError('CANCELLED', 'Mention listening was cancelled.');
-  });
   let protocolServer: McpServer | undefined;
   const watchers = new Map<string, AbortController>();
   const watchTasks = (ids: string[]) => {
+    const wanted = new Set(ids);
+    for (const [taskId, watcher] of watchers)
+      if (!wanted.has(taskId)) {
+        watcher.abort();
+        watchers.delete(taskId);
+        taskRoutes.delete(taskId);
+      }
     for (const taskId of ids)
       if (!watchers.has(taskId)) {
         const controller = new AbortController();
@@ -261,8 +333,19 @@ export async function runMcp(
           let after = 0;
           while (!controller.signal.aborted) {
             try {
-              const rawTask = mentionTasks.has(taskId)
-                ? await mentionTasks.waitForUpdate(taskId, after, 20_000, controller.signal)
+              const rawTask = taskId.startsWith('work_')
+                ? await (
+                    await connection()
+                  ).call<Record<string, unknown>>(
+                    'waitWorkTask',
+                    {
+                      taskId,
+                      updatedAfter: after,
+                      timeoutMs: 20_000,
+                      ...(taskRoutes.get(taskId) ? { hostSessionId: taskRoutes.get(taskId) } : {}),
+                    },
+                    controller.signal,
+                  )
                 : await (
                     await connection()
                   ).call<Record<string, unknown>>(
@@ -275,7 +358,7 @@ export async function runMcp(
                     },
                     controller.signal,
                   );
-              const task = mentionTasks.has(taskId)
+              const task = taskId.startsWith('work_')
                 ? presentMentionTask(rawTask)
                 : presentTask(rawTask);
               const updated = Date.parse(String(task.lastUpdatedAt));
@@ -307,72 +390,95 @@ export async function runMcp(
   // identity even when the host has only initialized MCP or listed tools.
   await connection();
   const transport = await serveStdio(
-    () => {
+    ({ era }) => {
+      const tasksEnabled = era === 'modern';
       const server = new McpServer(
         { name: 'bassfish', version: packageVersion },
-        { capabilities: { tools: {}, extensions: { [tasksExtensionId]: {} } } as never },
+        {
+          instructions: mcpInstructions,
+          capabilities: {
+            tools: {},
+            ...(tasksEnabled ? { extensions: { [tasksExtensionId]: {} } } : {}),
+          } as never,
+        },
       );
       protocolServer = server;
-      server.server.setRequestHandler(
-        'tasks/get',
-        { params: getTaskParams, result: taskResult },
-        async params => {
-          if (mentionTasks.has(params.taskId))
+      if (tasksEnabled)
+        server.server.setRequestHandler(
+          'tasks/get',
+          { params: getTaskParams, result: taskResult },
+          async params => {
+            if (params.taskId.startsWith('work_')) {
+              const backend = await connection();
+              const hostSessionId = taskRoutes.get(params.taskId);
+              return wireTask(
+                presentMentionTask(
+                  await backend.call<Record<string, unknown>>('getWorkTask', {
+                    taskId: params.taskId,
+                    ...(hostSessionId ? { hostSessionId } : {}),
+                  }),
+                ),
+                'complete',
+              ) as never;
+            }
+            const backend = await connection();
+            const hostSessionId = taskRoutes.get(params.taskId);
             return wireTask(
-              presentMentionTask(mentionTasks.get(params.taskId)),
+              presentTask(
+                await backend.call<Record<string, unknown>>('getTask', {
+                  taskId: params.taskId,
+                  ...(hostSessionId ? { hostSessionId } : {}),
+                }),
+              ),
               'complete',
             ) as never;
-          const backend = await connection();
-          const hostSessionId = taskRoutes.get(params.taskId);
-          return wireTask(
-            presentTask(
-              await backend.call<Record<string, unknown>>('getTask', {
+          },
+        );
+      if (tasksEnabled)
+        server.server.setRequestHandler(
+          'tasks/cancel',
+          { params: cancelTaskParams, result: taskAck },
+          async params => {
+            if (params.taskId.startsWith('work_')) {
+              const backend = await connection();
+              const hostSessionId = taskRoutes.get(params.taskId);
+              await backend.call('cancelWorkTask', {
                 taskId: params.taskId,
                 ...(hostSessionId ? { hostSessionId } : {}),
-              }),
-            ),
-            'complete',
-          ) as never;
-        },
-      );
-      server.server.setRequestHandler(
-        'tasks/cancel',
-        { params: cancelTaskParams, result: taskAck },
-        async params => {
-          if (mentionTasks.has(params.taskId)) {
-            mentionTasks.cancel(params.taskId);
+              });
+              return { resultType: 'complete' as const };
+            }
+            const backend = await connection();
+            const hostSessionId = taskRoutes.get(params.taskId);
+            await backend.call('cancelTask', {
+              taskId: params.taskId,
+              ...(hostSessionId ? { hostSessionId } : {}),
+            });
             return { resultType: 'complete' as const };
-          }
-          const backend = await connection();
-          const hostSessionId = taskRoutes.get(params.taskId);
-          await backend.call('cancelTask', {
-            taskId: params.taskId,
-            ...(hostSessionId ? { hostSessionId } : {}),
-          });
-          return { resultType: 'complete' as const };
-        },
-      );
-      server.server.setRequestHandler(
-        'tasks/update',
-        { params: updateTaskParams, result: taskAck },
-        async params => {
-          if (mentionTasks.has(params.taskId))
+          },
+        );
+      if (tasksEnabled)
+        server.server.setRequestHandler(
+          'tasks/update',
+          { params: updateTaskParams, result: taskAck },
+          async params => {
+            if (params.taskId.startsWith('work_'))
+              throw new BassfishError(
+                'INVALID_TASK_STATE',
+                'Bassfish mention tasks never request client input.',
+              );
+            const backend = await connection();
+            const hostSessionId = taskRoutes.get(params.taskId);
+            await backend.call('peekTask', {
+              taskId: params.taskId,
+              ...(hostSessionId ? { hostSessionId } : {}),
+            });
             throw new BassfishError(
               'INVALID_TASK_STATE',
-              'Bassfish mention tasks never request client input.',
+              'Bassfish turn tasks never request client input.',
             );
-          const backend = await connection();
-          const hostSessionId = taskRoutes.get(params.taskId);
-          await backend.call('peekTask', {
-            taskId: params.taskId,
-            ...(hostSessionId ? { hostSessionId } : {}),
-          });
-          throw new BassfishError(
-            'INVALID_TASK_STATE',
-            'Bassfish turn tasks never request client input.',
-          );
-        },
-      );
+          },
+        );
       for (const name of Object.keys(mcpSchemas) as McpToolName[]) {
         const inputSchema = routedToolSchema(mcpSchemas[name]);
         server.registerTool(
@@ -380,6 +486,7 @@ export async function runMcp(
           {
             description: mcpDescriptions[name],
             inputSchema,
+            outputSchema: mcpOutputSchemas[name],
             annotations: {
               readOnlyHint: [
                 'bindHostSession',
@@ -401,8 +508,14 @@ export async function runMcp(
           },
           async (args, context) => {
             try {
-              const backend = await connection();
+              const hookDeadline = name === 'deliverHostNotifications' ? Date.now() + 3_000 : 0;
+              const backend =
+                hookDeadline > 0
+                  ? await within(connection(), Math.max(1, hookDeadline - Date.now()))
+                  : await connection();
               const routedSessionId = routedHostSessionId(args);
+              if (routedSessionId && nativeHost === 'opencode')
+                defaultHostSessionId = routedSessionId;
               const publicArgs = { ...(args as Record<string, unknown>) };
               delete publicArgs[hostSessionRouteKey];
               if (routedSessionId && nativeHost !== 'opencode')
@@ -429,12 +542,16 @@ export async function runMcp(
                   );
                 const sessionId = publicArgs.sessionId as string;
                 const phase = publicArgs.phase as 'prompt' | 'active' | 'idle';
-                await backend.call('bindHostSession', { sessionId });
+                const batch = await backend.call<DeliveryBatch>(
+                  'takeHostDelivery',
+                  {
+                    sessionId,
+                    phase,
+                  },
+                  context.mcpReq.signal,
+                  Math.max(1, hookDeadline - Date.now()),
+                );
                 defaultHostSessionId = sessionId;
-                const batch = await backend.call<DeliveryBatch>('takeHostDelivery', {
-                  sessionId,
-                  phase,
-                });
                 if (batch.count === 0) return toolResult({}) as never;
                 const message = formatDeliveryContext(batch);
                 if (phase === 'idle')
@@ -450,7 +567,7 @@ export async function runMcp(
                 }) as never;
               }
               if (name === 'waitForWork') {
-                if (!hasTasksCapability(context.mcpReq.envelope))
+                if (!hasTasksCapability(context.mcpReq.envelope, era))
                   throw new BassfishError(
                     'TASKS_REQUIRED',
                     'waitForWork requires the MCP Tasks extension.',
@@ -468,13 +585,18 @@ export async function runMcp(
                 );
                 if (pending.notifications.length > 0)
                   return toolResult(presentNotifications(pending)) as never;
+                const task = await backend.call<Record<string, unknown>>('createWorkTask', {
+                  ...(routedSessionId ? { hostSessionId: routedSessionId } : {}),
+                });
+                const taskId = task.taskId;
+                if (typeof taskId === 'string') taskRoutes.set(taskId, routedSessionId);
                 return {
                   content: [],
-                  structuredContent: { __bassfishTask: mentionTasks.create(routedSessionId) },
+                  structuredContent: { __bassfishTask: task },
                 };
               }
               const taskCapable =
-                name === 'acquireTurn' && hasTasksCapability(context.mcpReq.envelope);
+                name === 'acquireTurn' && hasTasksCapability(context.mcpReq.envelope, era);
               const data = await backend.call(
                 'callMcpTool',
                 {
@@ -484,6 +606,7 @@ export async function runMcp(
                   ...(routedSessionId ? { hostSessionId: routedSessionId } : {}),
                 },
                 context.mcpReq.signal,
+                75_000,
               );
               if (name === 'setAgentName' && !nativeHost)
                 preferredName = (data as { agentName: string }).agentName;
@@ -504,8 +627,26 @@ export async function runMcp(
                       'BACKEND_UNAVAILABLE',
                       'Bassfish could not complete the request. No operation was retried.',
                     );
+              if (
+                name === 'deliverHostNotifications' &&
+                [
+                  'OUTCOME_UNKNOWN',
+                  'CONNECTION_CLOSED',
+                  'BACKEND_UNAVAILABLE',
+                  'STORAGE_UNAVAILABLE',
+                  'STORAGE_BUSY',
+                  'API_VERSION',
+                  'DAEMON_START_FAILED',
+                  'CANCELLED',
+                ].includes(failure.code)
+              )
+                return toolResult({ deferred: true }) as never;
               const output = { error: { code: failure.code, message: failure.message } };
-              return { isError: true, content: [], structuredContent: output };
+              return {
+                isError: true,
+                content: [{ type: 'text' as const, text: `${failure.code}: ${failure.message}` }],
+                structuredContent: output,
+              };
             }
           },
         );
@@ -518,7 +659,6 @@ export async function runMcp(
     if (stopped) return;
     stopped = true;
     if (heartbeat) clearInterval(heartbeat);
-    mentionTasks.stop();
     for (const watcher of watchers.values()) watcher.abort();
     watchers.clear();
     try {

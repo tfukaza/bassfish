@@ -1,15 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { DatabaseSync } from 'node:sqlite';
-import { mkdtemp, rm } from 'node:fs/promises';
-import { join } from 'node:path';
-import { tmpdir } from 'node:os';
 import { createElement } from 'react';
 import { setTimeout as delay } from 'node:timers/promises';
 import { render } from 'ink-testing-library';
 import stringWidth from 'string-width';
-import { SqliteControl } from '../src/storage/control.js';
-import { ActivityJournal, activityLimit, activityRetentionMs } from '../src/storage/activity.js';
 import { ProjectObserver } from '../src/observer.js';
 import { fixture, hold } from './support.js';
 import { graphRelations, layoutTickets, graphNeighbor } from '../src/sonar/graph.js';
@@ -23,12 +17,10 @@ import {
 import { SonarApp } from '../src/sonar/app.js';
 import { SonarClient } from '../src/sonar/client.js';
 import type {
-  ActivityDraft,
   ObservationSnapshot,
   ObservedTicket,
   ObservedThreadDetail,
 } from '../src/observation-types.js';
-
 function ticket(
   id: string,
   dependencies: string[] = [],
@@ -65,11 +57,11 @@ function demo(): ObservationSnapshot {
   b.blockedBy = [];
   c.blockedBy = [];
   return {
-    protocolVersion: 1,
+    protocolVersion: 2,
     epoch: 'epoch',
     cursor: '4',
     at: Date.now(),
-    project: { id: 'p', commonDir: '/repo/.git', recovering: false },
+    project: { id: 'p', commonDir: '/repo/.git' },
     status: 'ready',
     agents: [
       {
@@ -83,7 +75,6 @@ function demo(): ObservationSnapshot {
     ],
     turns: [],
     content: {
-      commit: 'abcdef123456',
       threads: [
         {
           id: 'thread',
@@ -117,8 +108,8 @@ function demo(): ObservationSnapshot {
 }
 const threadDetail = (snapshot: ObservationSnapshot): ObservedThreadDetail => ({
   resourceType: 'thread',
+  revision: '1',
   thread: snapshot.content!.threads[0]!,
-  commit: snapshot.content!.commit,
   messages: [
     {
       id: 'message',
@@ -135,7 +126,6 @@ const threadDetail = (snapshot: ObservationSnapshot): ObservedThreadDetail => ({
   truncated: false,
   nextBefore: null,
 });
-
 test('reservation trees distinguish exact locks from grouping directories', () => {
   const turn = {
     id: 'files',
@@ -159,63 +149,60 @@ test('reservation trees distinguish exact locks from grouping directories', () =
   assert.ok(unicode.some(row => row.text.includes('├─')));
   assert.ok(unicode.some(row => row.text.includes('└─')));
   assert.ok(unicode.some(row => row.text.includes('│ ')));
-
   const ascii = reservationPathRows(turn, true);
   assert.match(ascii.find(row => row.text.includes('hero/'))!.text, /\* hero\/ · LOCKED DIR/);
   assert.ok(ascii.some(row => row.text.includes('|-')));
   assert.ok(ascii.some(row => row.text.includes('`-')));
   assert.doesNotMatch(ascii.map(row => row.text).join('\n'), /[◆◇├└│]/);
-
   const queued = reservationPathRows({ ...turn, state: 'QUEUED' }, false);
   assert.match(queued.find(row => row.text.includes('hero/'))!.text, /◇ hero\/ · REQUEST DIR/);
   assert.doesNotMatch(queued.map(row => row.text).join('\n'), /LOCKED/);
 });
-
 test('Sonar reads and waits without changing coordination, and heartbeats create no events', async t => {
   const f = await fixture();
   t.after(f.close);
   const observer = new ProjectObserver(
     f.control,
     {
-      head: f.content.head.bind(f.content),
       snapshot: f.content.snapshot.bind(f.content),
       ticketSnapshot: f.content.ticketSnapshot.bind(f.content),
       observeContent: async () => demo().content!,
-      observeGraph: async () => ({ commit: 'abcdef', tickets: [], hidden: 0 }),
+      observeGraph: async () => ({ tickets: [], hidden: 0 }),
     },
     f.service.epoch,
   );
-  const before = f.control.view(s => s);
-  const cursor = f.control.activity.head();
+  const before = await f.control.view(async s => ({
+    identities: await s.all('identities'),
+    requests: await s.all('requests'),
+  }));
+  const cursor = await f.control.activity.head();
   const snapshot = await observer.snapshot('/repo/.git');
   assert.equal(snapshot.agents.length, 2);
   await observer.read('/repo/.git', {
     kind: 'thread',
     id: f.thread,
-    commit: await f.content.head(snapshot.project!.id),
   });
   await observer.wait('/repo/.git', cursor, 1);
   assert.deepEqual(
-    f.control.view(s => s),
+    await f.control.view(async s => ({
+      identities: await s.all('identities'),
+      requests: await s.all('requests'),
+    })),
     before,
   );
-  f.service.heartbeat(f.a.agentHandle);
-  assert.equal(f.control.activity.head(), cursor);
+  await f.service.heartbeat(f.a.agentHandle);
+  assert.equal(await f.control.activity.head(), cursor);
   assert.equal((await observer.snapshot('/unknown/.git')).status, 'empty');
-  assert.equal(
-    f.control.view(s => Object.keys(s.projects).length),
-    1,
-  );
+  assert.equal(await f.control.view(async s => (await s.all('projects')).length), 1);
   const waiting = observer.wait('/repo/.git', cursor, 1000);
   const turn = await hold(f.service, f.a.agentHandle, f.thread);
   assert.notEqual((await waiting).cursor, cursor);
-  f.service.releaseTurn(f.a.agentHandle, turn.turn.id, turn.turn.fencingToken);
+  await f.service.releaseTurn(f.a.agentHandle, turn.turn.id, turn.turn.fencingToken);
 });
-
 test('presence activity tracks a shared identity cohort rather than physical adapters', async t => {
   const f = await fixture();
   t.after(f.close);
-  const projectId = f.control.view(s => Object.keys(s.projects)[0]!);
+  const projectId = await f.control.view(async s => (await s.all('projects'))[0]!.id);
   const first = await f.service.open(
     '/repo/.git',
     undefined,
@@ -223,7 +210,7 @@ test('presence activity tracks a shared identity cohort rather than physical ada
     '/repo/.git',
     'shared-session',
   );
-  const afterFirst = f.control.activity.head();
+  const afterFirst = await f.control.activity.head();
   const second = await f.service.open(
     '/repo/.git',
     undefined,
@@ -231,35 +218,42 @@ test('presence activity tracks a shared identity cohort rather than physical ada
     '/repo/.git',
     'shared-session',
   );
-  assert.equal(f.control.activity.head(), afterFirst);
-  f.service.disconnect(first.agentHandle);
-  assert.equal(f.control.activity.head(), afterFirst);
-  f.service.disconnect(second.agentHandle);
-  const latest = f.control.activity.page({ projectId }).events[0]!;
+  assert.equal(await f.control.activity.head(), afterFirst);
+  await f.service.disconnect(first.agentHandle);
+  assert.equal(await f.control.activity.head(), afterFirst);
+  await f.service.disconnect(second.agentHandle);
+  const latest = (await f.control.activity.page({ projectId })).events[0]!;
   assert.equal(latest.kind, 'agent.disconnected');
-  assert.equal(latest.identityId, (first.session as { identityId: string }).identityId);
+  assert.equal(
+    latest.identityId,
+    (
+      first.session as {
+        identityId: string;
+      }
+    ).identityId,
+  );
 });
-
 test('journal captures brief reservations, precise release causes, and committed writes once', async t => {
   const f = await fixture();
   t.after(f.close);
-  const projectId = f.control.view(s => Object.keys(s.projects)[0]!);
+  const projectId = await f.control.view(async s => (await s.all('projects'))[0]!.id);
   const acquire = (await f.service.callMcp(f.a.agentHandle, 'acquireTurn', {
     target: { type: 'files', paths: [{ path: 'test.ts', kind: 'file' }] },
     timeoutMs: 0,
-  })) as { turnToken: string };
-  const request = f.control.view(s =>
-    Object.values(s.requests).find(r => r.resourceType === 'files')!,
+  })) as {
+    turnToken: string;
+  };
+  const request = await f.control.view(async s =>
+    (await s.all('requests')).find(r => r.resourceType === 'files')!,
   );
   assert.equal(request.claimedAt, f.clock.now());
-  f.service.forceRelease(acquire.turnToken);
-  const fileEvents = f.control.activity
-    .page({ projectId })
-    .events.filter(e => e.resourceType === 'files');
+  await f.service.forceRelease(acquire.turnToken);
+  const fileEvents = (await f.control.activity.page({ projectId })).events.filter(
+    e => e.resourceType === 'files',
+  );
   assert.ok(fileEvents.some(e => e.kind === 'files.claimed'));
   assert.ok(fileEvents.some(e => e.details.reason === 'force_released'));
   const turn = await hold(f.service, f.a.agentHandle, f.thread);
-  f.content.fail = 'after_commit';
   await f.service.commitTurn(
     f.a.agentHandle,
     turn.turn.id,
@@ -267,121 +261,27 @@ test('journal captures brief reservations, precise release causes, and committed
     turn.snapshot.revision,
     { kind: 'appendMessage', body: 'Never duplicate me or store my body in the journal' },
   );
-  const events = f.control.activity.page({ projectId }).events;
+  const events = (await f.control.activity.page({ projectId })).events;
   assert.equal(events.filter(e => e.kind === 'thread.appendMessage').length, 1);
   assert.equal(JSON.stringify(events).includes('Never duplicate'), false);
-  const before = f.control.activity.head();
-  assert.throws(() =>
-    f.control.update(s => {
-      (s.observationEvents ??= []).push({
-        id: 'rollback',
-        projectId,
-        kind: 'test',
-        at: Date.now(),
-        resourceType: 'project',
-        resourceId: projectId,
-        details: {},
-      });
-      throw new Error('rollback');
-    }),
+  const before = await f.control.activity.head();
+  await assert.rejects(
+    async () =>
+      await f.control.update(s => {
+        (s.observationEvents ??= []).push({
+          id: 'rollback',
+          projectId,
+          kind: 'test',
+          at: Date.now(),
+          resourceType: 'project',
+          resourceId: projectId,
+          details: {},
+        });
+        throw new Error('rollback');
+      }),
   );
-  assert.equal(f.control.activity.head(), before);
+  assert.equal(await f.control.activity.head(), before);
 });
-
-test('schema 10 migration preserves identities and refuses future schemas unchanged', async t => {
-  const dir = await mkdtemp(join(tmpdir(), 'bf-sonar-schema-'));
-  t.after(() => rm(dir, { recursive: true, force: true }));
-  const path = join(dir, 'control.sqlite');
-  const control = new SqliteControl(path);
-  control.update(s => {
-    s.projects.p = { id: 'p', commonDir: '/repo/.git', recovering: false };
-    s.identities.a = { id: 'a', projectId: 'p', name: 'Alice' };
-  });
-  control.close();
-  const old = new DatabaseSync(path);
-  old.exec(
-    `ALTER TABLE turnRequests DROP COLUMN claimedAt;
-     ALTER TABLE turnRequests DROP COLUMN terminalReason;
-     ALTER TABLE pendingCommits DROP COLUMN observationJson;
-     ALTER TABLE notifications RENAME COLUMN lastDeliveredWakeKey TO lastPushedRunId;
-     CREATE TABLE wakeDispatches (
-       id TEXT PRIMARY KEY, projectId TEXT NOT NULL, identityId TEXT NOT NULL,
-       runId TEXT NOT NULL, createdAt INTEGER NOT NULL
-     );
-     CREATE TABLE nativeHostPreferences (
-       projectId TEXT NOT NULL, identityId TEXT NOT NULL,
-       host TEXT NOT NULL CHECK(host IN ('claude','opencode')), clientId TEXT NOT NULL,
-       updatedAt INTEGER NOT NULL, PRIMARY KEY(projectId,host,clientId)
-     );
-     DROP TABLE activityEvents;
-     DROP TABLE activityProjects;
-     PRAGMA user_version=10`,
-  );
-  old.close();
-  const migrated = new SqliteControl(path);
-  assert.equal(
-    migrated.view(s => s.identities.a!.name),
-    'Alice',
-  );
-  assert.equal(migrated.activity.head(), '0');
-  migrated.close();
-  const inspect = new DatabaseSync(path);
-  assert.equal(inspect.prepare('PRAGMA user_version').get()!.user_version, 13);
-  assert.equal(
-    inspect
-      .prepare("SELECT COUNT(*) AS count FROM pragma_table_info('notifications') WHERE name=?")
-      .get('lastDeliveredWakeKey')!.count,
-    1,
-  );
-  assert.equal(
-    inspect
-      .prepare("SELECT COUNT(*) AS count FROM sqlite_master WHERE type='table' AND name=?")
-      .get('wakeDispatches')!.count,
-    0,
-  );
-  assert.equal(
-    inspect
-      .prepare("SELECT COUNT(*) AS count FROM sqlite_master WHERE type='table' AND name=?")
-      .get('nativeHostPreferences')!.count,
-    0,
-  );
-  inspect.exec('PRAGMA user_version=999');
-  inspect.close();
-  assert.throws(() => new SqliteControl(path), /SCHEMA_MISMATCH|incompatible/);
-  const final = new DatabaseSync(path);
-  assert.equal(final.prepare('PRAGMA user_version').get()!.user_version, 999);
-  final.close();
-});
-
-test('activity retention reports gaps and groups actual events into minute buckets', () => {
-  const db = new DatabaseSync(':memory:');
-  db.exec('CREATE TABLE controlMeta(key TEXT PRIMARY KEY,value TEXT)');
-  const journal = new ActivityJournal(db);
-  journal.initialize();
-  const event = (id: string, at: number): ActivityDraft => ({
-    id,
-    projectId: 'p',
-    kind: 'files.claimed',
-    at,
-    resourceType: 'files',
-    resourceId: id,
-    details: {},
-  });
-  journal.append([event('old', Date.now() - activityRetentionMs - 1), event('new', Date.now())]);
-  const page = journal.page({ projectId: 'p' });
-  assert.deepEqual(
-    page.events.map(e => e.id),
-    ['new'],
-  );
-  assert.equal(
-    page.buckets.reduce((a, b) => a + b, 0),
-    1,
-  );
-  assert.equal(journal.gap('p', '0'), true);
-  assert.equal(activityLimit, 100_000);
-  db.close();
-});
-
 test('dependency layout retains exact diamond edges, selection paths and stable positions', () => {
   const tickets = demo().content!.tickets;
   const layout = layoutTickets(tickets);
@@ -397,7 +297,6 @@ test('dependency layout retains exact diamond edges, selection paths and stable 
   );
   assert.deepEqual(layoutTickets(tickets.map(t => ({ ...t, state: 'done' }))).nodes, layout.nodes);
 });
-
 test('observer bounds large reservation and event pages with explicit continuations', async t => {
   const f = await fixture();
   t.after(f.close);
@@ -405,22 +304,22 @@ test('observer bounds large reservation and event pages with explicit continuati
     target: { type: 'files', paths: [{ path: 'test.ts', kind: 'file' }] },
     timeoutMs: 0,
   });
-  const request = f.control.view(s =>
-    Object.values(s.requests).find(r => r.resourceType === 'files')!,
+  const request = await f.control.view(async s =>
+    (await s.all('requests')).find(r => r.resourceType === 'files')!,
   );
   const paths = Array.from({ length: 256 }, (_, i) => ({
     kind: 'file' as const,
     path: `/repo/${i}/${'x'.repeat(3900)}`,
   }));
-  f.control.update(s => {
-    const turn = s.requests[request.id]!;
+  await f.control.update(async s => {
+    const turn = (await s.get('requests', request.id))!;
     if (turn.resourceType === 'files') turn.paths = paths;
     for (let i = 0; i < 105; i++)
-      s.identities[`extra-${i}`] = {
+      await s.set('identities', `extra-${i}`, {
         id: `extra-${i}`,
         name: `Extra${i}`,
         projectId: request.projectId,
-      };
+      });
     (s.observationEvents ??= []).push(
       ...Array.from({ length: 12 }, (_, i) => ({
         id: `large-${i}`,
@@ -436,16 +335,15 @@ test('observer bounds large reservation and event pages with explicit continuati
   const observer = new ProjectObserver(
     f.control,
     {
-      head: f.content.head.bind(f.content),
       snapshot: f.content.snapshot.bind(f.content),
       ticketSnapshot: f.content.ticketSnapshot.bind(f.content),
       observeContent: async () => demo().content!,
-      observeGraph: async () => ({ commit: 'abcdef', tickets: [], hidden: 0 }),
+      observeGraph: async () => ({ tickets: [], hidden: 0 }),
     },
     f.service.epoch,
   );
   const snapshot = await observer.snapshot('/repo/.git');
-  assert.ok(Buffer.byteLength(JSON.stringify(snapshot)) < 500_000);
+  assert.ok(Buffer.byteLength(JSON.stringify(snapshot)) < 500000);
   assert.equal(snapshot.agents.length, 100);
   assert.equal(snapshot.nextAgentOffset, 100);
   assert.equal((await observer.snapshot('/repo/.git', { agentOffset: 100 })).agents.length, 7);
@@ -458,18 +356,17 @@ test('observer bounds large reservation and event pages with explicit continuati
     pathOffset: 8,
   })) as typeof turn;
   assert.equal(next.paths![0]!.path, paths[8]!.path);
-  const event = f.control.activity.event(request.projectId, 'large-1', 248)!;
+  const event = (await f.control.activity.event(request.projectId, 'large-1', 248))!;
   assert.equal(event.details.nextPathOffset, null);
   assert.equal((event.details.paths as typeof paths)[7]!.path, paths[255]!.path);
-  assert.equal(f.control.activity.event('another-project', 'large-1'), undefined);
+  assert.equal(await f.control.activity.event('another-project', 'large-1'), undefined);
   assert.ok(snapshot.activity!.nextBefore);
-  assert.ok(Buffer.byteLength(JSON.stringify(snapshot.activity)) < 240_000);
+  assert.ok(Buffer.byteLength(JSON.stringify(snapshot.activity)) < 240000);
   const abort = new AbortController();
-  const waiting = observer.wait('/repo/.git', f.control.activity.head(), 20_000, abort.signal);
+  const waiting = observer.wait('/repo/.git', await f.control.activity.head(), 20000, abort.signal);
   abort.abort();
   await assert.rejects(waiting, /cancelled/);
 });
-
 test('terminal canvas clips graphemes, neutralizes control sequences and renders every supported size', () => {
   assert.equal(safeText('\x1b[2JHello\x1b]52;c;secret\x07\u202eWorld'), 'HelloWorld');
   assert.equal(clip('魚🐟abc', 4), '魚🐟');
@@ -482,7 +379,7 @@ test('terminal canvas clips graphemes, neutralizes control sequences and renders
       const ui = {
         ...initialScreen(view),
         thread: threadDetail(snapshot),
-        graph: { commit: 'abcdef', tickets: snapshot.content!.tickets, hidden: 0 },
+        graph: { tickets: snapshot.content!.tickets, hidden: 0 },
         layout: layoutTickets(snapshot.content!.tickets),
         selected: { tickets: 'd', threads: 'thread' },
       };
@@ -500,7 +397,7 @@ test('terminal canvas clips graphemes, neutralizes control sequences and renders
       const ui = {
         ...initialScreen(view),
         thread: threadDetail(snapshot),
-        graph: { commit: 'abcdef', tickets: snapshot.content!.tickets, hidden: 0 },
+        graph: { tickets: snapshot.content!.tickets, hidden: 0 },
         layout: layoutTickets(snapshot.content!.tickets),
         selected: { tickets: 'd', threads: 'thread' },
       };
@@ -526,7 +423,6 @@ test('terminal canvas clips graphemes, neutralizes control sequences and renders
     /Alice[\s\S]*const emoji/,
   );
 });
-
 test('interactive Sonar navigates chat and graph, pauses updates, filters and exits', async () => {
   let snapshot = demo();
   const client = new SonarClient('/not-used', '/repo');
@@ -538,13 +434,12 @@ test('interactive Sonar navigates chat and graph, pauses updates, filters and ex
         : request.kind === 'thread'
           ? threadDetail(snapshot)
           : request.kind === 'graph'
-            ? { commit: snapshot.content!.commit, tickets: snapshot.content!.tickets, hidden: 0 }
+            ? { tickets: snapshot.content!.tickets, hidden: 0 }
             : {
                 resourceType: 'ticket',
                 ticket: snapshot.content!.tickets.find(
                   t => t.id === ('id' in request ? request.id : 'a'),
                 ),
-                commit: snapshot.content!.commit,
                 page: { text: '# Ticket body', nextCursor: null },
               };
     return value as T;

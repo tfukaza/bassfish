@@ -1,11 +1,10 @@
 import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
-import { existsSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { chmod, mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { BassfishError } from './domain.js';
 import { z } from 'zod';
-import { managedDoltBinary } from './setup.js';
 
 export const runtimeConfigSchema = z
   .object({
@@ -72,22 +71,12 @@ export const packageVersion = String(
   (JSON.parse(readFileSync(join(packageRoot, 'package.json'), 'utf8')) as { version: unknown })
     .version,
 );
-export function doltBinary(dataDir = dataDirectory()): string {
-  if (process.env.BASSFISH_DOLT_BIN) return resolve(process.env.BASSFISH_DOLT_BIN);
-  const managed = managedDoltBinary(dataDir);
-  if (existsSync(managed)) return managed;
-  // Development checkouts created before `bassfish setup` used a repository-local tool.
-  const arch = process.arch === 'x64' ? 'amd64' : process.arch;
-  const legacy = join(packageRoot, '.tools', `dolt-${process.platform}-${arch}`, 'bin', 'dolt');
-  if (existsSync(legacy)) return legacy;
-  return 'dolt';
-}
 export function socketPath(dataDir: string): string {
   const path = join(dataDir, 'run', 'daemon.sock');
   if (Buffer.byteLength(path) > 96)
     throw new BassfishError(
       'SOCKET_PATH_TOO_LONG',
-      'Choose a shorter BASSFISH_DATA_DIR (Unix socket path limit, including the longer SQL socket name).',
+      'Choose a shorter BASSFISH_DATA_DIR (Unix socket path limit).',
     );
   return path;
 }

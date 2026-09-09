@@ -1,18 +1,14 @@
-import {
-  BassfishError,
-  type ContentTurnRequest,
-  type Mutation,
-  type ResourceType,
-} from '../domain.js';
+import { BassfishError, type Mutation, type ResourceType } from '../domain.js';
 import type { Bassfish } from '../service.js';
-
-type Options = { taskCapable?: boolean };
-type Credential = { id: string; fencingToken: string };
-
-const values = Object.values;
+type Options = {
+  taskCapable?: boolean;
+};
+type Credential = {
+  id: string;
+  fencingToken: string;
+};
 
 const mutation = (value: unknown): Mutation => value as Mutation;
-
 export async function dispatchAdmin(
   service: Bassfish,
   handle: string,
@@ -23,11 +19,15 @@ export async function dispatchAdmin(
 ): Promise<unknown> {
   switch (name) {
     case 'getSession':
-      return service.info(handle);
+      return await service.info(handle);
     case 'setAgentName':
-      return service.requestName(handle, args.name as string);
+      return await service.requestName(handle, args.name as string);
     case 'listAgents':
-      return service.listAgents(handle, args.onlineOnly as boolean, args.includeSelf as boolean);
+      return await service.listAgents(
+        handle,
+        args.onlineOnly as boolean,
+        args.includeSelf as boolean,
+      );
     case 'followThread':
       return service.followThread(handle, args.threadId as string);
     case 'unfollowThread':
@@ -44,7 +44,7 @@ export async function dispatchAdmin(
         'waitForWork is available through a Tasks-capable MCP connection.',
       );
     case 'ackNotifications':
-      return service.ackNotifications(handle, args.notificationIds as string[]);
+      return await service.ackNotifications(handle, args.notificationIds as string[]);
     case 'createThread':
       return service.createThread(handle, args.title as string, args.description as string);
     case 'listThreads':
@@ -57,20 +57,16 @@ export async function dispatchAdmin(
       const target = args.target as {
         type: ResourceType;
         id?: string;
-        purpose?: ContentTurnRequest['purpose'];
       };
       const mode = options.taskCapable ? 'task' : 'ticket';
-      const result =
-        target.type === 'project'
-          ? await service.requestProjectTurn(handle, target.purpose, mode)
-          : await service.requestResourceTurn(handle, target.type, target.id!, mode);
-      const task = service.control.view(state =>
-        values(state.tasks).find(value => value.requestId === result.requestId),
+      const result = await service.requestResourceTurn(handle, target.type, target.id!, mode);
+      const task = await service.control.view(async state =>
+        (await state.all('tasks')).find(value => value.requestId === result.requestId),
       );
       return task?.status === 'working' ? { task: service.taskView(task) } : result;
     }
     case 'getTurnRequest':
-      return service.status(handle, args.requestId as string);
+      return await service.status(handle, args.requestId as string);
     case 'waitForTurn':
       return service.waitForTurn(
         handle,
@@ -79,7 +75,7 @@ export async function dispatchAdmin(
         signal,
       );
     case 'cancelTurnRequest':
-      return service.cancelTurnRequest(handle, args.requestId as string);
+      return await service.cancelTurnRequest(handle, args.requestId as string);
     case 'claimTurn':
       return service.claimTurn(handle, args.offerId as string, 20);
     case 'readTurn': {
@@ -93,7 +89,7 @@ export async function dispatchAdmin(
     }
     case 'releaseTurn': {
       const credential = args.turn as Credential;
-      return service.releaseTurn(handle, credential.id, credential.fencingToken);
+      return await service.releaseTurn(handle, credential.id, credential.fencingToken);
     }
     case 'commitTurn': {
       const credential = args.turn as Credential;
@@ -105,92 +101,33 @@ export async function dispatchAdmin(
         mutation(args.mutation),
       );
     }
-    case 'inspectSnapshot': {
-      const credential = args.turn as Credential;
-      return service.projectSnapshotInfo(handle, credential.id, credential.fencingToken);
-    }
-    case 'exportSnapshot': {
-      const credential = args.turn as Credential;
-      return service.exportProject(handle, credential.id, credential.fencingToken);
-    }
-    case 'listSnapshotHistory': {
-      const credential = args.turn as Credential;
+    case 'inspectProject':
+      return service.projectSnapshotInfo(handle);
+    case 'exportProject':
+      return service.exportProject(handle);
+    case 'listProjectHistory':
       return service.projectHistoryList(
         handle,
-        credential.id,
-        credential.fencingToken,
         args.limit as number,
         args.cursor as string | undefined,
       );
-    }
-    case 'previewSnapshotRestore': {
-      const credential = args.turn as Credential;
-      return service.previewProjectRestore(
-        handle,
-        credential.id,
-        credential.fencingToken,
-        args.targetCommit as string,
-        args.limit as number,
-        args.cursor as string | undefined,
-      );
-    }
-    case 'restoreSnapshot': {
-      const credential = args.turn as Credential;
-      return service.restoreProject(
-        handle,
-        credential.id,
-        credential.fencingToken,
-        args.previewToken as string,
-      );
-    }
-    case 'listHistory': {
-      const credential = args.turn as Credential;
+    case 'listHistory':
       return service.resourceHistory(
         handle,
-        credential.id,
-        credential.fencingToken,
+        args.resourceId as string,
         args.offset as number,
         args.limit as number,
       );
-    }
-    case 'readRevision': {
-      const credential = args.turn as Credential;
+    case 'readRevision':
       return service.resourceAt(
         handle,
-        credential.id,
-        credential.fencingToken,
+        args.resourceId as string,
         args.revision as string,
         20,
         args.cursor as string | undefined,
       );
-    }
-    case 'diffRevision': {
-      const credential = args.turn as Credential;
-      return service.diffResource(
-        handle,
-        credential.id,
-        credential.fencingToken,
-        args.revision as string,
-      );
-    }
-    case 'previewRestore': {
-      const credential = args.turn as Credential;
-      return service.previewRestore(
-        handle,
-        credential.id,
-        credential.fencingToken,
-        args.revision as string,
-      );
-    }
-    case 'restoreRevision': {
-      const credential = args.turn as Credential;
-      return service.restoreRevision(
-        handle,
-        credential.id,
-        credential.fencingToken,
-        args.previewToken as string,
-      );
-    }
+    case 'diffRevision':
+      return service.diffResource(handle, args.resourceId as string, args.revision as string);
   }
   throw new BassfishError('UNKNOWN_TOOL', 'Unknown Bassfish operation.');
 }

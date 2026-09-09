@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import { Client } from '@modelcontextprotocol/client';
 import { StdioClientTransport } from '@modelcontextprotocol/client/stdio';
 import { connectDaemon } from '../../dist/daemon.js';
-import { doltBinary, packageRoot } from '../../dist/config.js';
+import { packageRoot } from '../../dist/config.js';
 
 const exec = promisify(execFile),
   dir = await mkdtemp('/private/tmp/bf-workflows-');
@@ -27,7 +27,7 @@ async function client(name) {
     new StdioClientTransport({
       command: process.execPath,
       args: [join(packageRoot, 'dist/cli.js'), 'mcp', '--workspace', repo, '--name', name],
-      env: { ...process.env, BASSFISH_DATA_DIR: data, BASSFISH_DOLT_BIN: doltBinary() },
+      env: { ...process.env, BASSFISH_DATA_DIR: data },
       stderr: 'pipe',
     }),
   );

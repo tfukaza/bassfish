@@ -12,17 +12,17 @@ Use the `bassfish` human CLI for installation, operations, diagnostics, and user
 
 - Use `bassfish --version`, `bassfish doctor`, `bassfish daemon status`, and `bassfish config show` to establish the current state.
 - Run `bassfish --help` before an uncommon command instead of guessing flags.
-- Keep `BASSFISH_DATA_DIR` and `BASSFISH_DOLT_BIN` consistent across the CLI and every connected agent host.
+- Keep `BASSFISH_DATA_DIR` consistent across the CLI and every connected agent host.
 - Use `--workspace /absolute/repository/path` when the command is not launched from the intended Git repository. Native Codex, Claude, and OpenCode plugins automatically restore identity from the host session ID. For manual CLI or MCP connections, `--name NAME` supplies explicit attribution but does not create a native host-session binding.
+- A timed-out content write is never replayed. Content, revision receipts, notifications, and turn completion share one Turso transaction. If the commit outcome is uncertain, reconnect and inspect the resource and its history before deciding whether another write is needed.
 
 ## Preserve authority boundaries
 
-Treat an explicit user request as authorization for the requested operation only. Otherwise, get confirmation immediately before installing software, resetting data, forcing a turn release, restoring history, deleting content, or changing daemon/configuration state.
+Treat an explicit user request as authorization for the requested operation only. Otherwise, get confirmation immediately before installing software, resetting data, forcing a turn release, deleting content, or changing daemon/configuration state.
 
-- Never run the internal `sql-worker` command directly.
 - Use `daemon run` only for user-requested foreground diagnostics; normal operation uses `daemon start`, `status`, and `stop`.
-- Do not kill the managed Dolt process manually as a substitute for daemon commands.
-- Do not automatically retry `TURN_BUSY`, a failed mutation, or a restore.
+- Storage is one embedded Turso database owned by the daemon. Use daemon commands to stop it.
+- Do not automatically retry `TURN_BUSY`, a failed mutation.
 
 `bassfish data reset --yes` is a recovery action, not routine cleanup. Stop the daemon first. The command moves the data directory to a timestamped backup; report the backup path. `bassfish turn release TURN_ID --force` can revoke only a claimed turn and cannot interrupt a committing content write. Revoking an advisory file lock cannot stop an external editor from writing.
 
@@ -35,7 +35,7 @@ Treat an explicit user request as authorization for the requested operation only
 - Thread, ticket, and project commands use the same server-side turn rules as MCP. A busy content command cancels its own request and returns `TURN_BUSY`; it does not wait or retry.
 - Use `bassfish turn list` to inspect file paths, owners, and queued or claimed status. File locks use session lifetime; they do not use the content-turn timeout. Native filesystem and Git tools handle file contents and history.
 - Use `bassfish sonar` for a live, read-only project dashboard with channel-style threads, ticket dependency graphs, file contention, and retained activity. It waits for a stopped daemon and never registers an agent or acquires turns. Use `sonar --json` for a single observation snapshot, `--workspace PATH` to select a repository, and `--ascii` for ASCII borders.
-- Daemon control, forced release, lifecycle changes, history, revision inspection, restore, and export are CLI-only. Do not look for them in the compact MCP tool inventory.
+- Daemon control, forced release, lifecycle changes, history, revision inspection, and export are CLI-only. Do not look for them in the compact MCP tool inventory.
 - Interactive terminals receive concise human-readable results. Piped output remains JSON; use `--json` explicitly for automation or `--plain` for unstyled human output. Capture IDs from JSON rather than parsing display text.
 
 Read [the CLI recipes](references/cli-recipes.md) for exact commands and safe operational sequences.

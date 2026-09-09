@@ -21,12 +21,11 @@ export interface Actor {
   instanceId: string;
   name: string;
 }
-export interface Project {
+interface Project {
   id: string;
   commonDir: string;
-  recovering: boolean;
 }
-export interface Identity {
+interface Identity {
   id: string;
   projectId: string;
   name: string;
@@ -45,8 +44,8 @@ export interface Instance {
 }
 export type AgentHost = 'claude' | 'codex' | 'opencode';
 export type ContentResourceType = 'thread' | 'ticket';
-export type ResourceType = ContentResourceType | 'project';
-export interface Resource {
+export type ResourceType = ContentResourceType;
+interface Resource {
   id: string;
   projectId: string;
   type: ResourceType;
@@ -89,10 +88,8 @@ export interface ContentTurnRequest extends TurnRequestBase {
   resourceId: string;
   fence?: string;
   baseRevision?: string;
-  snapshotCommit?: string;
   expiresAt?: number;
   result?: StorageResult;
-  purpose?: 'snapshot' | 'export' | 'restore';
 }
 export interface FileTarget {
   path: string;
@@ -117,18 +114,30 @@ export interface DurableTask {
   result?: Record<string, unknown>;
   error?: { code: number; message: string; data?: Record<string, unknown> };
 }
-export interface PendingCommit {
+export interface WorkTask {
+  id: string;
+  projectId: string;
+  identityId: string;
+  status: TaskStatus;
+  statusMessage?: string;
+  createdAt: number;
+  updatedAt: number;
+  discardAt: number;
+  result?: Record<string, unknown>;
+  error?: { code: number; message: string; data?: Record<string, unknown> };
+}
+export interface MutationContext {
   id: string;
   projectId: string;
   resourceId: string;
   resourceType: ResourceType;
   turnRequestId?: string;
-  startingHead: string;
   kind: string;
   actor: Actor;
   followIdentityId?: string;
   notificationRecipients?: Record<string, NotificationReason[]>;
   notificationIntents?: NotificationIntent[];
+  notificationContent?: NotificationContent;
   notificationCreatedAt?: number;
   observation?: Record<string, unknown>;
 }
@@ -145,8 +154,22 @@ export interface NotificationIntent {
   resourceType: 'thread' | 'ticket';
   resourceId: string;
   reasons: NotificationReason[];
+  content?: NotificationContent;
 }
-export interface ThreadFollow {
+export type NotificationContent =
+  | {
+      kind: 'thread_message';
+      threadTitle: string;
+      body: string;
+      retracted: boolean;
+    }
+  | {
+      kind: 'ticket_summary';
+      title: string;
+      state: string;
+      owner: string;
+    };
+interface ThreadFollow {
   projectId: string;
   threadId: string;
   identityId: string;
@@ -167,9 +190,11 @@ export interface Notification {
   senderName: string;
   createdAt: number;
   reasons: NotificationReason[];
+  content?: NotificationContent;
   lastDeliveredWakeKey?: string;
+  lastDeliveredAt?: number;
 }
-export interface HostSessionBinding {
+interface HostSessionBinding {
   projectId: string;
   identityId: string;
   host: AgentHost;
@@ -178,7 +203,7 @@ export interface HostSessionBinding {
   createdAt: number;
   updatedAt: number;
 }
-export interface ControlState {
+export interface ControlRows {
   /** Transaction-local activity outbox; never loaded as retained history. */
   observationEvents?: ActivityDraft[];
   projects: Record<string, Project>;
@@ -186,18 +211,23 @@ export interface ControlState {
   instances: Record<string, Instance>;
   resources: Record<string, Resource>;
   requests: Record<string, TurnRequest>;
-  pending: Record<string, PendingCommit>;
   tasks: Record<string, DurableTask>;
+  workTasks: Record<string, WorkTask>;
   follows: Record<string, ThreadFollow>;
   notifications: Record<string, Notification>;
   hostSessionBindings: Record<string, HostSessionBinding>;
   wallClockHighWaterMs: number;
   fileQueueSequence: string;
 }
+export type ControlState = import('./storage/rows.js').CoordinationState;
 export interface ControlStore {
-  view<T>(fn: (state: ControlState) => T): T;
-  update<T>(fn: (state: ControlState) => T): T;
-  close(): void;
+  view<T>(fn: (state: ControlState) => T | Promise<T>): Promise<T>;
+  update<T>(fn: (state: ControlState) => T | Promise<T>): Promise<T>;
+  readTransaction<T>(fn: () => Promise<T>): Promise<T>;
+  inTransaction(): boolean;
+  transaction<T>(fn: () => Promise<T>): Promise<T>;
+  afterCommit(fn: () => void): void;
+  close(): Promise<void>;
 }
 export interface Clock {
   now(): number;
@@ -248,7 +278,7 @@ export interface Message {
 export interface Snapshot {
   resourceType: 'thread';
   thread: Thread;
-  commit: string;
+  revision: string;
   messages: Message[];
   truncated: boolean;
   nextBefore: string | null;
@@ -265,7 +295,7 @@ export interface BodyPage {
 export interface TicketSnapshot {
   resourceType: 'ticket';
   ticket: Ticket;
-  commit: string;
+  revision: string;
   page: BodyPage;
 }
 export type ThreadMutation =
@@ -280,8 +310,7 @@ export type ThreadMutation =
   | { kind: 'activateThread' }
   | { kind: 'deleteThread' }
   | { kind: 'retractMessage'; messageId: string }
-  | { kind: 'reinstateMessage'; messageId: string }
-  | { kind: 'restoreThreadRevision'; targetRevision: string };
+  | { kind: 'reinstateMessage'; messageId: string };
 export type TicketMutation =
   | {
       kind: 'updateTicket';
@@ -319,7 +348,7 @@ export interface MutationResult {
   resourceId: string;
   previousRevision: string;
   revision: string;
-  doltCommit: string;
+  operationId: string;
   messageId?: string;
   sequence?: string;
 }
@@ -333,7 +362,6 @@ export interface HistoryEntry {
   reason: string | null;
   beforeRevision: string;
   afterRevision: string;
-  doltCommit: string;
 }
 interface MessageVisibility {
   messageId: string;
@@ -343,90 +371,51 @@ interface MessageVisibility {
   operationId: string;
   createdAt: string;
 }
-export interface ProjectSnapshot {
-  commit: string;
+export interface CurrentProject {
+  exportedAt: string;
   threads: Thread[];
   messages: Message[];
   tickets: Ticket[];
   visibility: MessageVisibility[];
 }
 export interface ProjectHistoryEntry {
+  resourceId: string;
+  resourceType: ContentResourceType;
+  revision: string;
   operationId: string;
   kind: string;
   actorIdentityId: string;
   actorName: string;
   instanceId: string;
   createdAt: string;
-  doltCommit: string;
 }
-export interface ProjectRestoreChange {
-  resourceType: ContentResourceType;
-  resourceId: string;
-  action: 'create' | 'update' | 'delete';
-  beforeRevision: string;
-  afterRevision: string;
-}
-export interface ProjectRestoreResult {
-  operationId: string;
-  targetCommit: string;
-  previousCommit: string;
-  doltCommit: string;
-  changes: ProjectRestoreChange[];
-}
-export interface ProjectRestoreOperation {
-  id: string;
-  actor: Actor;
-  resourceId: string;
-  resourceType: 'project';
-  at: string;
-  mutation: { kind: 'restoreSnapshot'; targetCommit: string };
-  target: ProjectSnapshot;
-  current: ProjectSnapshot;
-  changes: ProjectRestoreChange[];
-}
-export type StorageResult = MutationResult | ProjectRestoreResult;
-export type Resolution =
-  { state: 'committed'; result: StorageResult } | { state: 'absent' } | { state: 'unknown' };
+export type StorageResult = MutationResult;
 export interface ContentStore {
   ensureProject(projectId: string): Promise<void>;
-  head(projectId: string): Promise<string>;
   listThreads(projectId: string): Promise<Thread[]>;
-  listTickets(projectId: string, at?: string): Promise<Ticket[]>;
+  listTickets(projectId: string): Promise<Ticket[]>;
   resourceType(projectId: string, resourceId: string): Promise<ContentResourceType>;
   snapshot(
     projectId: string,
     resourceId: string,
     limit: number,
     before?: string,
-    at?: string,
+    revision?: string,
   ): Promise<Snapshot>;
   ticketSnapshot(
     projectId: string,
     resourceId: string,
     cursor?: string,
-    at?: string,
+    revision?: string,
   ): Promise<TicketSnapshot>;
   history(
     projectId: string,
     resourceType: ContentResourceType,
     resourceId: string,
   ): Promise<HistoryEntry[]>;
-  commitAtRevision(
-    projectId: string,
-    resourceType: ContentResourceType,
-    resourceId: string,
-    revision: string,
-  ): Promise<string>;
-  projectSnapshot(projectId: string, at?: string): Promise<ProjectSnapshot>;
+  projectSnapshot(projectId: string): Promise<CurrentProject>;
   projectHistory(projectId: string): Promise<ProjectHistoryEntry[]>;
-  maxRevision(
-    projectId: string,
-    resourceType: ContentResourceType,
-    resourceId: string,
-  ): Promise<string>;
-  maxSequence(projectId: string, threadId: string): Promise<string>;
-  write(operation: WriteOperation | ProjectRestoreOperation): Promise<StorageResult>;
-  resolve(pending: PendingCommit): Promise<Resolution>;
+  write(operation: WriteOperation): Promise<StorageResult>;
   close(): Promise<void>;
 }
 export const activeStates: TurnState[] = ['QUEUED', 'READY', 'OFFERED', 'CLAIMED', 'COMMITTING'];
@@ -440,7 +429,7 @@ export function prepareMutation(thread: Thread, mutation: ThreadMutation): Threa
       requireThat(
         thread.state === 'active',
         'RESOURCE_ARCHIVED',
-        'Restore the thread before appending.',
+        'Activate the thread before appending.',
       );
       next.headSequence = increment(thread.headSequence);
       break;
@@ -470,7 +459,6 @@ export function prepareMutation(thread: Thread, mutation: ThreadMutation): Threa
       break;
     case 'retractMessage':
     case 'reinstateMessage':
-    case 'restoreThreadRevision':
       break;
   }
   return next;

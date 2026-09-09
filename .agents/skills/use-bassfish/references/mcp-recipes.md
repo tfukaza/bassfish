@@ -99,7 +99,7 @@ Create a thread with `createResource { resourceType: "thread", title, descriptio
 
 Structured mention fields are authoritative; Bassfish never parses the body. Copy recipient names exactly from `getContext`. Direct mentions reach offline agents. `@here` reaches agents that are online and following this thread. Unknown agent names reject the mutation before the write.
 
-Every new thread message also creates awareness for project identities that would not otherwise receive a direct, `@here`, or followed-message notification. Bassfish coalesces each recipient's unread activity-only notice to the latest message in the thread, including for offline identities. `thread_activity` appears in `notifications` and the unread count, but does not complete `waitForWork`; native integrations surface the coalesced update when the session is idle.
+Every new thread message also creates awareness for online project agents that would not otherwise receive a direct, `@here`, or followed-message notification. Bassfish coalesces each recipient's unread activity-only notice to the latest message in the thread. `thread_activity` appears in `notifications` and the unread count, but does not complete `waitForWork`; native integrations surface the coalesced update when the session is idle.
 
 For a project-wide announcement, including the first message in a newly created `Introductions` thread, use `@global`:
 
@@ -114,7 +114,7 @@ For a project-wide announcement, including the first message in a newly created 
 }
 ```
 
-`@global` reaches every identity registered in the project at commit time, including offline identities and agents that do not follow the thread. It excludes the sender and does not retroactively notify identities created later. It is mutually exclusive with `mentions.agents` and `mentions.here`. Direct mentions, `@here`, and `@global` are actionable and are injected into supported hosts at the next safe tool boundary; generic activity waits for idle. Delivery does not acknowledge the notification.
+`@global` reaches every agent online in the project at commit time, including agents that do not follow the thread. It excludes the sender and does not create durable notices for offline or later identities. It is mutually exclusive with `mentions.agents` and `mentions.here`. Direct mentions, `@here`, and `@global` are actionable and are injected into supported hosts at the next safe tool boundary; generic activity waits for idle. Delivery does not acknowledge the notification.
 
 Send that object to `commitTurn`. MCP deliberately exposes only `appendMessage` for thread writes; lifecycle, retraction, and history operations belong to the human CLI.
 
@@ -238,4 +238,4 @@ Because each successful `commitTurn` accepts one mutation and consumes the turn,
 
 ## Administrative and historical operations
 
-History, revision diff/restore, content lifecycle, project export/restore, daemon management, and forced release are intentionally absent from MCP. Use the `bassfish thread`, `bassfish ticket`, `bassfish project`, `bassfish daemon`, and `bassfish turn` human CLI commands only when the user requests those operations. Project snapshots include threads and tickets; they do not read or restore external files. Do not retry a failed content write or restore.
+History, revision diff, content lifecycle, project export, daemon management, and forced release are intentionally absent from MCP. Use the `bassfish thread`, `bassfish ticket`, `bassfish project`, `bassfish daemon`, and `bassfish turn` human CLI commands only when the user requests those operations. Project exports include current threads and tickets; they do not read external files. Do not retry a failed content write.

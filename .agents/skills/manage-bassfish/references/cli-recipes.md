@@ -11,7 +11,7 @@ bassfish --version
 bassfish doctor
 ```
 
-`bassfish setup` installs the checksum-verified Dolt runtime. To use an existing exact-version Dolt installation, set `BASSFISH_DOLT_BIN` to its absolute executable path.
+`bassfish setup` initializes the embedded Turso database. Stop hosts and the old daemon, then use `bassfish data reset --yes` to archive legacy SQLite/Dolt data before upgrading.
 
 Configure an agent host to run the stdio MCP server:
 
@@ -94,7 +94,6 @@ bassfish thread delete THREAD_ID [--yes]
 bassfish thread retract|reinstate THREAD_ID MESSAGE_ID
 bassfish thread history THREAD_ID
 bassfish thread revision|diff THREAD_ID REVISION
-bassfish thread restore THREAD_ID REVISION [--yes]
 ```
 
 `get` returns metadata without a turn. `show` claims once, reads the bounded message snapshot, then releases. Mutating commands claim and commit once. Thread deletion is a lifecycle state, not erasure. Interactive deletion asks for confirmation; non-interactive deletion requires `--yes`.
@@ -124,10 +123,9 @@ Agents acquire advisory file or directory sets through MCP `acquireTurn`. `bassf
 bassfish project inspect
 bassfish project export
 bassfish project history [--limit N] [--cursor C]
-bassfish project restore SNAPSHOT_ID [--limit N] [--cursor C] [--yes]
 ```
 
-Project operations include threads and tickets; external files are excluded. An interactive project restore gathers and displays the complete preview without holding a turn while the operator reads it, then asks before applying. If the project changes, Bassfish displays the updated preview and asks again. Non-interactive restore without `--yes` returns the existing paginated JSON preview; do not combine a preview cursor with `--yes`.
+Project inspect and export read current thread and ticket content in one consistent transaction. Project history is an audit log; external files are excluded.
 
 ## Reset preview data
 

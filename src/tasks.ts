@@ -23,7 +23,11 @@ export const taskResult = baseTask.extend({ resultType: z.literal('complete') })
 export const createTaskResult = baseTask.extend({ resultType: z.literal('task') }).passthrough();
 export const taskAck = z.object({ resultType: z.literal('complete') }).passthrough();
 
-export function hasTasksCapability(envelope: unknown): boolean {
+export function hasTasksCapability(
+  envelope: unknown,
+  era: 'legacy' | 'modern' = 'modern',
+): boolean {
+  if (era !== 'modern') return false;
   const value = envelope as Record<string, unknown> | undefined;
   const capabilities = (value?.clientCapabilities ??
     value?.['io.modelcontextprotocol/clientCapabilities']) as

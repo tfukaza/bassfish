@@ -2,10 +2,8 @@ import { createInterface } from 'node:readline/promises';
 import { styleText } from 'node:util';
 import type { Readable, Writable } from 'node:stream';
 import { BassfishError } from './domain.js';
-
 type Data = Record<string, unknown>;
 type Format = Parameters<typeof styleText>[0];
-
 type CliMode = 'human' | 'json';
 export type OutputRequest = {
   command: string;
@@ -20,7 +18,6 @@ export type CliOutputOptions = {
   interactive: boolean;
   width: number;
 };
-
 const data = (value: unknown): Data =>
   value && typeof value === 'object' && !Array.isArray(value) ? (value as Data) : {};
 const array = (value: unknown): unknown[] => (Array.isArray(value) ? value : []);
@@ -46,7 +43,6 @@ const configLabels: Record<string, string> = {
   waitMs: 'Wait interval',
   idleMs: 'Daemon idle',
 };
-
 function removeFlag(args: string[], name: string): boolean {
   let found = false;
   for (let index = args.indexOf(name); index >= 0; index = args.indexOf(name)) {
@@ -55,11 +51,14 @@ function removeFlag(args: string[], name: string): boolean {
   }
   return found;
 }
-
 export function outputOptions(
   args: string[],
   environment: NodeJS.ProcessEnv = process.env,
-  streams: { stdoutTTY?: boolean; stdinTTY?: boolean; columns?: number } = {},
+  streams: {
+    stdoutTTY?: boolean;
+    stdinTTY?: boolean;
+    columns?: number;
+  } = {},
 ): CliOutputOptions {
   const json = removeFlag(args, '--json');
   const plain = removeFlag(args, '--plain');
@@ -80,14 +79,12 @@ export function outputOptions(
     width: Math.max(40, streams.columns ?? process.stdout.columns ?? 80),
   };
 }
-
 function duration(value: unknown): string {
   if (typeof value !== 'number') return text(value);
-  if (value % 60_000 === 0) return `${value / 60_000}m (${value} ms)`;
-  if (value % 1_000 === 0) return `${value / 1_000}s (${value} ms)`;
+  if (value % 60000 === 0) return `${value / 60000}m (${value} ms)`;
+  if (value % 1000 === 0) return `${value / 1000}s (${value} ms)`;
   return `${value} ms`;
 }
-
 function target(value: unknown): string {
   const item = data(value);
   if (item.type === 'files')
@@ -96,7 +93,6 @@ function target(value: unknown): string {
       .join(', ');
   return text(item.threadId ?? item.ticketId ?? item.id ?? item.purpose ?? item.type);
 }
-
 export function renderHuman(
   request: OutputRequest,
   value: unknown,
@@ -141,7 +137,11 @@ export function renderHuman(
     });
   const table = (
     rows: unknown[],
-    columns: { key: string; label: string; width: number }[],
+    columns: {
+      key: string;
+      label: string;
+      width: number;
+    }[],
   ): string[] => {
     if (options.width < 100)
       return stacked(
@@ -188,7 +188,6 @@ export function renderHuman(
     }
     return output.length && output[0] === '' ? output.slice(1) : output;
   };
-
   const object = data(value);
   const command = request.command;
   const action = request.action;
@@ -196,27 +195,29 @@ export function renderHuman(
   if (request.cancelled) output = [`${muted('○')} ${muted('Cancelled. No changes were made.')}`];
   else if (command === 'setup') {
     output = [
-      `${success('✓')} ${object.installed ? 'Dolt installed' : 'Dolt is ready'}`,
+      `${success('✓')} Turso is ready`,
       field('Version', object.version),
       field('Path', object.path),
-      field('Source', object.source),
     ];
   } else if (command === 'doctor') {
-    const dolt = data(object.dolt);
+    const storage = data(object.storage);
     const daemon = data(object.daemon);
     output = [
       heading(`Bassfish ${text(object.version)}`),
       field('Node', `${text(object.node)} ${success('✓')}`),
       field('Platform', object.platform),
       field(
-        'Dolt',
-        dolt.state === 'ready'
-          ? `${text(dolt.version)} ${success('✓')}`
-          : `${text(dolt.state)} ${warning('!')}`,
+        'Turso',
+        storage.state === 'ready'
+          ? `${text(storage.version)} ${success('✓')}`
+          : `${text(storage.state)} ${warning('!')}`,
       ),
       field('Daemon', daemon.state === 'stopped' ? muted('stopped ○') : success('running ✓')),
       field('Data', object.dataDir),
-      ...(dolt.error ? [field('Problem', dolt.error)] : []),
+      ...(data(daemon.diagnostics).logPath
+        ? [field('Daemon log', data(daemon.diagnostics).logPath)]
+        : []),
+      ...(storage.error ? [field('Problem', storage.error)] : []),
     ];
   } else if (command === 'daemon') {
     const state = text(object.state);
@@ -236,6 +237,16 @@ export function renderHuman(
           ? [field('Turn timeout', duration(data(object.config).turnTimeoutMs))]
           : []),
       ];
+    if (data(object.diagnostics).logPath)
+      output.push(field('Daemon log', data(object.diagnostics).logPath));
+    const lifecycle = data(data(object.diagnostics).lastLifecycle);
+    if (lifecycle.event)
+      output.push(
+        field(
+          'Last lifecycle',
+          `${text(lifecycle.event)} · ${text(lifecycle.at)}${lifecycle.code ? ` · ${text(lifecycle.code)}` : ''}`,
+        ),
+      );
   } else if (command === 'data') {
     output = object.reset
       ? [`${success('✓')} Preview data moved to backup`, field('Backup', object.backup)]
@@ -309,11 +320,11 @@ export function renderHuman(
     ];
   } else if (command === 'thread' && action === 'get') {
     output = [heading(text(object.title ?? 'Thread')), ...record(object)];
-  } else if (command === 'thread' && action === 'history') {
+  } else if (['thread', 'ticket'].includes(command) && action === 'history') {
     const rows = array(object.entries);
     output = rows.length
       ? [
-          heading(`Thread history · ${rows.length}`),
+          heading(`${titleCase(command)} history · ${rows.length}`),
           ...table(rows, [
             { key: 'afterRevision', label: 'REV', width: 5 },
             { key: 'kind', label: 'CHANGE', width: 24 },
@@ -321,9 +332,7 @@ export function renderHuman(
             { key: 'createdAt', label: 'TIME', width: 25 },
           ]),
         ]
-      : [`${muted('○')} No thread history`];
-  } else if (command === 'thread' && action === 'restore' && object.previewToken) {
-    output = [heading('Thread restore preview'), ...generic(object)];
+      : [`${muted('○')} No history`];
   } else if (command === 'thread') {
     const labels: Record<string, string> = {
       create: 'Thread created',
@@ -336,7 +345,6 @@ export function renderHuman(
       delete: 'Thread deleted',
       retract: 'Message retracted',
       reinstate: 'Message reinstated',
-      restore: 'Thread restored',
       diff: 'Thread revision diff',
     };
     output = [
@@ -361,7 +369,7 @@ export function renderHuman(
             : []),
         ]
       : [`${muted('○')} No tickets found`];
-  } else if (command === 'ticket' && action === 'show') {
+  } else if (command === 'ticket' && ['show', 'revision'].includes(action ?? '')) {
     const ticket = data(object.ticket);
     output = [
       heading(text(ticket.title ?? 'Ticket')),
@@ -388,8 +396,8 @@ export function renderHuman(
     output = [`${success('✓')} ${labels[action ?? ''] ?? 'Ticket updated'}`, ...generic(object)];
   } else if (command === 'project' && action === 'inspect') {
     output = [
-      heading('Project snapshot'),
-      field('Snapshot ID', object.snapshotId),
+      heading('Project content'),
+      field('Exported at', object.exportedAt),
       field('Messages', object.messageCount),
       field('Threads', array(object.threads).length),
       field('Tickets', array(object.tickets).length),
@@ -409,19 +417,16 @@ export function renderHuman(
     output = rows.length
       ? [
           heading(`Project history · ${rows.length}`),
-          ...stacked(rows, ['snapshotId', 'kind', 'actorName', 'createdAt']),
+          ...stacked(rows, ['resourceId', 'revision', 'kind', 'actorName', 'createdAt']),
         ]
       : [`${muted('○')} No project history`];
-  } else if (command === 'project' && action === 'restore' && object.previewToken) {
-    output = [heading('Project restore preview'), ...generic(object)];
   } else if (command === 'project' && action === 'export') {
     output = [`${success('✓')} Project exported`, ...record(object)];
   } else if (command === 'project') {
-    output = [`${success('✓')} Project restored`, ...generic(object)];
+    output = [`${success('✓')} Project content`, ...generic(object)];
   } else output = generic(value);
   return `${output.filter((line, index, rows) => !(line === '' && rows[index - 1] === '')).join('\n')}\n`;
 }
-
 function errorHint(code: string, command?: string): string | undefined {
   if (code === 'INVALID_ARGUMENT')
     return `Run bassfish${command ? ` ${command}` : ''} --help for usage.`;
@@ -429,15 +434,13 @@ function errorHint(code: string, command?: string): string | undefined {
   if (code === 'CONFIRMATION_REQUIRED')
     return 'Run this in an interactive terminal, or pass --yes after reviewing the command.';
   if (code === 'DAEMON_RUNNING') return 'Run bassfish daemon stop, then retry.';
-  if (code.startsWith('DOLT_') || code === 'DOLT_UNAVAILABLE') return 'Run bassfish setup.';
+  if (code === 'STORAGE_UNAVAILABLE') return 'Run bassfish setup.';
   if (code === 'ENOENT' || code === 'ECONNREFUSED') return 'Start it with bassfish daemon start.';
   if (code === 'EPERM' || code === 'EACCES')
     return 'Check ownership and permissions for the reported path.';
-  if (code === 'PREVIEW_STALE' || code === 'REVISION_CHANGED')
-    return 'Review a fresh preview before trying again.';
+  if (code === 'REVISION_CHANGED') return 'Reread the current resource before trying again.';
   return undefined;
 }
-
 export class CliOutput {
   constructor(
     readonly options: CliOutputOptions,
@@ -445,7 +448,6 @@ export class CliOutput {
     private readonly stderr: Writable = process.stderr,
     private readonly stdin: Readable = process.stdin,
   ) {}
-
   result(request: OutputRequest, value: unknown): void {
     if (this.options.mode === 'json') {
       this.stdout.write(`${JSON.stringify(value, null, 2)}\n`);
@@ -453,11 +455,9 @@ export class CliOutput {
     }
     this.stdout.write(renderHuman(request, value, this.options));
   }
-
   help(value: string): void {
     this.stdout.write(value);
   }
-
   error(error: unknown, command?: string): void {
     const code =
       error instanceof BassfishError
@@ -478,10 +478,12 @@ export class CliOutput {
     if (hint) lines.push(`  ${paint('cyan', hint)}`);
     this.stderr.write(`${lines.join('\n')}\n`);
   }
-
   async confirm(
     prompt: string,
-    preview?: { request: OutputRequest; value: unknown },
+    preview?: {
+      request: OutputRequest;
+      value: unknown;
+    },
   ): Promise<boolean> {
     if (!this.options.interactive) return false;
     if (preview)
@@ -502,10 +504,9 @@ export class CliOutput {
       terminal.close();
     }
   }
-
   async activity<T>(label: string, operation: () => Promise<T>): Promise<T> {
     if (this.options.mode !== 'human' || !this.options.interactive || !this.options.color)
-      return operation();
+      return await operation();
     const frames = ['◐', '◓', '◑', '◒'];
     let frame = 0;
     let shown = false;
@@ -528,5 +529,4 @@ export class CliOutput {
     }
   }
 }
-
 export const cancelledResult = Object.freeze({ cancelled: true });

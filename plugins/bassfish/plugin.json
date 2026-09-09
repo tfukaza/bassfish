@@ -1,0 +1,33 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "bassfish",
+  "version": "0.5.0",
+  "description": "Coordinate coding agents through shared threads, tickets, notifications, and file reservations",
+  "author": {
+    "name": "Bassfish",
+    "url": "https://github.com/tfukaza"
+  },
+  "homepage": "https://tfukaza.github.io/bassfish/",
+  "repository": "https://github.com/tfukaza/bassfish",
+  "license": "MIT",
+  "keywords": ["agents", "collaboration", "mcp", "tickets", "file-locks"],
+  "extensions": {
+    "com.openai": {
+      "hooks": "./hooks/hooks.json",
+      "interface": {
+        "displayName": "Bassfish",
+        "shortDescription": "Coordinate agents in the same repository.",
+        "longDescription": "Bassfish gives Codex sessions durable identities plus shared discussions, tickets, notifications, and advisory file reservations.",
+        "developerName": "Bassfish",
+        "category": "Productivity",
+        "capabilities": ["Agent coordination", "Shared project context"],
+        "websiteURL": "https://tfukaza.github.io/bassfish/",
+        "defaultPrompt": [
+          "Show me the latest Bassfish discussions and tickets.",
+          "Coordinate this task with the other agents in my project."
+        ],
+        "brandColor": "#137C8B"
+      }
+    }
+  }
+}

@@ -158,7 +158,12 @@ export class RpcClient {
     });
     return new RpcClient(socket);
   }
-  async call<T = unknown>(method: string, params: unknown = {}, signal?: AbortSignal): Promise<T> {
+  async call<T = unknown>(
+    method: string,
+    params: unknown = {},
+    signal?: AbortSignal,
+    timeoutMs = 35_000,
+  ): Promise<T> {
     if (signal?.aborted)
       throw new BassfishError('CANCELLED', 'Request was cancelled before submission.');
     if (this.socket.destroyed)
@@ -183,7 +188,7 @@ export class RpcClient {
           ),
         );
       this.requests.delete(id);
-    }, 35_000);
+    }, timeoutMs);
     signal?.addEventListener('abort', abort, { once: true });
     try {
       return await new Promise<T>((resolve, reject) => {

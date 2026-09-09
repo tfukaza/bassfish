@@ -10,7 +10,7 @@ import { errorCode } from './support.js';
 const exec = promisify(execFile);
 test('worktrees and symlinks share canonical project identity; clones and nonrepos do not', async t => {
   const dir = await mkdtemp(join(tmpdir(), 'bf-git-'));
-  t.after(() => rm(dir, { recursive: true, force: true }));
+  t.after(async () => await rm(dir, { recursive: true, force: true }));
   const repo = join(dir, 'repo'),
     tree = join(dir, 'tree'),
     clone = join(dir, 'clone'),

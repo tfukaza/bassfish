@@ -10,15 +10,14 @@ import { once } from 'node:events';
 import { Client } from '@modelcontextprotocol/client';
 import { StdioClientTransport } from '@modelcontextprotocol/client/stdio';
 import { connectDaemon, ensureDaemon } from '../../src/daemon.js';
-import { doltBinary, packageRoot, socketPath } from '../../src/config.js';
+import { packageRoot, socketPath } from '../../src/config.js';
 import { createTaskResult, tasksExtensionId } from '../../src/tasks.js';
 import type { Turn } from '../support.js';
 import { generatedAgentNames } from '../../src/agent-names.js';
 const exec = promisify(execFile);
-
 test(
   'two actual stdio MCP clients: eager shared daemon, FIFO, durable content, SIGKILL recovery and CLI parity',
-  { timeout: 90_000 },
+  { timeout: 90000 },
   async t => {
     const dir = await mkdtemp(
       join(process.platform === 'darwin' ? '/private/tmp' : tmpdir(), 'bf-mcp-'),
@@ -31,10 +30,12 @@ test(
       await Promise.allSettled(clients.map(c => c.close()));
       try {
         const rpc = await connectDaemon(data);
-        const health = await rpc.call<{ pid: number }>('getHealth');
+        const health = await rpc.call<{
+          pid: number;
+        }>('getHealth');
         await rpc.call('stopDaemon');
         rpc.close();
-        const until = performance.now() + 10_000;
+        const until = performance.now() + 10000;
         while (performance.now() < until) {
           try {
             process.kill(health.pid, 0);
@@ -55,7 +56,6 @@ test(
         ),
       ),
       BASSFISH_DATA_DIR: data,
-      BASSFISH_DOLT_BIN: doltBinary(),
     };
     async function client(name?: string, extraEnv: Record<string, string> = {}): Promise<Client> {
       const c = new Client({ name: 'bassfish-integration', version: '1.0.0' });
@@ -77,6 +77,10 @@ test(
       return c;
     }
     const [alice, bob, anonymous] = await Promise.all([client('Alice'), client('Bob'), client()]);
+    assert.equal(
+      Object.hasOwn(alice.getServerCapabilities()?.extensions ?? {}, tasksExtensionId),
+      false,
+    );
     assert.equal((await lstat(socketPath(data))).mode & 0o777, 0o600); // MCP startup eagerly registers presence.
     const listed = await alice.listTools();
     assert.equal(listed.tools.length, 13);
@@ -102,63 +106,97 @@ test(
       assert.deepEqual(result.content, []);
       return result.structuredContent as T;
     }
-    type PublicTicket = { state: string; requestToken: string; position?: number };
+    type PublicTicket = {
+      state: string;
+      requestToken: string;
+      position?: number;
+    };
     type PublicTurn = {
       state: 'claimed';
       requestToken: string;
       turnToken: string;
-      resource: { revision: string };
-      messages: { body: string; mentions?: { agents: string[]; here: boolean } }[];
+      resource: {
+        revision: string;
+      };
+      messages: {
+        body: string;
+        mentions?: {
+          agents: string[];
+          here: boolean;
+        };
+      }[];
     };
     const discovered = await call<{
       agentName: string;
-      agents: { name: string; online: boolean }[];
+      agents: {
+        name: string;
+        online: boolean;
+      }[];
       pendingTurns: PublicTicket[] | null;
     }>(alice, 'getContext');
     assert.equal(discovered.agents.find(agent => agent.name === 'Bob')?.online, true); // Bob has made no Bassfish tool call.
-    const anonymousSession = await call<{ agentName: string }>(anonymous, 'getContext');
+    const anonymousSession = await call<{
+      agentName: string;
+    }>(anonymous, 'getContext');
     assert.ok(generatedAgentNames.includes(anonymousSession.agentName));
-
     const codex = await client(undefined, { BASSFISH_CODEX_NATIVE: '1' });
     const unbound = await codex.callTool({ name: 'getContext', arguments: {} });
     assert.equal(unbound.isError, true);
+    assert.match(JSON.stringify(unbound.content), /HOST_SESSION_REQUIRED:/);
     assert.equal(
-      (unbound.structuredContent as { error: { code: string } }).error.code,
+      (
+        unbound.structuredContent as {
+          error: {
+            code: string;
+          };
+        }
+      ).error.code,
       'HOST_SESSION_REQUIRED',
     );
     await call(codex, 'bindHostSession', { sessionId: 'codex-session-one' });
-    const codexInitial = await call<{ agentName: string }>(codex, 'getContext');
+    const codexInitial = await call<{
+      agentName: string;
+    }>(codex, 'getContext');
     await call(codex, 'setAgentName', { name: 'DurableCodex' });
     await codex.close();
     const resumedCodex = await client(undefined, { BASSFISH_CODEX_NATIVE: '1' });
     await call(resumedCodex, 'bindHostSession', { sessionId: 'codex-session-one' });
     assert.equal(
-      (await call<{ agentName: string }>(resumedCodex, 'getContext')).agentName,
+      (
+        await call<{
+          agentName: string;
+        }>(resumedCodex, 'getContext')
+      ).agentName,
       'DurableCodex',
     );
     assert.ok(generatedAgentNames.includes(codexInitial.agentName));
     await resumedCodex.close();
-
     const opencode = await client(undefined, { BASSFISH_OPENCODE_NATIVE: '1' });
     const rootOne = { __bassfishHostSessionId: 'opencode-root-one' };
     const rootTwo = { __bassfishHostSessionId: 'opencode-root-two' };
     await call(opencode, 'setAgentName', { ...rootOne, name: 'OpenCodeOne' });
-    const routedOne = await call<{ agentName: string }>(opencode, 'getContext', rootOne);
-    const routedTwo = await call<{ agentName: string }>(opencode, 'getContext', rootTwo);
+    const routedOne = await call<{
+      agentName: string;
+    }>(opencode, 'getContext', rootOne);
+    const routedTwo = await call<{
+      agentName: string;
+    }>(opencode, 'getContext', rootTwo);
     assert.equal(routedOne.agentName, 'OpenCodeOne');
     assert.notEqual(routedTwo.agentName, routedOne.agentName);
     await opencode.close();
-
-    const created = await call<{ threadId: string }>(alice, 'createResource', {
+    const created = await call<{
+      threadId: string;
+    }>(alice, 'createResource', {
       resourceType: 'thread',
       title: 'MCP roundtrip',
       description: 'Protected content',
     });
-    const fetched = await call<{ resource: { descriptionPreview: string; state: string } }>(
-      bob,
-      'findResources',
-      { resourceType: 'thread', threadId: created.threadId },
-    );
+    const fetched = await call<{
+      resource: {
+        descriptionPreview: string;
+        state: string;
+      };
+    }>(bob, 'findResources', { resourceType: 'thread', threadId: created.threadId });
     assert.equal(fetched.resource.descriptionPreview, 'Protected content');
     assert.equal(fetched.resource.state, 'active');
     const turn = await call<PublicTurn>(alice, 'acquireTurn', {
@@ -190,16 +228,23 @@ test(
     });
     const read = await waiter;
     assert.equal(read.state, 'claimed');
-    const inbox = await call<{ notifications: { notificationId: string; reasons: string[] }[] }>(
-      bob,
-      'notifications',
-      { action: 'list' },
-    );
+    const inbox = await call<{
+      notifications: {
+        notificationId: string;
+        reasons: string[];
+      }[];
+    }>(bob, 'notifications', { action: 'list' });
     assert.deepEqual(inbox.notifications[0]!.reasons, ['direct_mention']);
     const unsupportedListener = await alice.callTool({ name: 'waitForWork', arguments: {} });
     assert.equal(unsupportedListener.isError, true);
     assert.equal(
-      (unsupportedListener.structuredContent as { error: { code: string } }).error.code,
+      (
+        unsupportedListener.structuredContent as {
+          error: {
+            code: string;
+          };
+        }
+      ).error.code,
       'TASKS_REQUIRED',
     );
     assert.equal(read.messages[0]!.body, '@Bob hello from real MCP');
@@ -228,6 +273,12 @@ test(
     });
     modernTransport.stderr?.on('data', () => {});
     await modern.connect(modernTransport);
+    assert.equal(
+      Object.hasOwn(modern.getServerCapabilities()?.extensions ?? {}, tasksExtensionId),
+      true,
+    );
+    assert.match(modern.getInstructions() ?? '', /inspect the latest relevant discussions/);
+    assert.ok((await modern.listTools()).tools.every(tool => tool.outputSchema?.type === 'object'));
     // The pinned SDK client does not yet decode this external extension's open
     // resultType, so its typed client rejects after receiving the valid task wire
     // result. The transport conformance test validates that complete shape.
@@ -237,9 +288,21 @@ test(
         createTaskResult,
       ),
       (error: unknown) =>
-        (error as { code?: string; data?: { resultType?: string } }).code ===
-          'UNSUPPORTED_RESULT_TYPE' &&
-        (error as { data?: { resultType?: string } }).data?.resultType === 'task',
+        (
+          error as {
+            code?: string;
+            data?: {
+              resultType?: string;
+            };
+          }
+        ).code === 'UNSUPPORTED_RESULT_TYPE' &&
+        (
+          error as {
+            data?: {
+              resultType?: string;
+            };
+          }
+        ).data?.resultType === 'task',
     );
     await assert.rejects(
       modern.request(
@@ -253,9 +316,21 @@ test(
         createTaskResult,
       ),
       (error: unknown) =>
-        (error as { code?: string; data?: { resultType?: string } }).code ===
-          'UNSUPPORTED_RESULT_TYPE' &&
-        (error as { data?: { resultType?: string } }).data?.resultType === 'task',
+        (
+          error as {
+            code?: string;
+            data?: {
+              resultType?: string;
+            };
+          }
+        ).code === 'UNSUPPORTED_RESULT_TYPE' &&
+        (
+          error as {
+            data?: {
+              resultType?: string;
+            };
+          }
+        ).data?.resultType === 'task',
     );
     await modern.close();
     await call(bob, 'releaseTurn', { turnToken: read.turnToken });
@@ -267,22 +342,27 @@ test(
       timeoutMs: 0,
     });
     const admin = await connectDaemon(data);
-    const health = await admin.call<{ pid: number; epoch: string }>('getHealth');
+    const health = await admin.call<{
+      pid: number;
+      epoch: string;
+    }>('getHealth');
     const disconnected = once(admin.socket, 'close');
     process.kill(health.pid, 'SIGKILL');
     await disconnected;
-    // New daemon waits on SQL guardian ownership; no old SQL writer can survive into recovery.
-    await ensureDaemon(data, doltBinary(), { turnTimeoutMs: 90_000 });
+    // New daemon opens the committed Turso state and fences previous ownership.
+    await ensureDaemon(data, { turnTimeoutMs: 90000 });
     const restartedAdmin = await connectDaemon(data);
-    const restartedHealth = await restartedAdmin.call<{ config: { turnTimeoutMs: number } }>(
-      'getHealth',
-    );
+    const restartedHealth = await restartedAdmin.call<{
+      config: {
+        turnTimeoutMs: number;
+      };
+    }>('getHealth');
     restartedAdmin.close();
-    assert.equal(restartedHealth.config.turnTimeoutMs, 90_000);
-    const resumed = await call<{ agentName: string; pendingTurns: PublicTicket[] }>(
-      alice,
-      'getContext',
-    );
+    assert.equal(restartedHealth.config.turnTimeoutMs, 90000);
+    const resumed = await call<{
+      agentName: string;
+      pendingTurns: PublicTicket[];
+    }>(alice, 'getContext');
     assert.equal(resumed.agentName, 'Alice');
     const retained = resumed.pendingTurns[0]!;
     assert.equal(retained.state, 'offered');
@@ -334,7 +414,14 @@ test(
       ],
       { env },
     );
-    assert.equal((JSON.parse(got.stdout) as { description: string }).description, 'CLI topic');
+    assert.equal(
+      (
+        JSON.parse(got.stdout) as {
+          description: string;
+        }
+      ).description,
+      'CLI topic',
+    );
     const found = await exec(
       process.execPath,
       [
@@ -350,27 +437,42 @@ test(
       { env },
     );
     assert.deepEqual(
-      (JSON.parse(found.stdout) as { threads: { id: string }[] }).threads.map(thread => thread.id),
+      (
+        JSON.parse(found.stdout) as {
+          threads: {
+            id: string;
+          }[];
+        }
+      ).threads.map(thread => thread.id),
       [created.threadId],
     );
     const fileTarget = { type: 'files', paths: [{ path: 'handoff.md', kind: 'file' }] };
-    const files = await call<{ turnToken: string; target: { paths: { path: string }[] } }>(
-      alice,
-      'acquireTurn',
-      { target: fileTarget },
-    );
-    const fileQueue = await call<{ state: string; requestToken: string }>(bob, 'acquireTurn', {
+    const files = await call<{
+      turnToken: string;
+      target: {
+        paths: {
+          path: string;
+        }[];
+      };
+    }>(alice, 'acquireTurn', { target: fileTarget });
+    const fileQueue = await call<{
+      state: string;
+      requestToken: string;
+    }>(bob, 'acquireTurn', {
       target: fileTarget,
       timeoutMs: 0,
     });
     assert.equal(fileQueue.state, 'queued');
     await writeFile(files.target.paths[0]!.path, 'Native file content\n');
     await call(alice, 'releaseTurn', { turnToken: files.turnToken });
-    const nextFiles = await call<{ turnToken: string; target: { paths: { path: string }[] } }>(
-      bob,
-      'acquireTurn',
-      { requestToken: fileQueue.requestToken },
-    );
+    const nextFiles = await call<{
+      turnToken: string;
+      target: {
+        paths: {
+          path: string;
+        }[];
+      };
+    }>(bob, 'acquireTurn', { requestToken: fileQueue.requestToken });
     assert.equal(await readFile(nextFiles.target.paths[0]!.path, 'utf8'), 'Native file content\n');
     const locks = JSON.parse(
       (await exec(process.execPath, [join(packageRoot, 'dist/cli.js'), 'turn', 'list'], { env }))
@@ -400,7 +502,11 @@ test(
       ],
       { env },
     );
-    const ticketId = (JSON.parse(cliCreated.stdout) as { ticketId: string }).ticketId;
+    const ticketId = (
+      JSON.parse(cliCreated.stdout) as {
+        ticketId: string;
+      }
+    ).ticketId;
     const cliShown = await exec(
       process.execPath,
       [
@@ -466,7 +572,9 @@ test(
           { env },
         )
       ).stdout,
-    ) as { entries: unknown[] };
+    ) as {
+      entries: unknown[];
+    };
     assert.ok(threadHistory.entries.length >= 2);
     assert.equal(JSON.stringify(threadHistory).includes('doltCommit'), false);
     const threadRevision = JSON.parse(
@@ -487,7 +595,11 @@ test(
           { env },
         )
       ).stdout,
-    ) as { messages: { body: string }[] };
+    ) as {
+      messages: {
+        body: string;
+      }[];
+    };
     assert.equal(threadRevision.messages[0]!.body, '@Bob hello from real MCP');
     await exec(
       process.execPath,
@@ -504,26 +616,34 @@ test(
       ],
       { env },
     );
-    const threadRestore = JSON.parse(
+    const ticketRevision = JSON.parse(
       (
         await exec(
           process.execPath,
           [
             join(packageRoot, 'dist/cli.js'),
-            'thread',
-            'restore',
-            created.threadId,
-            '2',
+            'ticket',
+            'revision',
+            ticketId,
+            '1',
             '--workspace',
             repo,
-            '--name',
-            'Human',
           ],
           { env },
         )
       ).stdout,
-    ) as { previewToken: string };
-    assert.ok(threadRestore.previewToken);
+    );
+    assert.equal(ticketRevision.body, 'CLI body\n');
+    const ticketHistory = JSON.parse(
+      (
+        await exec(
+          process.execPath,
+          [join(packageRoot, 'dist/cli.js'), 'ticket', 'history', ticketId, '--workspace', repo],
+          { env },
+        )
+      ).stdout,
+    );
+    assert.equal(ticketHistory.entries.length, 2);
     const inspectedProject = JSON.parse(
       (
         await exec(
@@ -540,8 +660,11 @@ test(
           { env },
         )
       ).stdout,
-    ) as { snapshotId: string; messageCount: number };
-    assert.ok(inspectedProject.snapshotId);
+    ) as {
+      exportedAt: string;
+      messageCount: number;
+    };
+    assert.ok(inspectedProject.exportedAt);
     assert.equal(inspectedProject.messageCount, 1);
     const projectHistory = JSON.parse(
       (
@@ -559,30 +682,13 @@ test(
           { env },
         )
       ).stdout,
-    ) as { entries: { snapshotId: string }[] };
+    ) as {
+      entries: {
+        operationId: string;
+      }[];
+    };
     assert.ok(projectHistory.entries.length >= 4);
-    assert.ok(projectHistory.entries.every(entry => entry.snapshotId));
-    const targetSnapshotId = projectHistory.entries.at(-1)!.snapshotId;
-    const projectRestore = JSON.parse(
-      (
-        await exec(
-          process.execPath,
-          [
-            join(packageRoot, 'dist/cli.js'),
-            'project',
-            'restore',
-            targetSnapshotId,
-            '--workspace',
-            repo,
-            '--name',
-            'Human',
-          ],
-          { env },
-        )
-      ).stdout,
-    ) as { previewToken: string; targetSnapshotId: string };
-    assert.ok(projectRestore.previewToken);
-    assert.equal(projectRestore.targetSnapshotId, targetSnapshotId);
+    assert.ok(projectHistory.entries.every(entry => entry.operationId));
     const exported = JSON.parse(
       (
         await exec(
@@ -599,7 +705,9 @@ test(
           { env },
         )
       ).stdout,
-    ) as { path: string };
+    ) as {
+      path: string;
+    };
     assert.ok(exported.path.endsWith('.zip'));
     const status = await exec('git', ['-C', repo, 'status', '--porcelain']);
     assert.equal(status.stdout, '?? handoff.md\n');

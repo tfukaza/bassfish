@@ -1,11 +1,12 @@
-import { access, rename } from 'node:fs/promises';
+import { daemonDiagnostics } from './daemon-diagnostics.js';
+import { archiveData } from './data-reset.js';
+import { access } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { BassfishError, requireThat } from './domain.js';
 import {
   dataDirectory,
   defaultRuntimeConfig,
-  doltBinary,
   loadRuntimeConfig,
   packageVersion,
   parseTurnTimeout,
@@ -13,11 +14,10 @@ import {
   saveRuntimeConfig,
 } from './config.js';
 import { connectDaemon, ensureDaemon, runDaemon } from './daemon.js';
-import { runSqlWorker } from './sql-worker.js';
 import { runMcp } from './mcp.js';
 import { runThreadCli } from './thread-cli.js';
-import { setupDolt } from './setup.js';
-import { requireDolt } from './supervisor.js';
+import { setupTurso } from './setup.js';
+import { requireSupportedPlatform, tursoVersion } from './storage/platform.js';
 import { runNotificationWatcher } from './notifications-cli.js';
 import { presentProjectCli, runProjectCli } from './project-cli.js';
 import { runTicketCli } from './ticket-cli.js';
@@ -107,7 +107,6 @@ async function main(): Promise<void> {
   }
 
   const data = dataDirectory();
-  const binary = doltBinary(data);
   if (command === 'sonar') {
     const { runSonar } = await import('./sonar/cli.js');
     await runSonar(args, data, options, process.argv.includes('--plain'));
@@ -115,17 +114,12 @@ async function main(): Promise<void> {
   }
   if (command === 'setup') {
     requireThat(args.length === 0, 'INVALID_ARGUMENT', 'Setup takes no arguments.');
-    const result = await output.activity('Checking Dolt 2.3.2…', () => setupDolt(data));
+    const result = await output.activity('Checking embedded Turso…', () => setupTurso(data));
     output.result({ command }, result);
     return;
   }
   if (command === 'notifications' && args.shift() === 'watch') {
-    await runNotificationWatcher(args, data, binary);
-    return;
-  }
-  if (command === 'sql-worker') {
-    requireThat(args.length === 2, 'INVALID_ARGUMENT', 'Internal SQL worker arguments missing.');
-    await runSqlWorker(args[0]!, args[1]!);
+    await runNotificationWatcher(args, data);
     return;
   }
   if (command === 'daemon' && args[0] === 'run') {
@@ -134,7 +128,6 @@ async function main(): Promise<void> {
     requireThat(args.length === 0, 'INVALID_ARGUMENT', 'Use daemon run [--turn-timeout DURATION].');
     await runDaemon(
       data,
-      binary,
       rawTimeout === undefined ? {} : { turnTimeoutMs: parseTurnTimeout(rawTimeout) },
     );
     return;
@@ -218,9 +211,7 @@ async function main(): Promise<void> {
       output.result({ command, action, cancelled: true }, cancelledResult);
       return;
     }
-    const stamp = new Date().toISOString().replaceAll(':', '-');
-    const backup = `${data}.backup-${stamp}`;
-    await rename(data, backup);
+    const backup = await archiveData(data);
     output.result({ command, action }, { reset: true, backup });
     return;
   }
@@ -232,7 +223,7 @@ async function main(): Promise<void> {
   const name = take(args, '--name');
   if (command === 'mcp') {
     requireThat(args.length === 0, 'INVALID_ARGUMENT', 'Unknown MCP argument.');
-    await runMcp(workspace, data, binary, name);
+    await runMcp(workspace, data, name);
     return;
   }
 
@@ -260,13 +251,22 @@ async function main(): Promise<void> {
         'history',
         'revision',
         'diff',
-        'restore',
       ].includes(action ?? '')) ||
     (command === 'ticket' &&
-      ['list', 'search', 'create', 'show', 'update', 'edit', 'append', 'patch'].includes(
-        action ?? '',
-      )) ||
-    (command === 'project' && ['inspect', 'export', 'history', 'restore'].includes(action ?? ''));
+      [
+        'list',
+        'search',
+        'create',
+        'show',
+        'update',
+        'edit',
+        'append',
+        'patch',
+        'history',
+        'revision',
+        'diff',
+      ].includes(action ?? '')) ||
+    (command === 'project' && ['inspect', 'export', 'history'].includes(action ?? ''));
   requireThat(
     valid,
     'INVALID_ARGUMENT',
@@ -286,7 +286,10 @@ async function main(): Promise<void> {
     );
     const before = await daemonHealth(data);
     if (action === 'status') {
-      output.result({ command, action }, before ?? { state: 'stopped' });
+      output.result(
+        { command, action },
+        before ?? { state: 'stopped', diagnostics: daemonDiagnostics(data) },
+      );
       return;
     }
     if (action === 'stop') {
@@ -309,7 +312,7 @@ async function main(): Promise<void> {
       }
       return;
     }
-    await output.activity('Starting daemon…', () => ensureDaemon(data, binary, daemonOverrides));
+    await output.activity('Starting daemon…', () => ensureDaemon(data, daemonOverrides));
     const health = await daemonHealth(data);
     requireThat(health, 'DAEMON_START_FAILED', 'The daemon did not report healthy after startup.');
     output.result({ command, action, started: !before }, health);
@@ -321,13 +324,14 @@ async function main(): Promise<void> {
       'INVALID_ARGUMENT',
       'Doctor takes no arguments.',
     );
-    let dolt: Record<string, unknown>;
+    let storage: Record<string, unknown>;
     try {
-      dolt = { state: 'ready', version: await requireDolt(binary), path: binary };
+      requireSupportedPlatform();
+      await import('@tursodatabase/database');
+      storage = { engine: 'turso', state: 'ready', version: tursoVersion };
     } catch (error) {
-      dolt = {
+      storage = {
         state: 'unavailable',
-        path: binary,
         error: error instanceof Error ? error.message : String(error),
       };
     }
@@ -336,15 +340,18 @@ async function main(): Promise<void> {
       node: process.versions.node,
       platform: `${process.platform}-${process.arch}`,
       dataDir: data,
-      dolt,
-      daemon: (await daemonHealth(data)) ?? { state: 'stopped' },
+      storage,
+      daemon: (await daemonHealth(data)) ?? {
+        state: 'stopped',
+        diagnostics: daemonDiagnostics(data),
+      },
     };
     output.result({ command }, result);
-    if (dolt.state !== 'ready') process.exitCode = 1;
+    if (storage.state !== 'ready') process.exitCode = 1;
     return;
   }
 
-  if (command !== 'turn') await ensureDaemon(data, binary);
+  if (command !== 'turn') await ensureDaemon(data);
   const client = await connectDaemon(data);
   let opened = false;
   let heartbeat: NodeJS.Timeout | undefined;
@@ -379,7 +386,7 @@ async function main(): Promise<void> {
           return thread === cancelledResult ? thread : presentProjectCli(thread);
         }
         if (command === 'ticket') {
-          const ticket = await runTicketCli(action, args, mcpCall, data);
+          const ticket = await runTicketCli(action, args, mcpCall, data, call);
           if (ticket.raw !== undefined) return { raw: ticket.raw };
           return presentProjectCli(ticket.value);
         }

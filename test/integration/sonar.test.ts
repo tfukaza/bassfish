@@ -7,7 +7,7 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { setTimeout as delay } from 'node:timers/promises';
 import { ensureDaemon, connectDaemon } from '../../src/daemon.js';
-import { doltBinary, packageRoot } from '../../src/config.js';
+import { packageRoot } from '../../src/config.js';
 import type { RpcClient } from '../../src/ipc.js';
 import type {
   ContentObservation,
@@ -16,11 +16,10 @@ import type {
   ObservationGraph,
   ObservedTicketDetail,
 } from '../../src/observation-types.js';
-
 const exec = promisify(execFile);
 test(
   'real Sonar observers see committed chat, ticket DAGs, contention and retained events without agent side effects',
-  { timeout: 90_000 },
+  { timeout: 90000 },
   async t => {
     const root = await mkdtemp(
       join(process.platform === 'darwin' ? '/private/tmp' : tmpdir(), 'bf-sonar-'),
@@ -29,9 +28,9 @@ test(
       repo = join(root, 'repo'),
       otherRepo = join(root, 'other');
     const clients: RpcClient[] = [];
-    const cli = (...args: string[]) =>
-      exec(process.execPath, [join(packageRoot, 'dist/cli.js'), ...args], {
-        env: { ...process.env, BASSFISH_DATA_DIR: data, BASSFISH_DOLT_BIN: doltBinary() },
+    const cli = async (...args: string[]) =>
+      await exec(process.execPath, [join(packageRoot, 'dist/cli.js'), ...args], {
+        env: { ...process.env, BASSFISH_DATA_DIR: data },
       });
     t.after(async () => {
       for (const client of clients) client.socket.destroy();
@@ -40,10 +39,10 @@ test(
     });
     await exec('git', ['init', repo]);
     await exec('git', ['init', otherRepo]);
-    await ensureDaemon(data, doltBinary());
+    await ensureDaemon(data);
     const observer = await connectDaemon(data);
     clients.push(observer);
-    await observer.call('openObserver', { workspace: repo, protocolVersion: 1 });
+    await observer.call('openObserver', { workspace: repo, protocolVersion: 2 });
     const empty = await observer.call<ObservationSnapshot>('readObservation', { kind: 'snapshot' });
     assert.equal(empty.status, 'empty');
     await assert.rejects(
@@ -65,13 +64,17 @@ test(
       external = await agent('External', otherRepo);
     const call = <T>(c: RpcClient, name: string, args: unknown): Promise<T> =>
       c.call('callMcpTool', { name, args });
-    const thread = await call<{ threadId: string }>(alice, 'createResource', {
+    const thread = await call<{
+      threadId: string;
+    }>(alice, 'createResource', {
       resourceType: 'thread',
       title: 'Sonar chat',
       description: 'Live conversations',
     });
-    const createTicket = (title: string, dependsOn: string[] = []) =>
-      call<{ ticketId: string }>(alice, 'createResource', {
+    const createTicket = async (title: string, dependsOn: string[] = []) =>
+      await call<{
+        ticketId: string;
+      }>(alice, 'createResource', {
         resourceType: 'ticket',
         title,
         description: 'Graph node',
@@ -120,22 +123,24 @@ test(
     const graph = await observer.call<ObservationGraph>('readObservation', {
       kind: 'graph',
       id: second.ticketId,
-      commit: snapshot.content!.commit,
     });
     assert.equal(graph.tickets.length, 3);
     const detail = await observer.call<ObservedTicketDetail>('readObservation', {
       kind: 'ticket',
       id: second.ticketId,
-      commit: snapshot.content!.commit,
     });
     assert.match(detail.page.text, /Private body/);
     assert.equal('body' in detail.ticket, false);
     const started = performance.now();
-    const waiting = observer.call<{ cursor: string }>('waitObservation', {
+    const waiting = observer.call<{
+      cursor: string;
+    }>('waitObservation', {
       cursor: snapshot.cursor,
-      timeoutMs: 20_000,
+      timeoutMs: 20000,
     });
-    const turn = await call<{ turnToken: string }>(alice, 'acquireTurn', {
+    const turn = await call<{
+      turnToken: string;
+    }>(alice, 'acquireTurn', {
       target: { type: 'thread', threadId: thread.threadId },
       timeoutMs: 0,
     });
@@ -157,7 +162,7 @@ test(
       [1, 2].map(async () => {
         const c = await connectDaemon(data);
         clients.push(c);
-        await c.call('openObserver', { workspace: repo, protocolVersion: 1 });
+        await c.call('openObserver', { workspace: repo, protocolVersion: 2 });
         return c;
       }),
     );
@@ -167,7 +172,6 @@ test(
     const conversation = await observer.call<ObservedThreadDetail>('readObservation', {
       kind: 'thread',
       id: thread.threadId,
-      commit: snapshot.content!.commit,
     });
     assert.equal(conversation.messages[0]!.body, 'Hello from Alice');
     const after = await observer.call<ObservationSnapshot>('readObservation', { kind: 'snapshot' });
@@ -175,7 +179,6 @@ test(
     assert.equal(after.agents.length, 2);
     const filtered = await observer.call<ContentObservation>('readObservation', {
       kind: 'content',
-      commit: snapshot.content!.commit,
       filter: { query: 'Refresh' },
     });
     assert.deepEqual(
@@ -187,17 +190,21 @@ test(
     assert.equal(JSON.parse(json.stdout).status, 'ready');
     assert.match((await cli('sonar', '--workspace', repo, '--plain')).stdout, /Sonar chat/);
     await cli('daemon', 'stop');
-    await ensureDaemon(data, doltBinary());
+    await ensureDaemon(data);
     const restarted = await connectDaemon(data);
     clients.push(restarted);
-    await restarted.call('openObserver', { workspace: repo, protocolVersion: 1 });
+    await restarted.call('openObserver', { workspace: repo, protocolVersion: 2 });
     const recovered = await restarted.call<ObservationSnapshot>('readObservation', {
       kind: 'snapshot',
     });
     assert.notEqual(recovered.epoch, snapshot.epoch);
     assert.equal(recovered.turns.length, 0);
     assert.ok(recovered.activity!.events.some(e => e.kind === 'thread.appendMessage'));
-    assert.ok(recovered.activity!.events.some(e => e.details.reason === 'session_lost'));
+    assert.ok(
+      recovered.activity!.events.some(e =>
+        ['session_lost', 'daemon_restart'].includes(String(e.details.reason)),
+      ),
+    );
     await delay(10);
   },
 );

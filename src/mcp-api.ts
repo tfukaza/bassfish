@@ -201,6 +201,15 @@ export const mcpSchemas = {
 
 export type McpToolName = keyof typeof mcpSchemas;
 
+// MCP output schemas must have an object root. Bassfish responses deliberately
+// remain forward-compatible because threads, tickets, and host hooks add fields
+// as the compact API evolves; the individual presenters remain the source of
+// truth for those fields while this contract rejects non-object results.
+const structuredOutput = z.record(z.string(), z.unknown());
+export const mcpOutputSchemas = Object.fromEntries(
+  (Object.keys(mcpSchemas) as McpToolName[]).map(name => [name, structuredOutput]),
+) as Record<McpToolName, typeof structuredOutput>;
+
 export const mcpDescriptions: Record<McpToolName, string> = {
   bindHostSession:
     'Internal host integration: bind this adapter to the current coding-agent session.',

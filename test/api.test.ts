@@ -27,13 +27,9 @@ const tools = [
   'listHistory',
   'readRevision',
   'diffRevision',
-  'previewRestore',
-  'restoreRevision',
-  'inspectSnapshot',
-  'exportSnapshot',
-  'listSnapshotHistory',
-  'previewSnapshotRestore',
-  'restoreSnapshot',
+  'inspectProject',
+  'exportProject',
+  'listProjectHistory',
 ];
 
 test('the private command registry remains available to the CLI', () => {

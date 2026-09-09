@@ -7,33 +7,28 @@ import {
 } from '../domain.js';
 import { fileSetsOverlap } from '../files.js';
 
-const values = Object.values;
-
 type FinalTurnState = 'EXPIRED' | 'CANCELLED' | 'RELEASED' | 'FAILED' | 'COMMITTED';
-
-export function pendingFor(state: ControlState, instanceId: string): TurnRequest[] {
-  return values(state.requests).filter(
+export async function pendingFor(state: ControlState, instanceId: string): Promise<TurnRequest[]> {
+  return (await state.all('requests')).filter(
     request => request.instanceId === instanceId && activeStates.includes(request.state),
   );
 }
-
-export function finishRequest(
+export async function finishRequest(
   request: TurnRequest,
   finalState: FinalTurnState,
   now: number,
   retentionMs: number,
   control?: ControlState,
-): void {
+): Promise<void> {
   request.state = finalState;
   request.finishedAt = now;
   request.updatedAt = now;
   const task =
     control &&
-    values(control.tasks).find(
+    (await control.all('tasks')).find(
       value => value.requestId === request.id && value.status === 'working',
     );
   if (!task) return;
-
   task.updatedAt = now;
   task.discardAt = now + retentionMs;
   if (finalState === 'FAILED') {
@@ -46,18 +41,17 @@ export function finishRequest(
       finalState === 'EXPIRED' ? 'The turn request expired.' : 'The turn request was cancelled.';
   }
 }
-
-function makeRequestAvailable(
+async function makeRequestAvailable(
   state: ControlState,
   request: TurnRequest,
   now: number,
   offerMs: number,
   newId: () => string,
-): void {
+): Promise<void> {
   request.updatedAt = now;
   if (request.deliveryMode === 'task') {
     request.state = 'READY';
-    const task = values(state.tasks).find(value => value.requestId === request.id);
+    const task = (await state.all('tasks')).find(value => value.requestId === request.id);
     if (task) {
       task.updatedAt = now;
       task.statusMessage = 'Turn ready; poll the task to claim it.';
@@ -68,20 +62,19 @@ function makeRequestAvailable(
   request.offerId = newId();
   request.claimBy = now + offerMs;
 }
-
-export function materializeRequestOffer(
+export async function materializeRequestOffer(
   state: ControlState,
   request: TurnRequest,
   now: number,
   offerMs: number,
   newId: () => string,
-): void {
+): Promise<void> {
   if (request.state !== 'READY') return;
   request.state = 'OFFERED';
   request.offerId = newId();
   request.claimBy = now + offerMs;
   request.updatedAt = now;
-  const task = values(state.tasks).find(
+  const task = (await state.all('tasks')).find(
     value => value.requestId === request.id && value.status === 'working',
   );
   if (task) {
@@ -89,14 +82,13 @@ export function materializeRequestOffer(
     task.updatedAt = now;
   }
 }
-
-export function promoteFileRequests(
+export async function promoteFileRequests(
   state: ControlState,
   now: number,
   offerMs: number,
   newId: () => string,
-): void {
-  const requests = values(state.requests)
+): Promise<void> {
+  const requests = (await state.all('requests'))
     .filter(
       (request): request is FileTurnRequest =>
         request.resourceType === 'files' && activeStates.includes(request.state),
@@ -107,69 +99,35 @@ export function promoteFileRequests(
   for (const request of requests) {
     if (request.state !== 'QUEUED') continue;
     if (
-      state.instances[request.instanceId]?.active &&
+      (await state.get('instances', request.instanceId))?.active &&
       !reserved.some(other => fileSetsOverlap(request.paths, other.paths)) &&
       !earlier.some(other => fileSetsOverlap(request.paths, other.paths))
     ) {
-      makeRequestAvailable(state, request, now, offerMs, newId);
+      await makeRequestAvailable(state, request, now, offerMs, newId);
       reserved.push(request);
     }
     earlier.push(request);
   }
 }
-
-export function promoteRequests(
+export async function promoteRequests(
   state: ControlState,
   now: number,
   offerMs: number,
   newId: () => string,
-): void {
-  promoteFileRequests(state, now, offerMs, newId);
-  for (const project of values(state.projects)) {
-    if (project.recovering) continue;
-    const all = values(state.requests).filter(
-      request => request.resourceType !== 'files' && request.projectId === project.id,
+): Promise<void> {
+  await promoteFileRequests(state, now, offerMs, newId);
+  for (const project of await state.all('projects')) {
+    const all = (await state.all('requests', { projectId: project.id })).filter(
+      request => request.resourceType !== 'files',
     );
-    const projects = all.filter(request => request.resourceType === 'project');
-    if (projects.some(request => reservedStates.includes(request.state))) continue;
-    const barrier = projects
-      .filter(request => request.state === 'QUEUED')
-      .sort((a, b) => (BigInt(a.sequence) < BigInt(b.sequence) ? -1 : 1))[0];
-    if (barrier) {
-      for (const offered of all.filter(
-        request => request.resourceType !== 'project' && request.state === 'OFFERED',
-      )) {
-        offered.state = 'QUEUED';
-        delete offered.offerId;
-        delete offered.claimBy;
-      }
-      if (
-        all.some(
-          request =>
-            request.resourceType !== 'project' &&
-            (request.state === 'CLAIMED' || request.state === 'COMMITTING'),
-        )
-      ) {
-        continue;
-      }
-      if (state.instances[barrier.instanceId]?.active) {
-        makeRequestAvailable(state, barrier, now, offerMs, newId);
-      }
-      continue;
-    }
-    for (const resource of values(state.resources).filter(
-      resource =>
-        resource.projectId === project.id && resource.type !== 'project' && resource.present,
-    )) {
-      const requests = all.filter(
-        request => request.resourceType !== 'files' && request.resourceId === resource.id,
-      );
+    for (const resource of await state.all('resources', { projectId: project.id, present: true })) {
+      const requests = all.filter(request => request.resourceId === resource.id);
       if (requests.some(request => reservedStates.includes(request.state))) continue;
       const next = requests
         .filter(request => request.state === 'QUEUED')
         .sort((a, b) => (BigInt(a.sequence) < BigInt(b.sequence) ? -1 : 1))[0];
-      if (!next || !state.instances[next.instanceId]?.active) continue;
-      makeRequestAvailable(state, next, now, offerMs, newId);
+      if (!next || !(await state.get('instances', next.instanceId))?.active) continue;
+      await makeRequestAvailable(state, next, now, offerMs, newId);
     }
   }
 }

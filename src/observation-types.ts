@@ -42,7 +42,6 @@ export type ObservedTicket = Omit<Ticket, 'body'> & {
   ready: boolean;
 };
 export interface ContentObservation {
-  commit: string;
   threads: ObservedThread[];
   tickets: ObservedTicket[];
   totals: { threads: number; tickets: number; states: Record<string, number> };
@@ -85,12 +84,12 @@ export interface ObservedTurn {
   }[];
 }
 export interface ObservationSnapshot {
-  protocolVersion: 1;
+  protocolVersion: 2;
   epoch: string;
   cursor: string;
   at: number;
-  project: { id: string; commonDir: string; recovering: boolean } | null;
-  status: 'ready' | 'empty' | 'recovering' | 'content_unavailable';
+  project: { id: string; commonDir: string } | null;
+  status: 'ready' | 'empty' | 'content_unavailable';
   contentError?: string;
   agents: ObservedAgent[];
   turns: ObservedTurn[];
@@ -105,7 +104,6 @@ export type ObservedTicketDetail = Omit<TicketSnapshot, 'ticket'> & {
   ticket: Omit<Ticket, 'body'>;
 };
 export interface ObservationGraph {
-  commit: string;
   tickets: ObservedTicket[];
   hidden: number;
 }

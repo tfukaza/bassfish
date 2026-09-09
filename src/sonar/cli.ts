@@ -1,3 +1,4 @@
+import { loadSonarUi } from './ui-runtime.js';
 import { resolve } from 'node:path';
 import { requireThat } from '../domain.js';
 import { resolveRepository } from '../repository.js';
@@ -5,7 +6,6 @@ import { booleanFlag, take } from '../cli-helpers.js';
 import type { CliOutputOptions } from '../cli-output.js';
 import { SonarClient } from './client.js';
 import { views, initialScreen, paintScreen, type View } from './screen.js';
-
 export async function runSonar(
   args: string[],
   dataDir: string,
@@ -52,11 +52,7 @@ export async function runSonar(
       );
     return;
   }
-  const [{ render }, { createElement }, { SonarApp }] = await Promise.all([
-    import('ink'),
-    import('react'),
-    import('./app.js'),
-  ]);
+  const { render, createElement, SonarApp } = await loadSonarUi();
   const app = render(
     createElement(SonarApp, { client, initialView: view as View, ascii, color: options.color }),
     {

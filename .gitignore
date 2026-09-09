@@ -9,3 +9,6 @@ website/qa/
 /output/
 /outputs/
 /tmp/
+
+# Generated npm release archives
+*.tgz

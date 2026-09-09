@@ -1,3 +1,13 @@
+import { closeSync } from 'node:fs';
+import {
+  daemonDiagnostics,
+  daemonError,
+  openDaemonLog,
+  recordDaemonLifecycle,
+  rotateDaemonLog,
+} from './daemon-diagnostics.js';
+import { startMaintenance } from './maintenance.js';
+import { requireSupportedPlatform, tursoVersion } from './storage/platform.js';
 import { mkdir, chmod, lstat, unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { spawn } from 'node:child_process';
@@ -7,8 +17,9 @@ import type { Socket } from 'node:net';
 import { z } from 'zod';
 import { BassfishError, requireThat } from './domain.js';
 import { Bassfish } from './service.js';
-import { SqliteControl } from './storage/control.js';
-import { DoltContent } from './storage/dolt.js';
+import { TursoControl } from './storage/coordination.js';
+import { TursoContent } from './storage/content.js';
+import { requireFreshStorage } from './storage/turso.js';
 import { SystemClock } from './runtime.js';
 import { resolveRepository } from './repository.js';
 import { nameSchema } from './contracts.js';
@@ -16,7 +27,7 @@ import { exclusiveLock } from './lock.js';
 import { listenRpc, RpcClient } from './ipc.js';
 import { loadRuntimeConfig, runtimeConfigSchema, socketPath, packageRoot } from './config.js';
 import type { RuntimeConfig } from './config.js';
-import { entryArgs, requireDolt, startSql } from './supervisor.js';
+import { entryArgs } from './supervisor.js';
 import { selectNativeCandidate } from './agents/claude-native.js';
 import {
   ProjectObserver,
@@ -24,7 +35,6 @@ import {
   observationReadSchema,
   observationWaitSchema,
 } from './observer.js';
-
 const wakeHostSchema = z.enum(['claude', 'opencode']);
 const wakeNativeSchema = z
   .object({
@@ -58,13 +68,13 @@ const waitTaskSchema = z
   .object({
     taskId: z.string().min(1).max(200),
     updatedAfter: z.number().int().nonnegative(),
-    timeoutMs: z.number().int().min(0).max(20_000),
+    timeoutMs: z.number().int().min(0).max(20000),
     hostSessionId: hostSessionIdSchema.optional(),
   })
   .strict();
 const waitWorkSchema = z
   .object({
-    timeoutMs: z.number().int().min(0).max(20_000),
+    timeoutMs: z.number().int().min(0).max(20000),
     hostSessionId: hostSessionIdSchema.optional(),
   })
   .strict();
@@ -77,7 +87,7 @@ const nativeDeliverySchema = z
     clientId: z.string().uuid(),
     processAncestors: z.array(z.number().int().positive()).min(1).max(64),
     sessionId: hostSessionIdSchema.optional(),
-    timeoutMs: z.number().int().min(0).max(20_000),
+    timeoutMs: z.number().int().min(0).max(20000),
   })
   .strict();
 const closeNativeHostSessionSchema = nativeDeliverySchema
@@ -106,34 +116,33 @@ function parse<T>(schema: z.ZodType<T>, value: unknown): T {
   requireThat(result.success, 'INVALID_ARGUMENT', 'Invalid backend request.');
   return result.data;
 }
-
 export type DaemonOverrides = Partial<Pick<RuntimeConfig, 'turnTimeoutMs'>>;
-
-export async function runDaemon(
-  dataDir: string,
-  binary: string,
-  overrides: DaemonOverrides = {},
-): Promise<void> {
+export async function runDaemon(dataDir: string, overrides: DaemonOverrides = {}): Promise<void> {
+  requireSupportedPlatform();
   process.umask(0o077);
   const path = socketPath(dataDir);
   await mkdir(join(dataDir, 'run'), { recursive: true, mode: 0o700 });
   await chmod(dataDir, 0o700);
   await chmod(join(dataDir, 'run'), 0o700);
   const unlock = exclusiveLock(join(dataDir, 'run', 'daemon-owner.lock'));
-  let sql: Awaited<ReturnType<typeof startSql>> | undefined;
-  let control: SqliteControl | undefined;
-  let content: DoltContent | undefined;
+  let control: TursoControl | undefined;
+  let content: TursoContent | undefined;
   let rpc: Awaited<ReturnType<typeof listenRpc>> | undefined;
-  let timer: NodeJS.Timeout | undefined;
+  let stopMaintenance: (() => void) | undefined;
+  let epoch: string | undefined;
+  const fatal = (error: unknown): never => {
+    recordDaemonLifecycle(dataDir, 'failed', { epoch, ...daemonError(error) });
+    process.exit(1);
+  };
+  recordDaemonLifecycle(dataDir, 'starting');
   let closing: Promise<void> | undefined;
-  const stop = (): Promise<void> =>
+  const stop = (reason = 'requested'): Promise<void> =>
     (closing ??= (async () => {
-      if (timer) clearInterval(timer);
-      // Accepted writes drain before either store is closed; process death uses recovery instead.
+      stopMaintenance?.();
       await rpc?.close();
-      await content?.close();
-      await sql?.close();
-      control?.close();
+      await control?.activity.publish();
+      await control?.close();
+      if (reason !== 'startup_failed') recordDaemonLifecycle(dataDir, 'stopped', { epoch, reason });
       unlock();
     })());
   try {
@@ -152,12 +161,9 @@ export async function runDaemon(
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
     }
-    sql = await startSql(dataDir, binary);
-    void sql.ended.then(() => {
-      if (!closing) fatal(new Error('The SQL guardian exited unexpectedly.'));
-    });
-    control = new SqliteControl(join(dataDir, 'control.sqlite'));
-    content = new DoltContent(sql.endpoint);
+    await requireFreshStorage(dataDir);
+    control = await TursoControl.open(join(dataDir, 'bassfish.db'));
+    content = new TursoContent(control.store);
     const service = new Bassfish(
       control,
       content,
@@ -208,20 +214,20 @@ export async function runDaemon(
         if (signal?.aborted) abort();
         else signal?.addEventListener('abort', abort, { once: true });
       });
-    const closeHandle = (session: AdapterSession, sessionId: string, clean = true) => {
+    const closeHandle = async (session: AdapterSession, sessionId: string, clean = true) => {
       const handle = session.handles.get(sessionId);
       if (!handle) return;
-      service.disconnect(handle, clean);
+      await service.disconnect(handle, clean);
       session.handles.delete(sessionId);
       idleHostSessions.delete(`${session.id}:${sessionId}`);
       if (session.defaultHostSessionId === sessionId) session.defaultHostSessionId = undefined;
     };
-    const closeAdapter = (session: AdapterSession, clean = true) => {
+    const closeAdapter = async (session: AdapterSession, clean = true) => {
       for (const handle of new Set([
         ...(session.defaultHandle ? [session.defaultHandle] : []),
         ...session.handles.values(),
       ]))
-        service.disconnect(handle, clean);
+        await service.disconnect(handle, clean);
       session.defaultHandle = undefined;
       session.defaultHostSessionId = undefined;
       session.handles.clear();
@@ -237,7 +243,7 @@ export async function runDaemon(
       const existing = session.handles.get(sessionId);
       if (existing) {
         try {
-          service.heartbeat(existing);
+          await service.heartbeat(existing);
           return existing;
         } catch (error) {
           if (!(error instanceof BassfishError) || error.code !== 'SESSION_EXPIRED') throw error;
@@ -250,14 +256,15 @@ export async function runDaemon(
         session.native,
         session.workspace,
         sessionId,
+        false,
       );
       session.handles.set(sessionId, opened.agentHandle);
       return opened.agentHandle;
     };
     const resolveHandle = async (session: AdapterSession, hostSessionId?: string) => {
-      if (hostSessionId) return ensureHostHandle(session, hostSessionId);
+      if (hostSessionId) return await ensureHostHandle(session, hostSessionId);
       if (session.defaultHostSessionId)
-        return ensureHostHandle(session, session.defaultHostSessionId);
+        return await ensureHostHandle(session, session.defaultHostSessionId);
       requireThat(
         session.defaultHandle,
         'HOST_SESSION_REQUIRED',
@@ -272,10 +279,10 @@ export async function runDaemon(
         'Only Claude Code and Codex bind a default host session.',
       );
       if (session.defaultHostSessionId && session.defaultHostSessionId !== sessionId)
-        closeHandle(session, session.defaultHostSessionId);
+        await closeHandle(session, session.defaultHostSessionId);
       const handle = await ensureHostHandle(session, sessionId);
       session.defaultHostSessionId = sessionId;
-      return { agentHandle: handle, session: service.info(handle) };
+      return { agentHandle: handle, session: await service.info(handle) };
     };
     let lastActivity = Date.now();
     const opening = new Set<Socket>();
@@ -308,7 +315,7 @@ export async function runDaemon(
                 'Observation opening cancelled.',
               );
               observers.set(socket, commonDir);
-              return { protocolVersion: 1, epoch: service.epoch };
+              return { protocolVersion: 2, epoch: service.epoch };
             } finally {
               opening.delete(socket);
             }
@@ -329,13 +336,32 @@ export async function runDaemon(
             return { closed: true };
           case 'getHealth':
             return {
-              apiVersion: 11,
+              apiVersion: 14,
               pid: process.pid,
               epoch: service.epoch,
               dataDir,
-              state: sql?.alive() ? 'ready' : 'sqlUnavailable',
+              state: 'ready',
+              diagnostics: daemonDiagnostics(dataDir),
+              storage: {
+                engine: 'turso',
+                version: tursoVersion,
+                path: join(dataDir, 'bassfish.db'),
+              },
               config,
-              control: service.inspect(),
+              control: await service.inspect(),
+            };
+          case 'probeHealth':
+            return {
+              apiVersion: 14,
+              pid: process.pid,
+              epoch: service.epoch,
+              state: 'ready',
+              diagnostics: daemonDiagnostics(dataDir),
+              storage: {
+                engine: 'turso',
+                version: tursoVersion,
+                path: join(dataDir, 'bassfish.db'),
+              },
             };
           case 'stopDaemon':
             setTimeout(() => {
@@ -343,9 +369,9 @@ export async function runDaemon(
             }, 25);
             return { stopping: true };
           case 'inspectDaemon':
-            return service.inspect();
+            return await service.inspect();
           case 'forceRelease':
-            service.forceRelease(parse(releaseSchema, params).turnId);
+            await service.forceRelease(parse(releaseSchema, params).turnId);
             return { released: true };
           case 'openSession': {
             requireThat(
@@ -366,18 +392,21 @@ export async function runDaemon(
                 native: args.native,
                 handles: new Map(),
               };
-              let result: { agentHandle?: string; session: unknown } = { session: null };
+              let result: {
+                agentHandle?: string;
+                session: unknown;
+              } = { session: null };
               if (args.native && args.hostSessionId) {
                 const handle = await ensureHostHandle(session, args.hostSessionId);
                 session.defaultHostSessionId = args.hostSessionId;
-                result = { agentHandle: handle, session: service.info(handle) };
+                result = { agentHandle: handle, session: await service.info(handle) };
               } else if (!args.native) {
                 const opened = await service.open(commonDir, args.name, undefined, args.workspace);
                 session.defaultHandle = opened.agentHandle;
                 result = opened;
               }
               if (socket.destroyed || signal.aborted) {
-                closeAdapter(session, false);
+                await closeAdapter(session, false);
                 throw new BassfishError('CANCELLED', 'Adapter disconnected while opening.');
               }
               sessions.set(socket, session);
@@ -392,7 +421,7 @@ export async function runDaemon(
           }
           case 'closeSession': {
             const session = sessions.get(socket);
-            if (session) closeAdapter(session);
+            if (session) await closeAdapter(session);
             sessions.delete(socket);
             if (nativeSessions.delete(socket)) signalNativeChange();
             return { closed: true };
@@ -404,7 +433,7 @@ export async function runDaemon(
               ...(session.defaultHandle ? [session.defaultHandle] : []),
               ...session.handles.values(),
             ]))
-              service.heartbeat(handle);
+              await service.heartbeat(handle);
             return { alive: true };
           }
           case 'bindHostSession': {
@@ -426,16 +455,25 @@ export async function runDaemon(
               'Host delivery hooks are available only to Claude Code and Codex.',
             );
             const args = parse(hostDeliverySchema, params);
+            const handle = await ensureHostHandle(session, args.sessionId);
+            session.defaultHostSessionId = args.sessionId;
             const key = `${session.id}:${args.sessionId}`;
             if (args.phase === 'idle') idleHostSessions.add(key);
             else idleHostSessions.delete(key);
             const batch = await service.waitForDeliveryHandle(
-              await ensureHostHandle(session, args.sessionId),
+              handle,
               0,
               args.phase === 'active' ? 'actionable' : 'all',
               signal,
             );
-            if ((batch as { count: number }).count > 0) idleHostSessions.delete(key);
+            if (
+              (
+                batch as {
+                  count: number;
+                }
+              ).count > 0
+            )
+              idleHostSessions.delete(key);
             signalNativeChange();
             return batch;
           }
@@ -477,7 +515,7 @@ export async function runDaemon(
             const session = sessions.get(socket);
             requireThat(session, 'SESSION_REQUIRED', 'Open an adapter connection first.');
             const args = parse(taskSchema, params);
-            return service.cancelTask(
+            return await service.cancelTask(
               await resolveHandle(session, args.hostSessionId),
               args.taskId,
             );
@@ -500,6 +538,42 @@ export async function runDaemon(
             const args = parse(waitWorkSchema, params);
             return service.waitForWork(
               await resolveHandle(session, args.hostSessionId),
+              args.timeoutMs,
+              signal,
+            );
+          }
+          case 'createWorkTask': {
+            const session = sessions.get(socket);
+            requireThat(session, 'SESSION_REQUIRED', 'Open an adapter connection first.');
+            const args = parse(waitWorkSchema.omit({ timeoutMs: true }), params);
+            return await service.createWorkTask(await resolveHandle(session, args.hostSessionId));
+          }
+          case 'getWorkTask': {
+            const session = sessions.get(socket);
+            requireThat(session, 'SESSION_REQUIRED', 'Open an adapter connection first.');
+            const args = parse(taskSchema, params);
+            return service.getWorkTask(
+              await resolveHandle(session, args.hostSessionId),
+              args.taskId,
+            );
+          }
+          case 'cancelWorkTask': {
+            const session = sessions.get(socket);
+            requireThat(session, 'SESSION_REQUIRED', 'Open an adapter connection first.');
+            const args = parse(taskSchema, params);
+            return await service.cancelWorkTask(
+              await resolveHandle(session, args.hostSessionId),
+              args.taskId,
+            );
+          }
+          case 'waitWorkTask': {
+            const session = sessions.get(socket);
+            requireThat(session, 'SESSION_REQUIRED', 'Open an adapter connection first.');
+            const args = parse(waitTaskSchema, params);
+            return service.waitWorkTask(
+              await resolveHandle(session, args.hostSessionId),
+              args.taskId,
+              args.updatedAfter,
               args.timeoutMs,
               signal,
             );
@@ -543,7 +617,13 @@ export async function runDaemon(
                       'all',
                       signal,
                     );
-                    if ((batch as { count: number }).count > 0) {
+                    if (
+                      (
+                        batch as {
+                          count: number;
+                        }
+                      ).count > 0
+                    ) {
                       idleHostSessions.delete(`${session.id}:${sessionId}`);
                       return batch;
                     }
@@ -584,7 +664,7 @@ export async function runDaemon(
             const session = match
               ? [...nativeSessions.values()].find(candidate => candidate.id === match.handle)
               : undefined;
-            if (session) closeHandle(session, args.sessionId);
+            if (session) await closeHandle(session, args.sessionId);
             signalNativeChange();
             return { closed: Boolean(session) };
           }
@@ -592,71 +672,86 @@ export async function runDaemon(
             throw new BassfishError('UNKNOWN_METHOD', 'Unknown backend method.');
         }
       },
-      socket => {
+      async socket => {
         observers.delete(socket);
         const session = sessions.get(socket);
-        if (session) closeAdapter(session, false);
+        if (session) await closeAdapter(session, false);
         sessions.delete(socket);
         if (nativeSessions.delete(socket)) signalNativeChange();
       },
     );
     await chmod(path, 0o600);
-    timer = setInterval(() => {
-      try {
-        service.sweep();
+    epoch = service.epoch;
+    recordDaemonLifecycle(dataDir, 'ready', { epoch });
+    stopMaintenance = startMaintenance(
+      async () => {
+        rotateDaemonLog(dataDir);
+        await service.sweep();
         if (
+          !closing &&
           sessions.size === 0 &&
           observers.size === 0 &&
-          !service.hasPendingWork() &&
+          !(await service.hasPendingWork()) &&
           Date.now() - lastActivity >= config.idleMs
         )
-          void stop().catch(fatal);
-      } catch (error) {
-        fatal(error);
-      }
-    }, 250);
+          void stop('idle').catch(fatal);
+      },
+      fatal,
+      recovered =>
+        recordDaemonLifecycle(
+          dataDir,
+          recovered ? 'maintenance_recovered' : 'maintenance_deferred',
+          { epoch, code: 'STORAGE_BUSY' },
+        ),
+    );
     process.once('SIGINT', () => {
-      void stop().catch(fatal);
+      void stop('SIGINT').catch(fatal);
     });
     process.once('SIGTERM', () => {
-      void stop().catch(fatal);
+      void stop('SIGTERM').catch(fatal);
     });
   } catch (error) {
-    await stop();
+    recordDaemonLifecycle(dataDir, 'failed', { epoch, ...daemonError(error) });
+    await stop('startup_failed');
     throw error;
   }
 }
-function fatal(error: unknown): never {
-  process.stderr.write(
-    `Bassfish daemon stopped: ${error instanceof BassfishError ? error.code : 'INTERNAL_ERROR'}\n`,
-  );
-  process.exit(1); // The SQL guardian reaps its child when this pipe closes.
-}
-
 export async function connectDaemon(dataDir: string): Promise<RpcClient> {
   return RpcClient.connect(socketPath(dataDir));
 }
-async function probe(dataDir: string): Promise<boolean> {
-  let client;
+async function probe(dataDir: string, signal?: AbortSignal): Promise<boolean> {
+  signal?.throwIfAborted();
+  let client: RpcClient | undefined;
+  const abort = () => client?.socket.destroy();
+  signal?.addEventListener('abort', abort, { once: true });
   try {
     client = await connectDaemon(dataDir);
-    const result = await client.call<{ apiVersion: number }>('getHealth');
-    requireThat(result.apiVersion === 11, 'API_VERSION', 'Incompatible daemon API.');
+    signal?.throwIfAborted();
+    const result = await client.call<{
+      apiVersion: number;
+    }>('probeHealth', {}, undefined, 2000);
+    requireThat(
+      result.apiVersion === 14,
+      'API_VERSION',
+      'Incompatible daemon API. Update the CLI and host plugin together, then restart the daemon.',
+    );
     return true;
   } catch (error) {
+    signal?.throwIfAborted();
     if (['ENOENT', 'ECONNREFUSED'].includes((error as NodeJS.ErrnoException).code ?? ''))
       return false;
     throw error;
   } finally {
-    client?.close();
+    signal?.removeEventListener('abort', abort);
+    client?.socket.destroy();
   }
 }
 export async function ensureDaemon(
   dataDir: string,
-  binary: string,
   overrides: DaemonOverrides = {},
+  signal?: AbortSignal,
 ): Promise<void> {
-  if (await probe(dataDir)) {
+  if (await probe(dataDir, signal)) {
     requireThat(
       overrides.turnTimeoutMs === undefined,
       'DAEMON_RUNNING',
@@ -664,11 +759,31 @@ export async function ensureDaemon(
     );
     return;
   }
-  await requireDolt(binary);
+  await requireFreshStorage(dataDir);
   await mkdir(join(dataDir, 'run'), { recursive: true, mode: 0o700 });
-  const unlock = exclusiveLock(join(dataDir, 'run', 'startup.lock'), 10_000);
+  const deadline = performance.now() + 30000;
+  let unlock: (() => void) | undefined;
+  while (!unlock) {
+    signal?.throwIfAborted();
+    try {
+      unlock = exclusiveLock(`${dataDir}.lifecycle.lock`);
+    } catch (error) {
+      if ((error as { code?: string }).code !== 'ALREADY_RUNNING') throw error;
+      if (await probe(dataDir, signal)) {
+        requireThat(
+          overrides.turnTimeoutMs === undefined,
+          'DAEMON_RUNNING',
+          'Another daemon started first. Stop it before changing the turn timeout.',
+        );
+        return;
+      }
+      if (performance.now() >= deadline) throw error;
+      await delay(100 + Math.random() * 100, undefined, { signal });
+    }
+  }
   try {
-    if (await probe(dataDir)) {
+    await requireFreshStorage(dataDir);
+    if (await probe(dataDir, signal)) {
       requireThat(
         overrides.turnTimeoutMs === undefined,
         'DAEMON_RUNNING',
@@ -680,12 +795,19 @@ export async function ensureDaemon(
       overrides.turnTimeoutMs === undefined
         ? []
         : ['--turn-timeout', `${overrides.turnTimeoutMs}ms`];
-    const child = spawn(process.execPath, entryArgs('daemon', 'run', ...daemonArgs), {
-      cwd: packageRoot,
-      detached: true,
-      stdio: 'ignore',
-      env: { ...process.env, BASSFISH_DATA_DIR: dataDir, BASSFISH_DOLT_BIN: binary },
-    });
+    signal?.throwIfAborted();
+    const logFd = openDaemonLog(dataDir);
+    let child;
+    try {
+      child = spawn(process.execPath, entryArgs('daemon', 'run', ...daemonArgs), {
+        cwd: packageRoot,
+        detached: true,
+        stdio: ['ignore', 'ignore', logFd],
+        env: { ...process.env, BASSFISH_DATA_DIR: dataDir },
+      });
+    } finally {
+      closeSync(logFd);
+    }
     let failed = false;
     child.once('error', () => {
       failed = true;
@@ -694,14 +816,26 @@ export async function ensureDaemon(
       failed = true;
     });
     child.unref();
-    const deadline = performance.now() + 30_000;
-    while (!(await probe(dataDir))) {
+    while (!(await probe(dataDir, signal))) {
+      if (failed) {
+        const { lastLifecycle, logPath } = daemonDiagnostics(dataDir);
+        if (
+          lastLifecycle &&
+          lastLifecycle.pid === child.pid &&
+          lastLifecycle.event === 'failed' &&
+          typeof lastLifecycle.code === 'string'
+        )
+          throw new BassfishError(
+            lastLifecycle.code,
+            `${String(lastLifecycle.error ?? 'Daemon startup failed.')} Diagnostics: ${logPath}`,
+          );
+      }
       if (failed || performance.now() > deadline)
         throw new BassfishError(
           'DAEMON_START_FAILED',
-          'Daemon startup failed. Run bassfish daemon run in the foreground to inspect startup diagnostics.',
+          'Daemon startup failed. Run bassfish daemon status --json to locate persisted diagnostics.',
         );
-      await delay(100);
+      await delay(100, undefined, { signal });
     }
   } finally {
     unlock();

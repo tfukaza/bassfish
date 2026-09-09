@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { mkdir, rename, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { strToU8, zipSync } from 'fflate';
-import type { ProjectSnapshot } from './domain.js';
+import type { CurrentProject } from './domain.js';
 
 const stable = (value: unknown): string =>
   JSON.stringify(
@@ -20,8 +20,8 @@ const fixed = new Date(1980, 1, 1, 0, 0, 0, 0);
 export async function exportProject(
   dataDir: string,
   projectId: string,
-  snapshot: ProjectSnapshot,
-): Promise<{ path: string; bytes: number; sha256: string; snapshotCommit: string }> {
+  snapshot: CurrentProject,
+): Promise<{ path: string; bytes: number; sha256: string; exportedAt: string }> {
   const files: Record<string, [Uint8Array, { mtime: Date; level: 0 }]> = {};
   const add = (path: string, value: string) => {
     files[path] = [strToU8(value), { mtime: fixed, level: 0 }];
@@ -47,7 +47,16 @@ export async function exportProject(
     .map(path => ({ path, sha256: createHash('sha256').update(files[path]![0]).digest('hex') }));
   add(
     'manifest.json',
-    stable({ schemaVersion: 2, projectId, snapshotCommit: snapshot.commit, inventory }),
+    stable({
+      schemaVersion: 3,
+      projectId,
+      exportedAt: snapshot.exportedAt,
+      revisions: [...snapshot.threads, ...snapshot.tickets].map(resource => ({
+        id: resource.id,
+        revision: resource.revision,
+      })),
+      inventory,
+    }),
   );
   const archive = zipSync(
     Object.fromEntries(Object.entries(files).sort(([a], [b]) => a.localeCompare(b))),
@@ -55,9 +64,9 @@ export async function exportProject(
   const sha256 = createHash('sha256').update(archive).digest('hex');
   const directory = join(dataDir, 'exports');
   await mkdir(directory, { recursive: true, mode: 0o700 });
-  const path = join(directory, `${projectId}-${snapshot.commit.slice(0, 12)}.zip`);
+  const path = join(directory, `${projectId}-${sha256.slice(0, 12)}.zip`);
   const temporary = `${path}.${process.pid}.tmp`;
   await writeFile(temporary, archive, { mode: 0o600 });
   await rename(temporary, path);
-  return { path, bytes: archive.byteLength, sha256, snapshotCommit: snapshot.commit };
+  return { path, bytes: archive.byteLength, sha256, exportedAt: snapshot.exportedAt };
 }

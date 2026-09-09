@@ -1,4 +1,9 @@
 import { setTimeout as delay } from 'node:timers/promises';
+import type { Plugin as OpenCodeV1Plugin } from '@opencode-ai/plugin';
+import type {
+  Context as OpenCodeV2Context,
+  Plugin as OpenCodeV2Plugin,
+} from '@opencode/plugin/promise/plugin';
 import { dataDirectory, socketPath } from './config.js';
 import { RpcClient } from './ipc.js';
 import { processAncestry, readOrCreateOpenCodeClientId } from './agents/claude-native.js';
@@ -7,18 +12,17 @@ import {
   type DeliveredNotification,
   type DeliveryBatch,
 } from './notification-delivery.js';
-
 export type OpenCodeDeliveryBatch = DeliveryBatch;
-
 interface OpenCodeClient {
   session: {
     get(options: unknown): Promise<unknown>;
     status(options: unknown): Promise<unknown>;
     prompt(options: unknown): Promise<unknown>;
   };
-  app: { log(options: unknown): Promise<unknown> };
+  app: {
+    log(options: unknown): Promise<unknown>;
+  };
 }
-
 export interface OpenCodePluginInput {
   client: OpenCodeClient;
   directory: string;
@@ -34,7 +38,6 @@ export interface OpenCodePluginDependencies {
   ancestry?: () => Promise<number[]>;
   delay?: (milliseconds: number, signal: AbortSignal) => Promise<void>;
 }
-
 const reservedEnvironment = {
   BASSFISH_OPENCODE_NATIVE: '1',
 };
@@ -52,7 +55,6 @@ const bassfishToolNames = new Set([
   'commitTurn',
   'releaseTurn',
 ]);
-
 function record(value: unknown): Record<string, unknown> | undefined {
   return value && typeof value === 'object' && !Array.isArray(value)
     ? (value as Record<string, unknown>)
@@ -79,6 +81,12 @@ function commandIsBassfish(value: unknown): value is string[] {
     value.includes('mcp')
   );
 }
+function configuredDataDirectory(environment: Record<string, unknown>): string {
+  const configured = environment.BASSFISH_DATA_DIR;
+  return typeof configured === 'string' && configured !== '{env:BASSFISH_DATA_DIR}'
+    ? configured
+    : dataDirectory();
+}
 function isBassfishTool(value: unknown): value is string {
   if (typeof value !== 'string') return false;
   for (const name of bassfishToolNames)
@@ -91,7 +99,6 @@ function isBassfishTool(value: unknown): value is string {
       return true;
   return false;
 }
-
 /** Adds native delivery metadata without replacing user-owned Bassfish MCP settings. */
 export function configureOpenCodeMcp(
   config: Record<string, unknown>,
@@ -124,16 +131,43 @@ export function configureOpenCodeMcp(
     environment: configuredEnvironment,
   };
   config.mcp = mcp;
-  const configuredDataDir = configuredEnvironment.BASSFISH_DATA_DIR;
-  if (typeof configuredDataDir === 'string' && configuredDataDir !== '{env:BASSFISH_DATA_DIR}')
-    return configuredDataDir;
-  return dataDirectory();
+  return configuredDataDirectory(configuredEnvironment);
 }
-
+interface OpenCodeV2McpEditor {
+  get(name: string): unknown;
+  set(name: string, config: unknown): void;
+}
+/** Current OpenCode V2 uses a transformed mcp.servers map and `disabled`. */
+export function configureOpenCodeV2Mcp(editor: OpenCodeV2McpEditor, directory: string): string {
+  const raw = editor.get('bassfish');
+  const current = raw === undefined ? undefined : record(raw);
+  if (raw !== undefined && !current)
+    throw new Error('OpenCode V2 mcp.servers.bassfish must be a local MCP object.');
+  if (current && (current.type !== 'local' || !commandIsBassfish(current.command)))
+    throw new Error(
+      'The Bassfish OpenCode plugin cannot augment a non-local or non-Bassfish V2 MCP entry.',
+    );
+  const environment = current?.environment === undefined ? {} : record(current.environment);
+  if (!environment)
+    throw new Error('OpenCode V2 mcp.servers.bassfish.environment must be an object.');
+  const configuredEnvironment: Record<string, unknown> = {
+    ...environment,
+    ...reservedEnvironment,
+  };
+  delete configuredEnvironment.BASSFISH_WAKE_MODE;
+  delete configuredEnvironment.BASSFISH_MAX_AUTO_WAKES_PER_HOUR;
+  editor.set('bassfish', {
+    ...(current ?? {}),
+    type: 'local',
+    disabled: false,
+    command: current?.command ?? ['bassfish', 'mcp', '--workspace', directory],
+    environment: configuredEnvironment,
+  });
+  return configuredDataDirectory(configuredEnvironment);
+}
 export function formatOpenCodeDeliveryPrompt(batch: OpenCodeDeliveryBatch): string {
   return formatDeliveryContext(batch);
 }
-
 function mergeDelivery(
   left: OpenCodeDeliveryBatch,
   right: OpenCodeDeliveryBatch,
@@ -167,7 +201,6 @@ const emptyDelivery = (): OpenCodeDeliveryBatch => ({
   senders: [],
   notifications: [],
 });
-
 export function createBassfishPlugin(dependencies: OpenCodePluginDependencies = {}) {
   const connect = dependencies.connect ?? (async dir => RpcClient.connect(socketPath(dir)));
   const getClientId = dependencies.clientId ?? readOrCreateOpenCodeClientId;
@@ -177,7 +210,6 @@ export function createBassfishPlugin(dependencies: OpenCodePluginDependencies = 
     (async (milliseconds, signal) => {
       await delay(milliseconds, undefined, { signal });
     });
-
   return async function BassfishPlugin(input: OpenCodePluginInput, rawOptions: unknown = {}) {
     const abort = new AbortController();
     const parents = new Map<string, string | undefined>();
@@ -193,8 +225,12 @@ export function createBassfishPlugin(dependencies: OpenCodePluginDependencies = 
       }
     >();
     let runtimeDataDir: string | undefined;
-    let nativeIdentity: Promise<{ clientId: string; processAncestors: number[] }> | undefined;
-
+    let nativeIdentity:
+      | Promise<{
+          clientId: string;
+          processAncestors: number[];
+        }>
+      | undefined;
     const log = async (level: 'info' | 'warn' | 'error', message: string, error?: unknown) => {
       await input.client.app
         .log({
@@ -292,7 +328,7 @@ export function createBassfishPlugin(dependencies: OpenCodePluginDependencies = 
       const state = sessions.get(sessionID);
       if (!state) return;
       const { clientId, processAncestors } = await (nativeIdentity ??= Promise.all([
-        getClientId(dataDir),
+        await getClientId(dataDir),
         getAncestry(),
       ]).then(([id, ancestors]) => ({ clientId: id, processAncestors: ancestors })));
       let backoff = 250;
@@ -309,7 +345,7 @@ export function createBassfishPlugin(dependencies: OpenCodePluginDependencies = 
                 clientId,
                 processAncestors,
                 sessionId: sessionID,
-                timeoutMs: 20_000,
+                timeoutMs: 20000,
               },
               state.controller.signal,
             );
@@ -329,7 +365,7 @@ export function createBassfishPlugin(dependencies: OpenCodePluginDependencies = 
           } catch {
             return;
           }
-          backoff = Math.min(backoff * 2, 5_000);
+          backoff = Math.min(backoff * 2, 5000);
         }
       }
     };
@@ -374,11 +410,10 @@ export function createBassfishPlugin(dependencies: OpenCodePluginDependencies = 
           await log('error', 'Bassfish OpenCode session cleanup failed.', error);
       }
     };
-
     return {
       config: async (config: Record<string, unknown>) => {
         runtimeDataDir = configureOpenCodeMcp(config, input.directory, rawOptions);
-        nativeIdentity = Promise.all([getClientId(runtimeDataDir), getAncestry()]).then(
+        nativeIdentity = Promise.all([await getClientId(runtimeDataDir), getAncestry()]).then(
           ([clientId, processAncestors]) => ({ clientId, processAncestors }),
         );
         for (const sessionID of sessions.keys()) void runPump(sessionID, runtimeDataDir);
@@ -445,6 +480,140 @@ export function createBassfishPlugin(dependencies: OpenCodePluginDependencies = 
     };
   };
 }
-
 export const BassfishPlugin = createBassfishPlugin();
-export default { id: 'bassfish', server: BassfishPlugin };
+/**
+ * OpenCode V2 adapter. It translates V2 domains into the stable V1 hooks so
+ * identity routing and delivery semantics have one implementation.
+ */
+export const BassfishV2Plugin: OpenCodeV2Plugin = {
+  id: 'bassfish',
+  async setup(context: OpenCodeV2Context) {
+    const abort = new AbortController();
+    const statuses: Record<
+      string,
+      {
+        type: string;
+      }
+    > = {};
+    let runtimeDataDir = dataDirectory();
+    const mcpRegistration = await context.mcp.transform(editor => {
+      runtimeDataDir = configureOpenCodeV2Mcp(editor, context.location.directory);
+    });
+    const hooks = await BassfishPlugin({
+      directory: context.location.directory,
+      client: {
+        session: {
+          get: async options => {
+            const id = record(record(options)?.path)?.id;
+            if (typeof id !== 'string') throw new Error('Missing OpenCode V2 session ID.');
+            return await context.session.get({ sessionID: id });
+          },
+          status: async () => statuses,
+          prompt: async options => {
+            const input = record(options);
+            const id = record(input?.path)?.id;
+            const body = record(input?.body);
+            const parts = Array.isArray(body?.parts) ? body.parts : [];
+            const text = parts
+              .map(part => record(part)?.text)
+              .filter((value): value is string => typeof value === 'string')
+              .join('\n');
+            if (typeof id !== 'string' || !text)
+              throw new Error('Invalid Bassfish delivery for OpenCode V2.');
+            const active = body?.noReply === true;
+            return await context.session.synthetic({
+              sessionID: id,
+              text,
+              description: 'Bassfish collaboration notification',
+              metadata: { bassfish: true },
+              delivery: active ? 'steer' : 'queue',
+              resume: !active,
+            });
+          },
+        },
+        app: { log: async () => ({}) },
+      },
+    });
+    await hooks.config?.({
+      mcp: {
+        bassfish: {
+          type: 'local',
+          command: ['bassfish', 'mcp', '--workspace', context.location.directory],
+          environment: {
+            BASSFISH_DATA_DIR: runtimeDataDir,
+            ...reservedEnvironment,
+          },
+        },
+      },
+    });
+    const toolRegistration = await context.tool.hook('execute.before', async event => {
+      const output: Record<string, unknown> = { args: record(event.input) ?? {} };
+      await hooks['tool.execute.before']?.(
+        { sessionID: event.sessionID, tool: event.tool },
+        output,
+      );
+      event.input = output.args;
+    });
+    const events = context.event.subscribe({ signal: abort.signal });
+    const eventLoop = (async () => {
+      for await (const event of events) {
+        const value = event as unknown as Record<string, unknown>;
+        const data = record(value.data);
+        const sessionID = data?.sessionID;
+        if (typeof sessionID !== 'string') continue;
+        const eventData = data!;
+        if (value.type === 'session.created')
+          await hooks.event?.({
+            event: {
+              type: 'session.created',
+              properties: {
+                info: {
+                  id: sessionID,
+                  ...(eventData.parentID ? { parentID: eventData.parentID } : {}),
+                },
+              },
+            },
+          });
+        else if (value.type === 'session.deleted')
+          await hooks.event?.({
+            event: { type: 'session.deleted', properties: { sessionID } },
+          });
+        else if (value.type === 'session.idle') {
+          statuses[sessionID] = { type: 'idle' };
+          await hooks.event?.({ event: { type: 'session.idle', properties: { sessionID } } });
+        } else if (value.type === 'session.status') {
+          const status = record(eventData.status);
+          statuses[sessionID] = { type: String(status?.type ?? 'busy') };
+          await hooks.event?.({
+            event: { type: 'session.status', properties: { sessionID, status } },
+          });
+        } else if (value.type === 'session.execution.started') {
+          statuses[sessionID] = { type: 'busy' };
+          await hooks['chat.message']?.(
+            { sessionID },
+            { parts: [{ type: 'text', text: 'OpenCode V2 session activity' }] },
+          );
+        }
+      }
+    })().catch(error => {
+      if (!abort.signal.aborted) console.error('Bassfish OpenCode V2 event stream failed.', error);
+    });
+    return async () => {
+      abort.abort();
+      await eventLoop;
+      await toolRegistration.dispose();
+      await mcpRegistration.dispose();
+      await hooks.dispose?.();
+    };
+  },
+};
+const plugin: {
+  id: string;
+  server: OpenCodeV1Plugin;
+  setup: OpenCodeV2Plugin['setup'];
+} = {
+  id: 'bassfish',
+  server: BassfishPlugin as OpenCodeV1Plugin,
+  setup: BassfishV2Plugin.setup,
+};
+export default plugin;

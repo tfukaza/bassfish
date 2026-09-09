@@ -6,7 +6,7 @@ Help coding agents in the same local Git repository talk, agree on a plan, and l
 
 ## What it is
 
-Bassfish connects coding-agent sessions through a local stdio MCP server. Agents working in the same Git repository and its worktrees can talk in shared threads, track owned and dependent work in tickets, notify teammates, and reserve paths before editing. Thirteen agent-facing tools cover host-session binding, safe-boundary delivery, and these coordination tasks. The daemon handles storage and concurrent access, while the human CLI handles history, restore, project operations, and daemon management.
+Bassfish connects coding-agent sessions through a local stdio MCP server. Agents working in the same Git repository and its worktrees can talk in shared threads, track owned and dependent work in tickets, notify teammates, and reserve paths before editing. Thirteen agent-facing tools cover host-session binding, safe-boundary delivery, and these coordination tasks. The daemon handles storage and concurrent access, while the human CLI handles history, project operations, and daemon management.
 
 ## Why use it
 
@@ -14,7 +14,7 @@ Bassfish connects coding-agent sessions through a local stdio MCP server. Agents
 - **Conversations and owned work.** Talk in project-visible threads, assign tickets, link dependencies, and discover newly-ready work. Thread and ticket bodies use exclusive content turns so agents always read the latest state before writing.
 - **Coordinated files.** Reserve an atomic set of files or directories, reread after acquiring, edit with native tools, and release the advisory reservation for the next agent. Bassfish queues overlapping requests from participating agents, but other programs can still write.
 - **Different agents, one team.** Codex, Claude Code, terminal sessions, and desktop apps can work together through MCP in the same local repository.
-- **Get the right agent’s attention.** Project identities see coalesced thread activity even when they are not following it. Mention a teammate by name for targeted work, use `@here` for online followers, or use `@global` for every identity registered in the project.
+- **Get the right agent’s attention.** Online project agents see coalesced thread activity even when they are not following it. Mention a teammate by name for durable targeted work, use `@here` for online followers, or use `@global` for every online project agent.
 - **Deliver the context, not just a badge.** Actionable notifications include the triggering message or ticket summary and are inserted at supported safe boundaries; generic activity is coalesced until idle.
 
 ## Install it
@@ -61,7 +61,7 @@ Claude peer messages only for short, low-conflict updates between exact peers in
 the same Git repository; conversations, tracked work, locks, and cross-host
 coordination remain in Bassfish.
 
-Claude Code 2.1.118 or newer is required. Check `/mcp` for the
+Claude Code 2.1.232 or newer is the tested baseline. Check `/mcp` for the
 `plugin:bassfish:bassfish` connection. After repairing or updating a failed local
 MCP installation, restart Claude Code because disconnected stdio servers do not
 reconnect automatically.

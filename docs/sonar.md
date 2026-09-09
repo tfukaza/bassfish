@@ -71,4 +71,12 @@ Sonar does not become an agent, acquire turns, follow threads, acknowledge notif
 
 File locks are advisory reservation sets: external editors can still write. They last for the owning session rather than the content-turn timeout. Sonar displays recorded requests and transitions, not native file contents or private host conversations.
 
-Operational history is recorded by the daemon and retained for up to seven days or 100,000 events per project, whichever limit is reached first. Existing conversations and tickets are visible immediately, but events before recording began are not reconstructed. The control schema upgrades from version 10 to 11 transactionally without resetting content. Other unsupported schema versions retain their existing compatibility behavior.
+Operational history is recorded by the daemon and retained for up to seven days or 100,000 events per project, whichever limit is reached first. Existing conversations and tickets are visible immediately, but events before recording began are not reconstructed. Sonar uses observer protocol 2 and pins paged reads to resource revisions. Legacy SQLite/Dolt data requires an archive and fresh initialization; unsupported Turso schemas are refused without rewriting them.
+
+## Memory and crash diagnostics
+
+Interactive Sonar defaults to React's production runtime when `NODE_ENV` is unset or empty. Explicit `development` and `test` settings remain available for debugging. React development performance records can accumulate in Node's timeline during long sessions; use `NODE_ENV=production bassfish sonar` when diagnosing an older installation. Increasing the heap limit does not fix that retention.
+
+Sonar is a read-only client in a separate process from the database daemon. A Sonar crash does not establish that a content write failed or that storage was corrupted. For an uncertain write, inspect the resource and revision receipt before submitting another mutation.
+
+`bassfish daemon status` and `bassfish doctor` show the daemon log location, including when it is stopped. The daemon records startup, readiness, graceful stop reasons, maintenance deferrals, and fatal errors under the data directory's `run/` directory. Background stderr is preserved in `daemon.log`; rotation retains the current file and two previous files at a 1 MiB rotation threshold with owner-only permissions. A missing final lifecycle record means the exit cause is unknown; inspect stderr rather than treating the last `ready` record as evidence of a graceful stop.

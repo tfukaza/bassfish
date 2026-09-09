@@ -1,3 +1,4 @@
+import { mapAsync, filterAsync } from '../async.js';
 import { BassfishError, type MutationResult, type Ticket } from '../domain.js';
 import type { Mutation } from '../domain.js';
 import {
@@ -18,12 +19,9 @@ import {
   sortThreads,
 } from './resources.js';
 
-const values = Object.values;
 const followKey = (projectId: string, threadId: string, identityId: string): string =>
   `${projectId}:${threadId}:${identityId}`;
-
 const mutation = (value: unknown): Mutation => value as Mutation;
-
 export async function dispatchMcp(
   service: Bassfish,
   handle: string,
@@ -40,17 +38,23 @@ export async function dispatchMcp(
         'Host session binding is available only through a managed MCP adapter.',
       );
     case 'getContext': {
-      const session = service.info(handle) as {
+      const session = (await service.info(handle)) as {
         name: string;
         pendingRequests: Record<string, unknown>[];
         unreadNotificationCount: number;
       };
-      const agents = service.listAgents(handle, !(args.includeOfflineAgents as boolean), false) as {
+      const agents = (await service.listAgents(
+        handle,
+        !(args.includeOfflineAgents as boolean),
+        false,
+      )) as {
         agents: Record<string, unknown>[];
       };
-      const pendingTurns = session.pendingRequests.map(pending => {
+      const pendingTurns = await mapAsync(session.pendingRequests, async pending => {
         const status = presentTurnStatus(pending);
-        const request = service.control.view(state => state.requests[String(status.requestToken)]);
+        const request = await service.control.view(
+          async state => await state.get('requests', String(status.requestToken)),
+        );
         return status.state === 'claimed' && request?.turnId
           ? { ...status, turnToken: request.turnId }
           : status;
@@ -63,12 +67,17 @@ export async function dispatchMcp(
       };
     }
     case 'setAgentName': {
-      const session = service.requestName(handle, args.name as string) as { name: string };
+      const session = (await service.requestName(handle, args.name as string)) as {
+        name: string;
+      };
       return { agentName: session.name };
     }
     case 'notifications': {
       if (args.action === 'acknowledge') {
-        const result = service.ackNotifications(handle, args.notificationIds as string[]) as {
+        const result = (await service.ackNotifications(
+          handle,
+          args.notificationIds as string[],
+        )) as {
           acknowledged: number;
           unreadNotificationCount: number;
         };
@@ -88,9 +97,9 @@ export async function dispatchMcp(
         'waitForWork is available only through a Tasks-capable MCP connection.',
       );
     case 'findResources': {
-      const actor = service.control.view(state => {
-        const value = service.actor(state, handle);
-        service.ready(state, value.projectId);
+      const actor = await service.control.view(async state => {
+        const value = await service.actor(state, handle);
+        await service.ready(state, value.projectId);
         return value;
       });
       const cursor = decodeCursor(args.cursor);
@@ -104,8 +113,13 @@ export async function dispatchMcp(
           return {
             resource: presentThread({
               ...thread,
-              following: service.control.view(state =>
-                Boolean(state.follows[followKey(actor.projectId, thread.id, actor.identityId)]),
+              following: await service.control.view(async state =>
+                Boolean(
+                  await state.get(
+                    'follows',
+                    followKey(actor.projectId, thread.id, actor.identityId),
+                  ),
+                ),
               ),
             }),
           };
@@ -117,11 +131,16 @@ export async function dispatchMcp(
           );
         }
         if (args.following !== undefined) {
-          threads = threads.filter(
-            thread =>
+          threads = await filterAsync(
+            threads,
+            async thread =>
               Boolean(
-                service.control.view(
-                  state => state.follows[followKey(actor.projectId, thread.id, actor.identityId)],
+                await service.control.view(
+                  async state =>
+                    await state.get(
+                      'follows',
+                      followKey(actor.projectId, thread.id, actor.identityId),
+                    ),
                 ),
               ) === args.following,
           );
@@ -137,11 +156,16 @@ export async function dispatchMcp(
         const page = threads.slice(0, limit);
         const last = page.at(-1);
         return {
-          resources: page.map(thread =>
+          resources: await mapAsync(page, async thread =>
             presentThread({
               ...thread,
-              following: service.control.view(state =>
-                Boolean(state.follows[followKey(actor.projectId, thread.id, actor.identityId)]),
+              following: await service.control.view(async state =>
+                Boolean(
+                  await state.get(
+                    'follows',
+                    followKey(actor.projectId, thread.id, actor.identityId),
+                  ),
+                ),
               ),
             }),
           ),
@@ -166,7 +190,7 @@ export async function dispatchMcp(
           );
         }
         if (args.owner) {
-          const owner = service.ticketOwner(actor.projectId, args.owner as string);
+          const owner = await service.ticketOwner(actor.projectId, args.owner as string);
           tickets = tickets.filter(ticket => ticket.owner === owner.id);
         }
         if (args.ready !== undefined) {
@@ -202,7 +226,9 @@ export async function dispatchMcp(
           handle,
           args.title as string,
           args.description as string,
-        )) as MutationResult & { threadId: string };
+        )) as MutationResult & {
+          threadId: string;
+        };
         return { threadId: result.threadId, revision: result.revision };
       }
       if (args.resourceType === 'ticket') {
@@ -213,7 +239,9 @@ export async function dispatchMcp(
           state: args.state as Ticket['state'],
           body: args.body as string,
           dependsOn: args.dependsOn as string[],
-        })) as MutationResult & { ticketId: string };
+        })) as MutationResult & {
+          ticketId: string;
+        };
         return { ticketId: result.ticketId, revision: result.revision };
       }
       throw new BassfishError(
@@ -224,15 +252,19 @@ export async function dispatchMcp(
     case 'acquireTurn':
       return service.acquireMcpTurn(handle, args, signal, taskCapable);
     case 'cancelTurn':
-      return presentTurnStatus(service.cancelTurnRequest(handle, args.requestToken as string));
+      return presentTurnStatus(
+        await service.cancelTurnRequest(handle, args.requestToken as string),
+      );
     case 'readTurn': {
-      const credential = service.mcpTurnCredential(handle, args.turnToken as string);
+      const credential = await service.mcpTurnCredential(handle, args.turnToken as string);
       if (args.view === 'outline') {
         const result = (await service.ticketOutline(
           handle,
           credential.id,
           credential.fencingToken,
-        )) as { headings: unknown[] };
+        )) as {
+          headings: unknown[];
+        };
         return { headings: result.headings };
       }
       if (args.view === 'find') {
@@ -243,7 +275,9 @@ export async function dispatchMcp(
           args.query as string,
           args.mode as 'literal' | 'regex',
           args.limit as number,
-        )) as { matches: unknown[] };
+        )) as {
+          matches: unknown[];
+        };
         return { matches: result.matches };
       }
       return presentRead(
@@ -256,7 +290,7 @@ export async function dispatchMcp(
       );
     }
     case 'commitTurn': {
-      const credential = service.mcpTurnCredential(handle, args.turnToken as string);
+      const credential = await service.mcpTurnCredential(handle, args.turnToken as string);
       const result = await service.commitTurn(
         handle,
         credential.id,
@@ -273,14 +307,14 @@ export async function dispatchMcp(
         : { ticketId: credential.resourceId, revision: result.revision };
     }
     case 'releaseTurn': {
-      const file = service.control.view(state =>
-        values(state.requests).find(
+      const file = await service.control.view(async state =>
+        (await state.all('requests')).find(
           request => request.turnId === args.turnToken && request.resourceType === 'files',
         ),
       );
-      if (file) return service.releaseFiles(handle, args.turnToken as string);
-      const credential = service.mcpTurnCredential(handle, args.turnToken as string);
-      service.releaseTurn(handle, credential.id, credential.fencingToken);
+      if (file) return await service.releaseFiles(handle, args.turnToken as string);
+      const credential = await service.mcpTurnCredential(handle, args.turnToken as string);
+      await service.releaseTurn(handle, credential.id, credential.fencingToken);
       return { released: true };
     }
   }

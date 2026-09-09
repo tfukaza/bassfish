@@ -1,4 +1,4 @@
-import { BassfishError, type Notification } from '../domain.js';
+import { BassfishError, type Notification, type NotificationContent } from '../domain.js';
 
 const workReasons = new Set([
   'direct_mention',
@@ -16,23 +16,9 @@ export function isWorkNotification(notification: Notification): boolean {
   return notification.reasons.some(reason => workReasons.has(reason));
 }
 
-export type NotificationContent =
-  | {
-      kind: 'thread_message';
-      threadTitle: string;
-      body: string;
-      retracted: boolean;
-    }
-  | {
-      kind: 'ticket_summary';
-      title: string;
-      state: string;
-      owner: string;
-    };
-
 export function presentNotification(
   notification: Notification,
-  content?: NotificationContent,
+  content: NotificationContent | undefined = notification.content,
 ): Record<string, unknown> {
   return {
     notificationId: notification.id,

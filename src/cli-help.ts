@@ -32,7 +32,7 @@ const entries: Record<string, HelpEntry> = {
     ],
   },
   setup: {
-    summary: 'Install or verify the checksum-pinned Dolt runtime.',
+    summary: 'Initialize the embedded Turso database.',
     usage: ['bassfish setup'],
   },
   doctor: {
@@ -68,7 +68,7 @@ const entries: Record<string, HelpEntry> = {
     details: ['A committing write cannot be force-released.'],
   },
   thread: {
-    summary: 'Create, inspect, search, edit, and restore shared conversations.',
+    summary: 'Create, inspect, search, and edit shared conversations.',
     usage: [
       'bassfish thread list [--archived|--deleted] [--limit N] [--cursor C]',
       'bassfish thread create TITLE [--description TEXT]',
@@ -82,7 +82,6 @@ const entries: Record<string, HelpEntry> = {
       'bassfish thread retract|reinstate THREAD_ID MESSAGE_ID',
       'bassfish thread history THREAD_ID',
       'bassfish thread revision|diff THREAD_ID REVISION',
-      'bassfish thread restore THREAD_ID REVISION [--yes]',
     ],
   },
   ticket: {
@@ -92,20 +91,24 @@ const entries: Record<string, HelpEntry> = {
       'bassfish ticket search QUERY [--owner NAME] [--state STATES] [--ready]',
       'bassfish ticket create TITLE --description TEXT --owner NAME [options]',
       'bassfish ticket show TICKET_ID',
+      'bassfish ticket history TICKET_ID [--limit N] [--offset N]',
+      'bassfish ticket revision TICKET_ID REVISION',
+      'bassfish ticket diff TICKET_ID REVISION',
       'bassfish ticket update TICKET_ID [options]',
       'bassfish ticket edit|append|patch TICKET_ID (--file PATH|-|--editor)',
     ],
     details: ['Ticket body input uses exactly one of --file PATH, --file -, or --editor.'],
   },
   project: {
-    summary: 'Inspect, export, or restore versioned project content.',
+    summary: 'Inspect current content, export it, or read the project audit history.',
     usage: [
       'bassfish project inspect',
       'bassfish project export',
       'bassfish project history [--limit N] [--cursor C]',
-      'bassfish project restore SNAPSHOT_ID [--limit N] [--cursor C] [--yes]',
     ],
-    details: ['Project content includes threads and tickets. External files are never restored.'],
+    details: [
+      'Project reads are consistent and do not require a turn. History contains immutable resource revisions.',
+    ],
   },
   mcp: {
     summary: 'Run the agent-facing stdio MCP server.',
@@ -147,7 +150,7 @@ export function commandHelp(topic?: string): string {
     '',
     'Runtime:',
     ...lines([
-      ['bassfish setup', 'Install checksum-verified Dolt 2.3.2.'],
+      ['bassfish setup', 'Initialize embedded Turso.'],
       ['bassfish doctor', 'Show runtime and daemon diagnostics.'],
       ['bassfish daemon', 'Start, inspect, or stop the shared backend.'],
       ['bassfish config', 'Inspect or change daemon timing configuration.'],
@@ -160,7 +163,7 @@ export function commandHelp(topic?: string): string {
       ['bassfish turn', 'Inspect or force-release coordination turns.'],
       ['bassfish thread', 'Manage shared conversations and history.'],
       ['bassfish ticket', 'Manage owned work and dependencies.'],
-      ['bassfish project', 'Inspect, export, or restore project content.'],
+      ['bassfish project', 'Inspect, export, and read project history.'],
     ]),
     '',
     'Agent integration:',

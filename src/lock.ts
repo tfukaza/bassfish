@@ -9,8 +9,10 @@ export function exclusiveLock(path: string, waitMs = 0): () => void {
   const db = new DatabaseSync(path);
   try {
     db.exec(`PRAGMA busy_timeout=${Math.trunc(waitMs)}; BEGIN EXCLUSIVE;`);
-  } catch {
+  } catch (error) {
     db.close();
+    const code = (error as { errcode?: number }).errcode;
+    if (code === undefined || ![5, 6].includes(code & 0xff)) throw error;
     throw new BassfishError('ALREADY_RUNNING', 'Another process holds the service ownership lock.');
   }
   return () => {

@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import bassfishPlugin, {
+  BassfishV2Plugin,
   configureOpenCodeMcp,
+  configureOpenCodeV2Mcp,
   createBassfishPlugin,
   formatOpenCodeDeliveryPrompt,
 } from '../src/opencode-plugin.js';
@@ -55,6 +57,7 @@ test('OpenCode plugin creates its MCP entry with native delivery enabled', () =>
 test('OpenCode package entry exports the native plugin server', () => {
   assert.equal(bassfishPlugin.id, 'bassfish');
   assert.equal(typeof bassfishPlugin.server, 'function');
+  assert.equal(typeof bassfishPlugin.setup, 'function');
   const prompt = formatOpenCodeDeliveryPrompt({
     kind: 'actionable',
     count: 1,
@@ -84,6 +87,64 @@ test('OpenCode package entry exports the native plugin server', () => {
   assert.match(prompt, /t-1/);
   assert.match(prompt, /WildSeal/);
   assert.match(prompt, /Please review this change/);
+});
+
+test('OpenCode V2 config uses the current servers shape without V1 enabled flags', () => {
+  const entries = new Map<string, unknown>();
+  const dataDir = configureOpenCodeV2Mcp(
+    {
+      get: name => entries.get(name),
+      set: (name, value) => entries.set(name, value),
+    },
+    '/repo',
+  );
+  const bassfish = entries.get('bassfish') as Record<string, unknown>;
+  assert.equal(dataDir.length > 0, true);
+  assert.equal(bassfish.type, 'local');
+  assert.equal(bassfish.disabled, false);
+  assert.equal(Object.hasOwn(bassfish, 'enabled'), false);
+  assert.deepEqual(bassfish.command, ['bassfish', 'mcp', '--workspace', '/repo']);
+  assert.deepEqual(bassfish.environment, { BASSFISH_OPENCODE_NATIVE: '1' });
+});
+
+test('OpenCode V2 setup registers MCP, tool, and event adapters', async () => {
+  const entries = new Map<string, unknown>();
+  const registrations: string[] = [];
+  const cleanup = await BassfishV2Plugin.setup({
+    location: { directory: '/repo' },
+    mcp: {
+      transform: async (
+        callback: (editor: {
+          get(name: string): unknown;
+          set(name: string, value: unknown): void;
+        }) => void,
+      ) => {
+        callback({
+          get: (name: string) => entries.get(name),
+          set: (name: string, value: unknown) => entries.set(name, value),
+        });
+        registrations.push('mcp');
+        return { dispose: async () => registrations.push('mcp-disposed') };
+      },
+    },
+    tool: {
+      hook: async () => {
+        registrations.push('tool');
+        return { dispose: async () => registrations.push('tool-disposed') };
+      },
+    },
+    event: {
+      subscribe: () =>
+        (async function* () {
+          return;
+        })(),
+    },
+    session: {},
+  } as never);
+  assert.deepEqual(registrations, ['mcp', 'tool']);
+  assert.equal((entries.get('bassfish') as Record<string, unknown>).disabled, false);
+  await cleanup?.();
+  assert.deepEqual(registrations, ['mcp', 'tool', 'tool-disposed', 'mcp-disposed']);
 });
 
 test('native OpenCode actionable delivery is inserted into a busy top-level session', async () => {

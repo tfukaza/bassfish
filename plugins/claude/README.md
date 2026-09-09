@@ -24,8 +24,9 @@ Monitor resumes a fully idle session for coalesced generic project activity.
 Delivery does not acknowledge the notification, and there are no wake modes or
 hourly caps.
 
-Claude Code 2.1.118 or newer is required because earlier versions do not
-support the MCP tool hook used to restore session identity. The monitor runs only in interactive CLI sessions and
+Claude Code 2.1.232 or newer is the tested baseline because it includes the
+current MCP runtime and supports the MCP tool hook used to restore session
+identity. The monitor runs only in interactive CLI sessions and
 may be unavailable on some hosted providers or when nonessential traffic is
 disabled.
 

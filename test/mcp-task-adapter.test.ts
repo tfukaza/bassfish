@@ -60,6 +60,7 @@ test('task subscriptions require the negotiated extension and round-trip taskIds
     subscribed = ids;
   }, inner);
   await transport.start();
+  transport.setProtocolVersion('2026-07-28');
   let forwarded: Record<string, unknown> | undefined;
   transport.onmessage = message => {
     forwarded = message as unknown as Record<string, unknown>;
@@ -92,7 +93,10 @@ test('task subscriptions require the negotiated extension and round-trip taskIds
   await transport.send({
     jsonrpc: '2.0',
     method: 'notifications/subscriptions/acknowledged',
-    params: { notifications: {} },
+    params: {
+      notifications: {},
+      _meta: { 'io.modelcontextprotocol/subscriptionId': 2 },
+    },
   } as JSONRPCMessage);
   assert.deepEqual(
     (
@@ -100,6 +104,58 @@ test('task subscriptions require the negotiated extension and round-trip taskIds
         .notifications as Record<string, unknown>
     ).taskIds,
     ['task-1'],
+  );
+  inner.receive({
+    jsonrpc: '2.0',
+    method: 'notifications/cancelled',
+    params: { requestId: 2 },
+  });
+  assert.deepEqual(subscribed, []);
+});
+
+test('task notifications are routed only to matching live subscriptions', async () => {
+  const inner = new MemoryTransport();
+  const transport = new TaskAwareStdioTransport(() => {}, inner);
+  await transport.start();
+  transport.setProtocolVersion('2026-07-28');
+  transport.onmessage = () => {};
+  inner.receive({
+    jsonrpc: '2.0',
+    id: 'listen-a',
+    method: 'subscriptions/listen',
+    params: {
+      notifications: { taskIds: ['task-a'] },
+      _meta: {
+        'io.modelcontextprotocol/clientCapabilities': { extensions: { [tasksExtensionId]: {} } },
+      },
+    },
+  });
+  await transport.send({
+    jsonrpc: '2.0',
+    method: 'notifications/subscriptions/acknowledged',
+    params: {
+      notifications: {},
+      _meta: { 'io.modelcontextprotocol/subscriptionId': 'listen-a' },
+    },
+  } as JSONRPCMessage);
+  const before = inner.sent.length;
+  await transport.send({
+    jsonrpc: '2.0',
+    method: 'notifications/tasks',
+    params: { taskId: 'task-b', status: 'working' },
+  } as JSONRPCMessage);
+  assert.equal(inner.sent.length, before);
+  await transport.send({
+    jsonrpc: '2.0',
+    method: 'notifications/tasks',
+    params: { taskId: 'task-a', status: 'working' },
+  } as JSONRPCMessage);
+  assert.equal(inner.sent.length, before + 1);
+  assert.equal(
+    (inner.sent.at(-1) as unknown as { params: { _meta: Record<string, unknown> } }).params._meta[
+      'io.modelcontextprotocol/subscriptionId'
+    ],
+    'listen-a',
   );
 });
 

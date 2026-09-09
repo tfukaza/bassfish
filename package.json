@@ -1,6 +1,6 @@
 {
   "name": "@bassfish/cli",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "A local coordination layer for coding agents",
   "license": "MIT",
   "repository": {
@@ -16,7 +16,7 @@
     "mcp",
     "model-context-protocol",
     "collaboration",
-    "dolt"
+    "turso"
   ],
   "type": "module",
   "main": "dist/opencode-plugin.js",
@@ -55,15 +55,14 @@
     "release:check": "npm run ci && npm run package:check && npm run test:hosts",
     "ci": "npm run format:check && npm run check && npm run check:dead-code && npm test && npm run build && npm run test:integration",
     "dev": "tsx src/cli.ts",
-    "setup:dolt": "tsx src/cli.ts setup",
     "prepack": "npm run build"
   },
   "dependencies": {
     "@dagrejs/dagre": "^3.1.1",
     "@modelcontextprotocol/server": "2.0.0",
+    "@tursodatabase/database": "0.7.2",
     "fflate": "^0.8.2",
     "ink": "^7.1.1",
-    "mysql2": "3.24.3",
     "re2-wasm": "^1.0.2",
     "react": "^19.2.8",
     "string-width": "^8.2.2",
@@ -71,6 +70,8 @@
   },
   "devDependencies": {
     "@modelcontextprotocol/client": "2.0.0",
+    "@opencode-ai/plugin": "1.18.29",
+    "@opencode/plugin": "0.0.0-beta-19296",
     "@types/node": "24.13.3",
     "@types/react": "^19.2.18",
     "ink-testing-library": "^4.0.0",

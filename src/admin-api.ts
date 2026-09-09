@@ -38,12 +38,7 @@ const mutation = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('retractMessage'), messageId: idSchema }).strict(),
   z.object({ kind: z.literal('reinstateMessage'), messageId: idSchema }).strict(),
 ]);
-const target = z.discriminatedUnion('type', [
-  z.object({ type: z.literal('thread'), id: idSchema }).strict(),
-  z
-    .object({ type: z.literal('project'), purpose: z.enum(['snapshot', 'export', 'restore']) })
-    .strict(),
-]);
+const target = z.object({ type: z.enum(['thread', 'ticket']), id: idSchema }).strict();
 
 export const adminSchemas = {
   getSession: z.object({}).strict(),
@@ -97,39 +92,26 @@ export const adminSchemas = {
   commitTurn: z.object({ ...withTurn, baseRevision: counterSchema, mutation }).strict(),
   listHistory: z
     .object({
-      ...withTurn,
+      resourceId: idSchema,
       offset: z.number().int().min(0).default(0),
       limit: z.number().int().min(1).max(100).default(50),
     })
     .strict(),
   readRevision: z
     .object({
-      ...withTurn,
+      resourceId: idSchema,
       revision: counterSchema,
       cursor: z.string().max(500).optional(),
     })
     .strict(),
-  diffRevision: z.object({ ...withTurn, revision: counterSchema }).strict(),
-  previewRestore: z.object({ ...withTurn, revision: counterSchema }).strict(),
-  restoreRevision: z.object({ ...withTurn, previewToken: z.string().min(1).max(4096) }).strict(),
-  inspectSnapshot: z.object(withTurn).strict(),
-  exportSnapshot: z.object(withTurn).strict(),
-  listSnapshotHistory: z
+  diffRevision: z.object({ resourceId: idSchema, revision: counterSchema }).strict(),
+  inspectProject: z.object({}).strict(),
+  exportProject: z.object({}).strict(),
+  listProjectHistory: z
     .object({
-      ...withTurn,
       limit: z.number().int().min(1).max(100).default(50),
       cursor: z.string().max(4096).optional(),
     })
     .strict(),
-  previewSnapshotRestore: z
-    .object({
-      ...withTurn,
-      targetCommit: z.string().min(8).max(128),
-      limit: z.number().int().min(1).max(100).default(100),
-      cursor: z.string().max(4096).optional(),
-    })
-    .strict(),
-  restoreSnapshot: z.object({ ...withTurn, previewToken: z.string().min(1).max(4096) }).strict(),
 } satisfies Record<string, z.ZodType>;
-
 export type AdminToolName = keyof typeof adminSchemas;

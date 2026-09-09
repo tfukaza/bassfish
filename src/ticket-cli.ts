@@ -1,10 +1,10 @@
+import { resourceHistoryCli } from './resource-history-cli.js';
 import { spawn } from 'node:child_process';
 import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { BassfishError, requireThat } from './domain.js';
 import { booleanFlag, boundedIntegerOption, take } from './cli-helpers.js';
 import type { Call } from './cli-helpers.js';
-
 async function stdin(): Promise<string> {
   const chunks: Buffer[] = [];
   for await (const chunk of process.stdin) chunks.push(Buffer.from(chunk));
@@ -18,7 +18,7 @@ async function source(args: string[], dataDir: string, initial = ''): Promise<st
     'INVALID_ARGUMENT',
     'Choose exactly one of --file PATH, --file -, or --editor.',
   );
-  if (!useEditor) return file === '-' ? stdin() : readFile(file!, 'utf8');
+  if (!useEditor) return file === '-' ? stdin() : await readFile(file!, 'utf8');
   const editor = process.env.VISUAL ?? process.env.EDITOR;
   requireThat(editor, 'EDITOR_UNAVAILABLE', 'Set VISUAL or EDITOR to an executable path.');
   const directory = await mkdtemp(join(dataDir, 'ticket-editor-'));
@@ -32,7 +32,7 @@ async function source(args: string[], dataDir: string, initial = ''): Promise<st
       child.once('exit', resolve);
     });
     requireThat(code === 0, 'EDITOR_FAILED', 'The editor exited without saving successfully.');
-    return readFile(path, 'utf8');
+    return await readFile(path, 'utf8');
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
@@ -62,12 +62,19 @@ async function acquire(
 }
 async function fullBody(
   call: Call,
-  turn: { turnToken: string; text: string; nextCursor: string | null },
+  turn: {
+    turnToken: string;
+    text: string;
+    nextCursor: string | null;
+  },
 ): Promise<string> {
   let text = turn.text;
   let cursor = turn.nextCursor;
   while (cursor) {
-    const page = await call<{ text: string; nextCursor: string | null }>('readTurn', {
+    const page = await call<{
+      text: string;
+      nextCursor: string | null;
+    }>('readTurn', {
       view: 'page',
       turnToken: turn.turnToken,
       cursor,
@@ -88,13 +95,16 @@ async function mutate(call: Call, id: string, mutation: Record<string, unknown>)
     if (!consumed) await call('releaseTurn', { turnToken: turn.turnToken }).catch(() => {});
   }
 }
-
 export async function runTicketCli(
   action: string | undefined,
   args: string[],
   call: Call,
   dataDir: string,
-): Promise<{ value?: unknown; raw?: string }> {
+  historyCall: Call = call,
+): Promise<{
+  value?: unknown;
+  raw?: string;
+}> {
   await mkdir(dataDir, { recursive: true, mode: 0o700 });
   if (action === 'list' || action === 'search') {
     const query = action === 'search' ? args.shift() : undefined;
@@ -146,6 +156,8 @@ export async function runTicketCli(
   }
   const id = args.shift();
   requireThat(id, 'INVALID_ARGUMENT', 'Pass a ticket ID.');
+  if (['history', 'revision', 'diff'].includes(action ?? ''))
+    return { value: await resourceHistoryCli(action!, args, id, historyCall) };
   if (action === 'show') {
     requireThat(args.length === 0, 'INVALID_ARGUMENT', 'Unknown ticket show argument.');
     const turn = await acquire(call, id);

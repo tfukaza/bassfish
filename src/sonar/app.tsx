@@ -109,7 +109,9 @@ export function SonarApp({
     [state, page, coordinationPage],
   );
   const snapshot = displayState.snapshot;
-  const commit = snapshot?.content?.commit;
+  const observation = snapshot?.content
+    ? `${snapshot.epoch}:${snapshot.cursor}:${snapshot.at}`
+    : undefined;
   const fail = (error: unknown) =>
     setUi(old => ({
       ...old,
@@ -145,11 +147,16 @@ export function SonarApp({
     });
   }, [snapshot, ui.query, displayState]);
   useEffect(() => {
-    if (ui.paused || !commit || ui.view !== 'threads' || !ui.selected.threads || ui.scroll > 0)
+    if (ui.paused || !observation || ui.view !== 'threads' || !ui.selected.threads || ui.scroll > 0)
       return;
     let cancelled = false;
     void client
-      .read<ObservedThreadDetail>({ kind: 'thread', id: ui.selected.threads, commit })
+      .read<ObservedThreadDetail>({
+        kind: 'thread',
+        id: ui.selected.threads,
+        revision: snapshot?.content?.threads.find(thread => thread.id === ui.selected.threads)
+          ?.revision,
+      })
       .then(
         thread => {
           if (!cancelled)
@@ -167,13 +174,26 @@ export function SonarApp({
     return () => {
       cancelled = true;
     };
-  }, [client, commit, ui.view, ui.selected.threads, ui.paused, ui.scroll === 0, refreshDetail]);
+  }, [
+    client,
+    observation,
+    ui.view,
+    ui.selected.threads,
+    ui.paused,
+    ui.scroll === 0,
+    refreshDetail,
+  ]);
   useEffect(() => {
-    if (ui.paused || !commit || ui.view !== 'tickets' || !ui.selected.tickets || ui.scroll > 0)
+    if (ui.paused || !observation || ui.view !== 'tickets' || !ui.selected.tickets || ui.scroll > 0)
       return;
     let cancelled = false;
     void client
-      .read<ObservedTicketDetail>({ kind: 'ticket', id: ui.selected.tickets, commit })
+      .read<ObservedTicketDetail>({
+        kind: 'ticket',
+        id: ui.selected.tickets,
+        revision: snapshot?.content?.tickets.find(ticket => ticket.id === ui.selected.tickets)
+          ?.revision,
+      })
       .then(
         ticket => {
           if (!cancelled) setUi(old => ({ ...old, ticket, error: undefined }));
@@ -185,28 +205,34 @@ export function SonarApp({
     return () => {
       cancelled = true;
     };
-  }, [client, commit, ui.view, ui.selected.tickets, ui.paused, ui.scroll === 0, refreshDetail]);
+  }, [
+    client,
+    observation,
+    ui.view,
+    ui.selected.tickets,
+    ui.paused,
+    ui.scroll === 0,
+    refreshDetail,
+  ]);
   const root = graphRoot || ui.selected.tickets;
   useEffect(() => {
-    if (ui.paused || !commit || !root || ui.view !== 'tickets') return;
+    if (ui.paused || !observation || !root || ui.view !== 'tickets') return;
     let cancelled = false;
-    void client
-      .read<ObservationGraph>({ kind: 'graph', id: root, commit, focused: focusedGraph })
-      .then(
-        graph => {
-          if (!cancelled) {
-            setUi(old => ({ ...old, graph, error: undefined }));
-            if (!graphRoot) setGraphRoot(root);
-          }
-        },
-        error => {
-          if (!cancelled) fail(error);
-        },
-      );
+    void client.read<ObservationGraph>({ kind: 'graph', id: root, focused: focusedGraph }).then(
+      graph => {
+        if (!cancelled) {
+          setUi(old => ({ ...old, graph, error: undefined }));
+          if (!graphRoot) setGraphRoot(root);
+        }
+      },
+      error => {
+        if (!cancelled) fail(error);
+      },
+    );
     return () => {
       cancelled = true;
     };
-  }, [client, commit, root, focusedGraph, ui.view, ui.paused]);
+  }, [client, observation, root, focusedGraph, ui.view, ui.paused]);
   const topology = JSON.stringify(
     ui.graph?.tickets
       .map(t => [t.id, [...t.dependsOn].sort()])
@@ -319,12 +345,12 @@ export function SonarApp({
         );
       return;
     }
-    if (!commit) return;
+    if (!observation) return;
     if (!ui.modal && ui.view === 'tickets' && ui.focus === 1 && ui.ticket?.page.nextCursor) {
       const ticket = await client.read<ObservedTicketDetail>({
         kind: 'ticket',
         id: ui.selected.tickets!,
-        commit: ui.ticket.commit,
+        revision: ui.ticket.revision,
         cursor: ui.ticket.page.nextCursor,
       });
       setUi(old => ({ ...old, ticket, scroll: 0 }));
@@ -337,7 +363,6 @@ export function SonarApp({
     if (offset === null || offset === undefined) return;
     const content = await client.read<ContentObservation>({
       kind: 'content',
-      commit,
       filter: {
         threadState: ui.threadState,
         ticketState: ui.ticketState,
@@ -353,7 +378,7 @@ export function SonarApp({
       const thread = await client.read<ObservedThreadDetail>({
         kind: 'thread',
         id: id!,
-        commit: ui.thread.commit,
+        revision: ui.thread.revision,
         before: ui.thread.nextBefore,
       });
       setUi(old => (old.selected.threads === id ? { ...old, thread, scroll: 1 } : old));

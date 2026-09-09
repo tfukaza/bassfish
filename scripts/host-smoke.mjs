@@ -3,7 +3,7 @@ import { spawnSync } from 'node:child_process';
 const expected = [
   {
     name: 'Codex',
-    targetVersion: '0.153.4',
+    minimumVersion: '0.153.4',
     command: 'codex',
     version: ['--version'],
     mcp: ['mcp', '--help'],
@@ -14,7 +14,7 @@ const expected = [
   },
   {
     name: 'Claude Code',
-    targetVersion: '2.1.265',
+    minimumVersion: '2.1.232',
     command: 'claude',
     version: ['--version'],
     mcp: ['mcp', '--help'],
@@ -25,7 +25,7 @@ const expected = [
   },
   {
     name: 'OpenCode',
-    targetVersion: '1.18.29',
+    minimumVersion: '1.18.29',
     command: 'opencode',
     version: ['--version'],
     mcp: ['mcp', '--help'],
@@ -38,6 +38,13 @@ const expected = [
 const live = process.argv.includes('--live');
 const allowMissing = process.argv.includes('--allow-missing');
 const results = [];
+const parseVersion = value => value.match(/\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?/)?.[0];
+const compareVersions = (left, right) => {
+  const a = left.split(/[.-]/).slice(0, 3).map(Number);
+  const b = right.split(/[.-]/).slice(0, 3).map(Number);
+  for (let index = 0; index < 3; index++) if (a[index] !== b[index]) return a[index] - b[index];
+  return 0;
+};
 for (const host of expected) {
   const version = spawnSync(host.command, host.version, { encoding: 'utf8' });
   if (version.error?.code === 'ENOENT') {
@@ -56,13 +63,14 @@ for (const host of expected) {
     });
     continue;
   }
-  if (!version.stdout.includes(host.targetVersion)) {
+  const installedVersion = parseVersion(version.stdout);
+  if (!installedVersion || compareVersions(installedVersion, host.minimumVersion) < 0) {
     results.push({
       host: host.name,
       status: allowMissing ? 'version-mismatch' : 'failed',
-      targetVersion: host.targetVersion,
+      minimumVersion: host.minimumVersion,
       version: version.stdout.trim(),
-      reason: 'release-candidate version is not installed',
+      reason: 'installed host is older than the minimum supported version',
     });
     continue;
   }
@@ -80,7 +88,7 @@ for (const host of expected) {
     results.push({
       host: host.name,
       status: 'launch-pass',
-      targetVersion: host.targetVersion,
+      minimumVersion: host.minimumVersion,
       version: version.stdout.trim(),
     });
     continue;

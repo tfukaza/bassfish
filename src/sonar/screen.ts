@@ -84,7 +84,6 @@ function eventLabel(event: ActivityEvent): string {
     appendTicketBody: `Appended to ${title}`,
     patchTicketBody: `Patched ${title}`,
     retractMessage: `Retracted a message in ${title}`,
-    restoreSnapshot: 'Restored project snapshot',
   };
   const action = event.kind.split('.').at(-1)!;
   if (labels[action]) return labels[action];

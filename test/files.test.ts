@@ -6,14 +6,16 @@ import { Bassfish } from '../src/service.js';
 import { fileSetsOverlap, resolveFileTargets } from '../src/files.js';
 import type { FileTarget, FileTurnRequest } from '../src/domain.js';
 import { fixture, errorCode, hold } from './support.js';
-
 type Fixture = Awaited<ReturnType<typeof fixture>>;
 type Claim = {
   state: string;
   requestToken: string;
   turnToken: string;
   lifetime: string;
-  target: { type: 'files'; paths: FileTarget[] };
+  target: {
+    type: 'files';
+    paths: FileTarget[];
+  };
 };
 const file = (path: string): FileTarget => ({ path, kind: 'file' });
 const directory = (path: string): FileTarget => ({ path, kind: 'directory' });
@@ -26,7 +28,6 @@ const resume = (f: Fixture, handle: string, requestToken: string) =>
   f.service.callMcp(handle, 'acquireTurn', { requestToken, timeoutMs: 0 }) as Promise<Claim>;
 const release = (f: Fixture, handle: string, turnToken: string) =>
   f.service.callMcp(handle, 'releaseTurn', { turnToken });
-
 test('file overlap is symmetric for parent directories without matching path prefixes', () => {
   const parent = [directory('/repo/src')];
   const childFile = [file('/repo/src/lib/component.ts')];
@@ -39,7 +40,6 @@ test('file overlap is symmetric for parent directories without matching path pre
   assert.equal(fileSetsOverlap(parent, [file('/repo/src-old/component.ts')]), false);
   assert.equal(fileSetsOverlap([directory('/repo/src/a')], [directory('/repo/src/b')]), false);
 });
-
 test('a held parent directory queues descendant targets until release', async t => {
   const f = await fixture();
   t.after(f.close);
@@ -50,7 +50,6 @@ test('a held parent directory queues descendant targets until release', async t 
   await release(f, f.a.agentHandle, parent.turnToken);
   assert.equal((await resume(f, f.b.agentHandle, child.requestToken)).state, 'claimed');
 });
-
 test('file turns coordinate native edits without storing or returning file content', async t => {
   const f = await fixture();
   t.after(f.close);
@@ -90,9 +89,8 @@ test('file turns coordinate native edits without storing or returning file conte
   assert.equal((await resume(f, f.b.agentHandle, queued.requestToken)).state, 'claimed');
   assert.equal(await readFile(path, 'utf8'), 'native edit');
   assert.equal(f.content.writes, writes);
-  assert.equal(JSON.stringify(f.control.view(s => s)).includes('native edit'), false);
+  assert.equal(JSON.stringify(await f.control.view(s => s)).includes('native edit'), false);
 });
-
 test('file sets acquire atomically with FIFO overlap ordering and independent paths proceeding', async t => {
   const f = await fixture();
   t.after(f.close);
@@ -105,8 +103,8 @@ test('file sets acquire atomically with FIFO overlap ordering and independent pa
   assert.equal(second.state, 'queued');
   assert.equal(third.state, 'queued');
   assert.equal(unrelated.state, 'claimed');
-  const held = f.control.view(s =>
-    Object.values(s.requests).filter(r => r.resourceType === 'files' && r.state === 'CLAIMED'),
+  const held = await f.control.view(async s =>
+    (await s.all('requests')).filter(r => r.resourceType === 'files' && r.state === 'CLAIMED'),
   );
   assert.equal(held.length, 2);
   await release(f, f.a.agentHandle, first.turnToken);
@@ -117,14 +115,15 @@ test('file sets acquire atomically with FIFO overlap ordering and independent pa
   await release(f, f.b.agentHandle, all.turnToken);
   assert.equal((await resume(f, c.agentHandle, third.requestToken)).state, 'claimed');
 });
-
 test('file turns coexist with chat and ticket turns and ignore project content barriers', async t => {
   const f = await fixture();
   t.after(f.close);
   const files = await acquire(f, f.a.agentHandle, [file('src.ts')]);
   const chat = await hold(f.service, f.a.agentHandle, f.thread);
   const context = (await f.service.callMcp(f.a.agentHandle, 'getContext', {})) as {
-    pendingTurns: { turnToken: string }[];
+    pendingTurns: {
+      turnToken: string;
+    }[];
   };
   assert.equal(context.pendingTurns.length, 2);
   await assert.rejects(
@@ -143,31 +142,27 @@ test('file turns coexist with chat and ticket turns and ignore project content b
     title: 'Edit source',
     description: 'work',
     owner: 'Alice',
-  })) as { ticketId: string };
+  })) as {
+    ticketId: string;
+  };
   const ticketTurn = (await f.service.callMcp(f.a.agentHandle, 'acquireTurn', {
     target: { type: 'ticket', ticketId: ticket.ticketId },
-  })) as { turnToken: string };
-  await release(f, f.a.agentHandle, ticketTurn.turnToken);
-  const project = await f.service.requestProjectTurn(f.b.agentHandle, 'snapshot');
-  const snapshot = (await f.service.claimTurn(f.b.agentHandle, project.offerId as string, 20)) as {
-    turn: { id: string; fencingToken: string };
+  })) as {
+    turnToken: string;
   };
+  await release(f, f.a.agentHandle, ticketTurn.turnToken);
+  await f.service.call(f.b.agentHandle, 'inspectProject', {});
   await release(f, f.a.agentHandle, files.turnToken);
   assert.equal((await acquire(f, f.a.agentHandle, [directory('src')])).state, 'claimed');
-  f.service.releaseTurn(f.b.agentHandle, snapshot.turn.id, snapshot.turn.fencingToken);
-  f.control.update(state => {
-    for (const project of Object.values(state.projects)) project.recovering = true;
-  });
   assert.equal((await acquire(f, f.b.agentHandle, [file('unrelated.ts')])).state, 'claimed');
 });
-
 test('healthy sessions keep file locks past content deadlines and release rejects stale or foreign tokens', async t => {
   const f = await fixture();
   t.after(f.close);
   const claimed = await acquire(f, f.a.agentHandle, [file('long-edit.ts')]);
   const chat = await hold(f.service, f.a.agentHandle, f.thread);
-  f.clock.advance(61_000);
-  f.service.heartbeat(f.a.agentHandle);
+  f.clock.advance(61000);
+  await f.service.heartbeat(f.a.agentHandle);
   assert.equal(
     (await resume(f, f.a.agentHandle, claimed.requestToken)).turnToken,
     claimed.turnToken,
@@ -178,33 +173,32 @@ test('healthy sessions keep file locks past content deadlines and release reject
   );
   await assert.rejects(release(f, f.b.agentHandle, claimed.turnToken), errorCode('NOT_TURN_OWNER'));
   const queued = await acquire(f, f.b.agentHandle, [file('long-edit.ts')]);
-  f.service.forceRelease(claimed.turnToken);
+  await f.service.forceRelease(claimed.turnToken);
   const next = await resume(f, f.b.agentHandle, queued.requestToken);
   assert.equal(next.state, 'claimed');
   await assert.rejects(release(f, f.a.agentHandle, claimed.turnToken), errorCode('STALE_TURN'));
   assert.equal((await resume(f, f.b.agentHandle, queued.requestToken)).turnToken, next.turnToken);
 });
-
 test('disconnect, heartbeat failure, and restart invalidate file ownership and queued requests', async t => {
   const f = await fixture();
   t.after(f.close);
   const a = await acquire(f, f.a.agentHandle, [file('edit.ts')]);
   const queued = await acquire(f, f.b.agentHandle, [file('edit.ts')]);
-  f.service.disconnect(f.a.agentHandle, false);
+  await f.service.disconnect(f.a.agentHandle, false);
   const next = await resume(f, f.b.agentHandle, queued.requestToken);
   assert.equal(next.state, 'claimed');
   const reconnect = await f.service.open('/repo/.git', 'Alice', undefined, f.dir);
   await assert.rejects(release(f, reconnect.agentHandle, a.turnToken), errorCode('NOT_TURN_OWNER'));
   const waiting = await acquire(f, reconnect.agentHandle, [file('edit.ts')]);
-  f.service.disconnect(reconnect.agentHandle);
+  await f.service.disconnect(reconnect.agentHandle);
   assert.equal(
-    f.control.view(s => s.requests[waiting.requestToken]!.state),
+    await f.control.view(async s => (await s.get('requests', waiting.requestToken))!.state),
     'CANCELLED',
   );
   f.clock.advance(f.service.limits.instanceMs + 1);
-  f.service.sweep();
+  await f.service.sweep();
   assert.equal(
-    f.control.view(s => s.requests[next.requestToken]!.state),
+    await f.control.view(async s => (await s.get('requests', next.requestToken))!.state),
     'EXPIRED',
   );
   const bob = await f.service.open('/repo/.git', 'Bob', undefined, f.dir);
@@ -213,15 +207,14 @@ test('disconnect, heartbeat failure, and restart invalidate file ownership and q
   const restartQueue = await acquire(f, alice.agentHandle, [file('restart.ts')]);
   await new Bassfish(f.control, f.content, f.clock).initialize();
   assert.equal(
-    f.control.view(s => s.requests[live.requestToken]!.state),
+    await f.control.view(async s => (await s.get('requests', live.requestToken))!.state),
     'EXPIRED',
   );
   assert.equal(
-    f.control.view(s => s.requests[restartQueue.requestToken]!.state),
+    await f.control.view(async s => (await s.get('requests', restartQueue.requestToken))!.state),
     'EXPIRED',
   );
 });
-
 test('MCP Tasks claim file sets without snapshots and never resurrect released ownership', async t => {
   const f = await fixture();
   t.after(f.close);
@@ -232,27 +225,37 @@ test('MCP Tasks claim file sets without snapshots and never resurrect released o
     { target: { type: 'files', paths: [file('task.ts')] } },
     undefined,
     { taskCapable: true },
-  )) as { task: { taskId: string } };
+  )) as {
+    task: {
+      taskId: string;
+    };
+  };
   const taskId = result.task.taskId;
   assert.equal((await f.service.getTask(f.b.agentHandle, taskId, false)).status, 'working');
   await release(f, f.a.agentHandle, a.turnToken);
-  assert.equal(
-    f.control.view(s => s.requests[taskId]!.state),
-    'READY',
-  );
+  assert.equal(await f.control.view(async s => (await s.get('requests', taskId))!.state), 'READY');
   const completed = (await f.service.getTask(f.b.agentHandle, taskId)) as {
-    result: { turn: { id: string }; target: { type: string } };
+    result: {
+      turn: {
+        id: string;
+      };
+      target: {
+        type: string;
+      };
+    };
   };
   assert.equal(completed.result.target.type, 'files');
   await release(f, f.b.agentHandle, completed.result.turn.id);
   const again = (await f.service.getTask(f.b.agentHandle, taskId)) as {
-    result: { state: string; turn?: unknown };
+    result: {
+      state: string;
+      turn?: unknown;
+    };
   };
   assert.equal(again.result.state, 'released');
   assert.equal(again.result.turn, undefined);
   assert.equal((await acquire(f, f.a.agentHandle, [file('task.ts')])).state, 'claimed');
 });
-
 test('path identity respects workspace copies, cross-project shared files, symlinks, and native renames', async t => {
   const f = await fixture();
   t.after(f.close);
@@ -280,7 +283,6 @@ test('path identity respects workspace copies, cross-project shared files, symli
   await release(f, f.a.agentHandle, aliased.turnToken);
   assert.equal((await resume(f, f.b.agentHandle, blocked.requestToken)).state, 'claimed');
 });
-
 test('target normalization supports missing paths without creating them and rejects ambiguous kinds', async t => {
   const f = await fixture();
   t.after(f.close);
@@ -311,24 +313,23 @@ test('target normalization supports missing paths without creating them and reje
   await symlink(join(f.dir, 'missing'), join(f.dir, 'dangling'));
   await assert.rejects(resolveFileTargets(f.dir, [file('dangling')]), errorCode('INVALID_PATH'));
 });
-
-test('SQLite transactions reject overlapping ownership across projects and roll back the grant', async t => {
+test('Turso transactions reject overlapping ownership across projects and roll back the grant', async t => {
   const f = await fixture();
   t.after(f.close);
   const other = await f.service.open('/other/.git', 'Charlie', undefined, f.dir);
   const claimed = await acquire(f, f.a.agentHandle, [directory('src')]);
   const queued = await acquire(f, other.agentHandle, [file('src/mcp-api.ts')]);
-  assert.throws(
-    () =>
-      f.control.update(state => {
-        const request = state.requests[queued.requestToken] as FileTurnRequest;
+  await assert.rejects(
+    async () =>
+      await f.control.update(async state => {
+        const request = (await state.get('requests', queued.requestToken)) as FileTurnRequest;
         request.state = 'CLAIMED';
         request.turnId = 'illicit-token';
       }),
     errorCode('FILE_LOCK_CONFLICT'),
   );
   assert.equal(
-    f.control.view(s => s.requests[queued.requestToken]!.state),
+    await f.control.view(async s => (await s.get('requests', queued.requestToken))!.state),
     'QUEUED',
   );
   await release(f, f.a.agentHandle, claimed.turnToken);

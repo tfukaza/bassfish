@@ -9,6 +9,7 @@
             "tool": "deliverHostNotifications",
             "input": {
               "sessionId": "${session_id}",
+              "workspace": "${cwd}",
               "phase": "prompt"
             },
             "timeout": 15,
@@ -27,6 +28,7 @@
             "tool": "deliverHostNotifications",
             "input": {
               "sessionId": "${session_id}",
+              "workspace": "${cwd}",
               "phase": "active"
             },
             "timeout": 15,
@@ -44,6 +46,7 @@
             "tool": "deliverHostNotifications",
             "input": {
               "sessionId": "${session_id}",
+              "workspace": "${cwd}",
               "phase": "idle"
             },
             "timeout": 15,

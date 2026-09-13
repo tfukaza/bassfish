@@ -78,11 +78,14 @@ const turnTarget = z.discriminatedUnion('type', [
 ]);
 
 export const mcpSchemas = {
-  bindHostSession: z.object({ sessionId: token }).strict(),
+  bindHostSession: z
+    .object({ sessionId: token, workspace: z.string().min(1).max(4096).optional() })
+    .strict(),
   deliverHostNotifications: z
     .object({
       sessionId: token,
       phase: z.enum(['prompt', 'active', 'idle']),
+      workspace: z.string().min(1).max(4096).optional(),
     })
     .strict(),
   getContext: z.object({ includeOfflineAgents: z.boolean().default(false) }).strict(),

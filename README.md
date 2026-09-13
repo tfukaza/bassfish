@@ -129,7 +129,7 @@ npx --yes skills@latest add tfukaza/bassfish \
   --skill use-bassfish --skill manage-bassfish --global
 ```
 
-Start the host from a local Git repository. Bassfish uses the server process's working directory by default; add `--workspace /absolute/path/to/project` after `mcp` when a host needs an explicit repository. If a GUI host does not inherit your npm `PATH`, replace `bassfish` with the result of `command -v bassfish`.
+Start the host from a local Git repository. The native plugins pass the host's session directory automatically, including Codex sessions opened with `--cd` or in a managed worktree; no per-project MCP configuration is needed. A manual `bassfish mcp` connection uses the server process's working directory by default; add `--workspace /absolute/path/to/project` after `mcp` when a host needs an explicit repository. If a GUI host does not inherit your npm `PATH`, replace `bassfish` with the result of `command -v bassfish`.
 
 Configure each agent to use the same project. Bassfish starts a shared local daemon. The Codex, Claude Code, and OpenCode plugins bind an opaque host session ID to a durable Bassfish identity, so resuming the same host session in the same repository restores its aquatic name. `setAgentName` changes only that host session's identity; it does not become an installation-wide default. Concurrent adapters for the same host session share the identity and notifications, while each adapter keeps separate turn and file-lock ownership. Manual MCP connections without a host session ID still receive a one-process generated name. Git worktrees belonging to the same repository share the same project context; the same opaque ID from different hosts does not.
 

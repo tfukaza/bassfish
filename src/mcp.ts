@@ -8,6 +8,8 @@ import type {
 import { SUBSCRIPTION_ID_META_KEY } from '@modelcontextprotocol/server';
 import { serveStdio, StdioServerTransport } from '@modelcontextprotocol/server/stdio';
 import { BassfishError } from './domain.js';
+import { realpath } from 'node:fs/promises';
+import { isAbsolute } from 'node:path';
 import { mcpDescriptions, mcpOutputSchemas, mcpSchemas } from './mcp-api.js';
 import type { McpToolName } from './mcp-api.js';
 import { presentMentionTask, presentNotifications, presentTask } from './mcp-presenters.js';
@@ -237,9 +239,11 @@ export async function runMcp(workspace: string, dataDir: string, name?: string):
   let stopped = false;
   let preferredName = name;
   let defaultHostSessionId: string | undefined;
+  let adapterWorkspace = workspace;
   const nativeClaude = process.env.BASSFISH_CLAUDE_NATIVE === '1';
   const nativeCodex = process.env.BASSFISH_CODEX_NATIVE === '1';
   const nativeOpenCode = process.env.BASSFISH_OPENCODE_NATIVE === '1';
+  const deferredCodex = nativeCodex && !(name ?? process.env.BASSFISH_AGENT_NAME);
   if ([nativeClaude, nativeCodex, nativeOpenCode].filter(Boolean).length > 1)
     throw new BassfishError('INVALID_NATIVE_HOST', 'Only one native host may own an MCP adapter.');
   const nativeHost = nativeClaude
@@ -252,6 +256,7 @@ export async function runMcp(workspace: string, dataDir: string, name?: string):
   async function connection(): Promise<RpcClient> {
     if (client && !client.socket.destroyed) return client;
     return (connecting ??= (async () => {
+      const openedWorkspace = adapterWorkspace;
       await ensureDaemon(dataDir);
       const opened = await connectDaemon(dataDir);
       try {
@@ -286,7 +291,7 @@ export async function runMcp(workspace: string, dataDir: string, name?: string):
           }
         }
         const result = await opened.call<{ session: { name: string } | null }>('openSession', {
-          workspace,
+          workspace: openedWorkspace,
           name: configuredName,
           ...(native ? { native } : {}),
           ...(native && defaultHostSessionId ? { hostSessionId: defaultHostSessionId } : {}),
@@ -385,10 +390,10 @@ export async function runMcp(workspace: string, dataDir: string, name?: string):
       }
   };
   const taskTransport = new TaskAwareStdioTransport(watchTasks);
-  // Presence belongs to the MCP process lifetime, not to the first tool call.
-  // Register before exposing the protocol server so peers can discover this
-  // identity even when the host has only initialized MCP or listed tools.
-  await connection();
+  // Codex starts plugin servers in the plugin cache. Its hooks supply the
+  // session workspace after MCP initializes; an unbound native adapter has
+  // no agent presence yet. Other adapters still register at startup.
+  if (!deferredCodex) await connection();
   const transport = await serveStdio(
     ({ era }) => {
       const tasksEnabled = era === 'modern';
@@ -509,10 +514,6 @@ export async function runMcp(workspace: string, dataDir: string, name?: string):
           async (args, context) => {
             try {
               const hookDeadline = name === 'deliverHostNotifications' ? Date.now() + 3_000 : 0;
-              const backend =
-                hookDeadline > 0
-                  ? await within(connection(), Math.max(1, hookDeadline - Date.now()))
-                  : await connection();
               const routedSessionId = routedHostSessionId(args);
               if (routedSessionId && nativeHost === 'opencode')
                 defaultHostSessionId = routedSessionId;
@@ -523,6 +524,34 @@ export async function runMcp(workspace: string, dataDir: string, name?: string):
                   'HOST_SESSION_UNAVAILABLE',
                   'Per-call host session routing is only available to the OpenCode plugin.',
                 );
+              const binding = name === 'bindHostSession' || name === 'deliverHostNotifications';
+              if (deferredCodex && !binding && !defaultHostSessionId)
+                throw new BassfishError(
+                  'HOST_SESSION_REQUIRED',
+                  'The host plugin must bind its current session before using Bassfish.',
+                );
+              if (nativeCodex && binding && publicArgs.workspace !== undefined) {
+                const suppliedWorkspace = publicArgs.workspace as string;
+                if (!isAbsolute(suppliedWorkspace))
+                  throw new BassfishError(
+                    'INVALID_ARGUMENT',
+                    'The host session workspace must be an absolute path.',
+                  );
+                const hostWorkspace = await realpath(suppliedWorkspace);
+                if (
+                  (client || connecting || defaultHostSessionId) &&
+                  hostWorkspace !== (await realpath(adapterWorkspace))
+                )
+                  throw new BassfishError(
+                    'HOST_WORKSPACE_CHANGED',
+                    'Start a new MCP adapter when changing the host session workspace.',
+                  );
+                adapterWorkspace = hostWorkspace;
+              }
+              const backend =
+                hookDeadline > 0
+                  ? await within(connection(), Math.max(1, hookDeadline - Date.now()))
+                  : await connection();
               if (name === 'bindHostSession') {
                 if (!nativeHost || nativeHost === 'opencode')
                   throw new BassfishError(

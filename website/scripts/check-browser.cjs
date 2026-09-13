@@ -526,7 +526,7 @@ const assert = require('node:assert/strict');
     );
     check(
       'Docs reject retired public contracts',
-      docsText.includes('v0.5.2') &&
+      docsText.includes('v0.5.3') &&
         !docsText.includes('13 Bassfish tools') &&
         !docsText.includes('shared note'),
     );

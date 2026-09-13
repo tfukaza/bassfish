@@ -1,6 +1,6 @@
 {
   "name": "@bassfish/cli",
-  "version": "0.5.2",
+  "version": "0.5.3",
   "description": "A local coordination layer for coding agents",
   "license": "MIT",
   "repository": {

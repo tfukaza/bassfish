@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { chmod, readFile, mkdtemp, rm, lstat, writeFile } from 'node:fs/promises';
+import { chmod, readFile, mkdtemp, rm, lstat, writeFile, symlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { execFile } from 'node:child_process';
@@ -57,7 +57,11 @@ test(
       ),
       BASSFISH_DATA_DIR: data,
     };
-    async function client(name?: string, extraEnv: Record<string, string> = {}): Promise<Client> {
+    async function client(
+      name?: string,
+      extraEnv: Record<string, string> = {},
+      adapterCwd?: string,
+    ): Promise<Client> {
       const c = new Client({ name: 'bassfish-integration', version: '1.0.0' });
       clients.push(c);
       const transport = new StdioClientTransport({
@@ -65,10 +69,10 @@ test(
         args: [
           join(packageRoot, 'dist/cli.js'),
           'mcp',
-          '--workspace',
-          repo,
+          ...(adapterCwd ? [] : ['--workspace', repo]),
           ...(name ? ['--name', name] : []),
         ],
+        ...(adapterCwd ? { cwd: adapterCwd } : {}),
         env: { ...env, ...extraEnv },
         stderr: 'pipe',
       });
@@ -171,6 +175,63 @@ test(
     );
     assert.ok(generatedAgentNames.includes(codexInitial.agentName));
     await resumedCodex.close();
+    // Codex plugins start in a non-repository cache directory, even when the
+    // shell PWD points somewhere else. The session hook supplies the real repo.
+    const cachedCodex = await client(undefined, { BASSFISH_CODEX_NATIVE: '1' }, dir);
+    assert.equal((await cachedCodex.listTools()).tools.length, 13);
+    const cachedUnbound = await cachedCodex.callTool({ name: 'getContext', arguments: {} });
+    assert.equal(cachedUnbound.isError, true);
+    assert.match(JSON.stringify(cachedUnbound), /HOST_SESSION_REQUIRED/);
+    const relativeWorkspace = await cachedCodex.callTool({
+      name: 'bindHostSession',
+      arguments: { sessionId: 'codex-workspace-session', workspace: 'repo' },
+    });
+    assert.equal(relativeWorkspace.isError, true);
+    assert.match(JSON.stringify(relativeWorkspace), /INVALID_ARGUMENT/);
+    await call(cachedCodex, 'deliverHostNotifications', {
+      sessionId: 'codex-workspace-session',
+      workspace: repo,
+      phase: 'prompt',
+    });
+    const workspaceContext = await call<{
+      agents: { name: string; online: boolean }[];
+    }>(cachedCodex, 'getContext');
+    assert.ok(workspaceContext.agents.some(agent => agent.name === 'Alice' && agent.online));
+    await call(cachedCodex, 'setAgentName', { name: 'CodexWorkspace' });
+    const fileLock = await call<{ turnToken: string }>(cachedCodex, 'acquireTurn', {
+      target: { type: 'files', paths: [{ path: '.', kind: 'directory' }] },
+    });
+    const otherRepo = join(dir, 'other-repo');
+    await exec('git', ['init', otherRepo]);
+    const changedWorkspace = await cachedCodex.callTool({
+      name: 'deliverHostNotifications',
+      arguments: {
+        sessionId: 'codex-workspace-session',
+        workspace: otherRepo,
+        phase: 'active',
+      },
+    });
+    assert.equal(changedWorkspace.isError, true);
+    assert.match(JSON.stringify(changedWorkspace), /HOST_WORKSPACE_CHANGED/);
+    await call(cachedCodex, 'releaseTurn', { turnToken: fileLock.turnToken });
+    const repoAlias = join(dir, 'repo-alias');
+    await symlink(repo, repoAlias);
+    await call(cachedCodex, 'deliverHostNotifications', {
+      sessionId: 'codex-workspace-session',
+      workspace: repoAlias,
+      phase: 'active',
+    });
+    await cachedCodex.close();
+    const resumedCachedCodex = await client(undefined, { BASSFISH_CODEX_NATIVE: '1' }, dir);
+    await call(resumedCachedCodex, 'bindHostSession', {
+      sessionId: 'codex-workspace-session',
+      workspace: repo,
+    });
+    assert.equal(
+      (await call<{ agentName: string }>(resumedCachedCodex, 'getContext')).agentName,
+      'CodexWorkspace',
+    );
+    await resumedCachedCodex.close();
     const opencode = await client(undefined, { BASSFISH_OPENCODE_NATIVE: '1' });
     const rootOne = { __bassfishHostSessionId: 'opencode-root-one' };
     const rootTwo = { __bassfishHostSessionId: 'opencode-root-two' };

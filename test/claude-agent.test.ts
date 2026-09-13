@@ -382,6 +382,8 @@ test('Codex marketplace plugin enables native MCP and delivers at safe boundarie
   assert.equal(hooks.hooks.UserPromptSubmit[0].hooks[0].input.sessionId, '${session_id}');
   assert.equal(hooks.hooks.PostToolUse[0].hooks[0].input.phase, 'active');
   assert.equal(hooks.hooks.Stop[0].hooks[0].input.phase, 'idle');
+  for (const event of ['UserPromptSubmit', 'PostToolUse', 'Stop'])
+    assert.equal(hooks.hooks[event][0].hooks[0].input.workspace, '${cwd}');
   assert.equal(marketplace.name, 'bassfish');
   assert.equal(marketplace.plugins[0].source.path, './plugins/bassfish');
 });

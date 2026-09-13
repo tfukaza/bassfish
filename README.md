@@ -218,6 +218,8 @@ Once connected, try asking an agent:
 
 > Use Bassfish to create a thread called “API pagination” and post your proposed changes. Read the latest thread before replying, then lock `docs/api-plan.md` and save the agreed plan with your file tools.
 
+Bassfish automatically records bounded local runtime and client diagnostics for timeouts, database waits, event-loop stalls, and expired sessions. `doctor` and daemon status show their locations. See [incident diagnostics](docs/sonar.md#investigating-timeouts-and-expired-sessions) for correlation and retention details.
+
 For diagnostics, run:
 
 ```sh

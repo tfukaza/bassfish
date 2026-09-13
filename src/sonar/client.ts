@@ -1,3 +1,4 @@
+import { clientDiagnosticSink } from '../diagnostic-log.js';
 import { setTimeout as delay } from 'node:timers/promises';
 import { RpcClient } from '../ipc.js';
 import { socketPath } from '../config.js';
@@ -57,7 +58,10 @@ export class SonarClient {
   }
   async once(): Promise<ObservationSnapshot | null> {
     try {
-      this.connection = await RpcClient.connect(socketPath(this.dataDir));
+      this.connection = await RpcClient.connect(
+        socketPath(this.dataDir),
+        clientDiagnosticSink(this.dataDir),
+      );
       await this.connection.call('openObserver', { workspace: this.workspace, protocolVersion: 2 });
       return await this.read<ObservationSnapshot>({ kind: 'snapshot', filter: this.filter });
     } catch (error) {
@@ -72,7 +76,10 @@ export class SonarClient {
     let backoff = 250;
     while (!this.stopSignal.signal.aborted) {
       try {
-        this.connection = await RpcClient.connect(socketPath(this.dataDir));
+        this.connection = await RpcClient.connect(
+          socketPath(this.dataDir),
+          clientDiagnosticSink(this.dataDir),
+        );
         this.generation++;
         await this.connection.call(
           'openObserver',

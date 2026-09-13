@@ -36,6 +36,9 @@ try {
     '.claude-plugin/marketplace.json',
     'dist/cli.js',
     'dist/opencode-plugin.js',
+    'dist/runtime-diagnostics.js',
+    'dist/runtime-diagnostics-worker.js',
+    'dist/runtime-sampler.js',
     'plugins/claude/.claude-plugin/plugin.json',
     'plugins/claude/hooks/hooks.json',
     'plugins/claude/monitors/monitors.json',
@@ -134,7 +137,18 @@ try {
   assert.equal(first.version, '0.7.2');
   assert.equal(second.version, '0.7.2');
   assert.equal(second.state, 'ready');
-  const doctor = JSON.parse((await exec(binary, ['doctor'], { env })).stdout);
+  let doctor = JSON.parse((await exec(binary, ['doctor'], { env })).stdout);
+  const runtimeDeadline = Date.now() + 5000;
+  while (doctor.daemon.diagnostics.runtime?.status === 'starting' && Date.now() < runtimeDeadline) {
+    await delay(100);
+    doctor = JSON.parse((await exec(binary, ['doctor'], { env })).stdout);
+  }
+  assert.equal(
+    doctor.daemon.diagnostics.runtime?.status,
+    'responsive',
+    'installed runtime worker did not become healthy',
+  );
+  assert.ok(doctor.daemon.diagnostics.runtime.summaryAgeMs < 2000);
   assert.equal(doctor.version, packageJson.version);
   assert.equal(doctor.storage.state, 'ready');
   assert.equal(doctor.daemon.state, 'ready');

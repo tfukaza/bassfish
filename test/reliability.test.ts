@@ -42,7 +42,7 @@ test('daemon diagnostics survive exit and rotation preserves inherited append de
   t.after(() => closeSync(fd));
   for (let i = 0; i < 4; i++) {
     writeSync(fd, 'x'.repeat(1024 * 1024));
-    rotateDaemonLog(root);
+    rotateDaemonLog(root, 1024 * 1024);
     writeSync(fd, `after rotation ${i}\n`);
   }
   recordDaemonLifecycle(root, 'failed', { code: 'STORAGE_UNAVAILABLE' });
@@ -51,7 +51,7 @@ test('daemon diagnostics survive exit and rotation preserves inherited append de
   assert.match(await readFile(diagnostics.logPath, 'utf8'), /after rotation 3/);
   assert.ok((await stat(diagnostics.logPath)).size < 1024 * 1024);
   assert.equal((await stat(diagnostics.logPath)).mode & 0o777, 0o600);
-  assert.ok((await stat(`${diagnostics.logPath}.2`)).size >= 1024 * 1024);
+  assert.ok((await stat(`${diagnostics.logPath}.3`)).size >= 1024 * 1024);
 });
 test('maintenance serializes slow work, retries busy failures, and stops on permanent errors', async () => {
   let active = 0,

@@ -217,6 +217,15 @@ export function renderHuman(
       ...(data(daemon.diagnostics).logPath
         ? [field('Daemon log', data(daemon.diagnostics).logPath)]
         : []),
+      ...(data(daemon.diagnostics).runtimeLogPath
+        ? [field('Runtime log', data(daemon.diagnostics).runtimeLogPath)]
+        : []),
+      ...(data(daemon.diagnostics).clientLogPath
+        ? [field('Client log', data(daemon.diagnostics).clientLogPath)]
+        : []),
+      ...(data(data(daemon.diagnostics).runtime).status
+        ? [field('Runtime', data(data(daemon.diagnostics).runtime).status)]
+        : []),
       ...(storage.error ? [field('Problem', storage.error)] : []),
     ];
   } else if (command === 'daemon') {
@@ -239,6 +248,12 @@ export function renderHuman(
       ];
     if (data(object.diagnostics).logPath)
       output.push(field('Daemon log', data(object.diagnostics).logPath));
+    if (data(object.diagnostics).runtimeLogPath)
+      output.push(field('Runtime log', data(object.diagnostics).runtimeLogPath));
+    if (data(object.diagnostics).clientLogPath)
+      output.push(field('Client log', data(object.diagnostics).clientLogPath));
+    const runtime = data(data(object.diagnostics).runtime);
+    if (runtime.status) output.push(field('Runtime', runtime.status));
     const lifecycle = data(data(object.diagnostics).lastLifecycle);
     if (lifecycle.event)
       output.push(

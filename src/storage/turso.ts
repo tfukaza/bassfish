@@ -6,6 +6,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 import type { Database, Transaction } from '@tursodatabase/database';
 import { requireSupportedPlatform } from './platform.js';
 import { BassfishError, requireThat } from '../domain.js';
+import { DiagnosticOperation } from '../diagnostic-events.js';
 
 export type SqlValue = string | number | bigint | Uint8Array | null;
 
@@ -20,19 +21,54 @@ export class TursoTransaction {
   constructor(
     private readonly transaction: Transaction,
     readonly writable: boolean,
+    private readonly operation?: DiagnosticOperation,
   ) {}
+  private statementCount = 0;
+  private maxStatementMs = 0;
+  metrics(): { statementCount: number; maxStatementMs: number } {
+    return { statementCount: this.statementCount, maxStatementMs: this.maxStatementMs };
+  }
+  private async statement<T>(kind: string, work: () => Promise<T>): Promise<T> {
+    const started = performance.now();
+    this.operation?.phase('statement', {
+      statementOrdinal: ++this.statementCount,
+      statementKind: kind,
+    });
+    try {
+      return await work();
+    } finally {
+      const durationMs = performance.now() - started;
+      this.maxStatementMs = Math.max(this.maxStatementMs, durationMs);
+      if (durationMs > 1000)
+        this.operation?.event('storage.statement_slow', {
+          statementOrdinal: this.statementCount,
+          statementKind: kind,
+          durationMs,
+        });
+      this.operation?.phase('callback');
+    }
+  }
 
   async all<T extends object>(sql: string, ...args: SqlValue[]): Promise<T[]> {
-    return (await this.transaction.prepare(sql)).all(...args) as Promise<T[]>;
+    return this.statement(
+      'all',
+      async () => (await this.transaction.prepare(sql)).all(...args) as Promise<T[]>,
+    );
   }
 
   async get<T extends object>(sql: string, ...args: SqlValue[]): Promise<T | undefined> {
-    return (await this.transaction.prepare(sql)).get(...args) as Promise<T | undefined>;
+    return this.statement(
+      'get',
+      async () => (await this.transaction.prepare(sql)).get(...args) as Promise<T | undefined>,
+    );
   }
 
   async run(sql: string, ...args: SqlValue[]): Promise<number> {
     requireThat(this.writable, 'READ_ONLY', 'A read transaction cannot modify storage.');
-    return (await (await this.transaction.prepare(sql)).run(...args)).changes;
+    return this.statement(
+      'run',
+      async () => (await (await this.transaction.prepare(sql)).run(...args)).changes,
+    );
   }
 
   afterCommit(callback: () => void): void {
@@ -167,70 +203,129 @@ export class TursoStore {
       );
       return callback(parent);
     }
-    for (let attempt = 0; ; attempt++) {
-      const db = await this.acquire();
-      let scope: TursoTransaction | undefined;
-      let callbackError: unknown;
-      let commitError: unknown;
-      try {
-        const result = await db
-          .transactionAsync(async transaction => {
-            // 0.7.2 can automatically abort a conflicting transaction. Its wrapper then
-            // masks the conflict with "cannot rollback". Preserve COMMIT's original error.
-            const exec = transaction.exec.bind(transaction);
-            transaction.exec = async (sql, options) => {
+    const operation = new DiagnosticOperation('storage', { writable });
+    let poolWaitMs = 0,
+      conflicts = 0,
+      backoffMs = 0,
+      attempts = 0;
+    let statementCount = 0,
+      maxStatementMs = 0;
+    try {
+      for (let attempt = 0; ; attempt++) {
+        attempts++;
+        operation.phase('pool_wait', {
+          attempt: attempts,
+          poolActive: this.active,
+          poolSize: this.connections.length,
+          poolQueued: this.waiters.length + (this.available.length === 0 ? 1 : 0),
+        });
+        const waitStarted = performance.now();
+        const db = await this.acquire();
+        poolWaitMs += performance.now() - waitStarted;
+        operation.phase('transaction_begin', { poolWaitMs });
+        let scope: TursoTransaction | undefined;
+        let callbackError: unknown;
+        let commitError: unknown;
+        try {
+          const result = await db
+            .transactionAsync(async transaction => {
+              // 0.7.2 can automatically abort a conflicting transaction. Its wrapper then
+              // masks the conflict with "cannot rollback". Preserve COMMIT's original error.
+              const exec = transaction.exec.bind(transaction);
+              transaction.exec = async (sql, options) => {
+                const phase = sql.trim().toUpperCase();
+                if (phase === 'COMMIT' || phase === 'ROLLBACK')
+                  operation.phase(phase.toLowerCase());
+                try {
+                  return await exec(sql, options);
+                } catch (error) {
+                  if (sql.trim().toUpperCase() === 'COMMIT') commitError = error;
+                  throw error;
+                }
+              };
+              scope = new TursoTransaction(transaction, writable, operation);
+              operation.phase('callback');
               try {
-                return await exec(sql, options);
+                return await this.context.run(scope, () => callback(scope!));
               } catch (error) {
-                if (sql.trim().toUpperCase() === 'COMMIT') commitError = error;
+                callbackError = error;
                 throw error;
               }
-            };
-            scope = new TursoTransaction(transaction, writable);
-            try {
-              return await this.context.run(scope, () => callback(scope!));
-            } catch (error) {
-              callbackError = error;
-              throw error;
-            }
-          })
-          .concurrent();
-        scope!.publish();
-        return result;
-      } catch (error) {
-        // The driver returns the original callback error only after successful rollback.
-        // A rollback error can mask it; that case must never be retried.
-        const original = callbackError ?? commitError ?? error;
-        const alreadyAborted =
-          error instanceof Error &&
-          error.message ===
-            'step failed: Transaction error: cannot rollback - no transaction is active';
-        const rolledBack = !db.inTransaction && (original === error || alreadyAborted);
-        if (db.inTransaction) {
-          // Never lease a connection whose rollback outcome is unresolved.
-          void this.close().catch(() => {});
-          throw new BassfishError(
-            'OUTCOME_UNKNOWN',
-            'Storage could not confirm rollback. Reconnect and inspect the resource before retrying.',
-          );
-        }
-        if (!rolledBack || !isTransactionConflict(original)) {
-          if (commitError)
+            })
+            .concurrent();
+          operation.phase('publication');
+          scope!.publish();
+          operation.finish(undefined, {
+            poolWaitMs,
+            attempts,
+            conflicts,
+            backoffMs,
+            statementCount: statementCount + scope!.metrics().statementCount,
+            maxStatementMs: Math.max(maxStatementMs, scope!.metrics().maxStatementMs),
+          });
+          return result;
+        } catch (error) {
+          // The driver returns the original callback error only after successful rollback.
+          // A rollback error can mask it; that case must never be retried.
+          const original = callbackError ?? commitError ?? error;
+          const alreadyAborted =
+            error instanceof Error &&
+            error.message ===
+              'step failed: Transaction error: cannot rollback - no transaction is active';
+          const rolledBack = !db.inTransaction && (original === error || alreadyAborted);
+          operation.event('storage.attempt_failed', {
+            writable,
+            attempt: attempts,
+            conflict: isTransactionConflict(original),
+            rollbackConfirmed: rolledBack && (!commitError || isTransactionConflict(commitError)),
+            commitUnresolved: Boolean(commitError) && !isTransactionConflict(commitError),
+            commitFailed: Boolean(commitError),
+            rollbackUnresolved: db.inTransaction,
+          });
+          if (db.inTransaction) {
+            // Never lease a connection whose rollback outcome is unresolved.
+            void this.close().catch(() => {});
             throw new BassfishError(
               'OUTCOME_UNKNOWN',
-              'Storage could not confirm commit. Reconnect and inspect the resource before retrying.',
+              'Storage could not confirm rollback. Reconnect and inspect the resource before retrying.',
             );
-          throw original;
+          }
+          if (!rolledBack || !isTransactionConflict(original)) {
+            if (commitError)
+              throw new BassfishError(
+                'OUTCOME_UNKNOWN',
+                'Storage could not confirm commit. Reconnect and inspect the resource before retrying.',
+              );
+            throw original;
+          }
+          conflicts++;
+          if (attempt === 4)
+            throw new BassfishError(
+              'STORAGE_BUSY',
+              'Storage remained busy after five transaction attempts. Try again.',
+            );
+        } finally {
+          if (scope) {
+            statementCount += scope.metrics().statementCount;
+            maxStatementMs = Math.max(maxStatementMs, scope.metrics().maxStatementMs);
+          }
+          this.release(db);
         }
-        if (attempt === 4)
-          throw new BassfishError(
-            'STORAGE_BUSY',
-            'Storage remained busy after five transaction attempts. Try again.',
-          );
-      } finally {
-        this.release(db);
+        const backoff = 5 * 2 ** attempt + Math.floor(Math.random() * 5);
+        backoffMs += backoff;
+        operation.phase('retry_backoff', { conflicts, backoffMs });
+        await delay(backoff);
       }
-      await delay(5 * 2 ** attempt + Math.floor(Math.random() * 5));
+    } catch (error) {
+      operation.finish(error, {
+        poolWaitMs,
+        attempts,
+        conflicts,
+        backoffMs,
+        statementCount,
+        maxStatementMs,
+      });
+      throw error;
     }
   }
 

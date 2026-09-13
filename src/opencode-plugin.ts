@@ -1,3 +1,4 @@
+import { clientDiagnosticSink } from './diagnostic-log.js';
 import { setTimeout as delay } from 'node:timers/promises';
 import type { Plugin as OpenCodeV1Plugin } from '@opencode-ai/plugin';
 import type {
@@ -202,7 +203,9 @@ const emptyDelivery = (): OpenCodeDeliveryBatch => ({
   notifications: [],
 });
 export function createBassfishPlugin(dependencies: OpenCodePluginDependencies = {}) {
-  const connect = dependencies.connect ?? (async dir => RpcClient.connect(socketPath(dir)));
+  const connect =
+    dependencies.connect ??
+    (async dir => RpcClient.connect(socketPath(dir), clientDiagnosticSink(dir)));
   const getClientId = dependencies.clientId ?? readOrCreateOpenCodeClientId;
   const getAncestry = dependencies.ancestry ?? processAncestry;
   const wait =

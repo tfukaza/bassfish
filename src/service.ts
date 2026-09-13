@@ -1,3 +1,5 @@
+import { diagnosticEvent, diagnosticHash } from './diagnostic-events.js';
+import type { DiagnosticSink } from './diagnostic-events.js';
 import { mapAsync, filterAsync } from './async.js';
 import { copy } from './storage/rows.js';
 import { randomUUID } from 'node:crypto';
@@ -116,6 +118,7 @@ const ticketMutationKinds = [
 /** Application service: all coordination is persisted by ControlStore; all content uses ContentStore. */
 export class Bassfish {
   readonly epoch = uid();
+  diagnostics?: DiagnosticSink;
   readonly limits: Limits;
   private readonly writers = new KeyedMutex();
   private readonly committingTurns = new Set<string>();
@@ -136,7 +139,20 @@ export class Bassfish {
   async initialize(): Promise<void> {
     const now = this.clock.now();
     await this.control.update(async state => {
-      for (const instance of await state.all('instances')) instance.active = false;
+      for (const instance of await state.all('instances')) {
+        if (instance.active) {
+          const details = {
+            epoch: this.epoch,
+            instanceId: instance.id,
+            projectId: instance.projectId,
+            reason: 'daemon_restart',
+          };
+          this.control.afterCommit(() =>
+            diagnosticEvent('session.disconnected', details, this.diagnostics),
+          );
+        }
+        instance.active = false;
+      }
       for (const request of await state.all('requests')) {
         if (request.resourceType === 'files') {
           if (activeStates.includes(request.state))
@@ -263,6 +279,22 @@ export class Bassfish {
           : {}),
       };
       await state.set('instances', instance.id, instance);
+      this.control.afterCommit(() =>
+        diagnosticEvent(
+          'session.connected',
+          {
+            epoch: this.epoch,
+            instanceId: instance.id,
+            projectId: instance.projectId,
+            identityId: instance.identityId,
+            host: instance.host,
+            hostSessionHash: instance.hostSessionId
+              ? diagnosticHash(instance.hostSessionId)
+              : undefined,
+          },
+          this.diagnostics,
+        ),
+      );
       await this.rebind(state, instance);
       await this.promote(state);
     });
@@ -307,12 +339,47 @@ export class Bassfish {
         COMMITTED: 'committed',
       }[state];
     await finishRequest(request, state, this.clock.now(), this.limits.retentionMs, control);
+    if (state === 'EXPIRED') {
+      const details = {
+        epoch: this.epoch,
+        instanceId: request.instanceId,
+        projectId: request.projectId,
+        requestId: request.id,
+        tokenHash: request.turnId ? diagnosticHash(request.turnId) : undefined,
+        resourceType: request.resourceType,
+        reason: request.terminalReason,
+      };
+      this.control.afterCommit(() =>
+        diagnosticEvent('reservation.expired', details, this.diagnostics),
+      );
+    }
   }
   private async disconnectIn(
     state: ControlState,
     instance: Instance,
     clean: boolean,
+    reason = clean ? 'explicit_close' : 'socket_lost',
   ): Promise<void> {
+    const wasActive = instance.active;
+    const lostReservations = (await state.all('requests')).filter(
+      r => r.instanceId === instance.id && activeStates.includes(r.state),
+    ).length;
+    const details = {
+      epoch: this.epoch,
+      instanceId: instance.id,
+      projectId: instance.projectId,
+      identityId: instance.identityId,
+      host: instance.host,
+      hostSessionHash: instance.hostSessionId ? diagnosticHash(instance.hostSessionId) : undefined,
+      reason,
+      heartbeatAgeMs: this.clock.now() - instance.lastSeen,
+      instanceTimeoutMs: this.limits.instanceMs,
+      affectedReservationCount: lostReservations,
+    };
+    if (wasActive)
+      this.control.afterCommit(() =>
+        diagnosticEvent('session.disconnected', details, this.diagnostics),
+      );
     instance.active = false;
     for (const request of (await state.all('requests')).filter(r => r.instanceId === instance.id)) {
       if (request.resourceType === 'files') {
@@ -349,12 +416,12 @@ export class Bassfish {
         await this.finish(request, clean ? 'RELEASED' : 'EXPIRED', state);
     }
   }
-  async disconnect(handle: string, clean = true): Promise<void> {
+  async disconnect(handle: string, clean = true, reason?: string): Promise<void> {
     await this.control.update(async state => {
       const instance = (await state.all('instances')).find(
         i => i.handle === handle && i.epoch === this.epoch,
       );
-      if (instance) await this.disconnectIn(state, instance, clean);
+      if (instance) await this.disconnectIn(state, instance, clean, reason);
       await this.promote(state);
     });
   }
@@ -362,7 +429,18 @@ export class Bassfish {
     await this.sweep();
     await this.control.update(async state => {
       const actor = await this.actor(state, handle);
-      (await state.get('instances', actor.instanceId))!.lastSeen = this.clock.now();
+      const instance = (await state.get('instances', actor.instanceId))!;
+      const now = this.clock.now();
+      const details = {
+        instanceId: instance.id,
+        projectId: instance.projectId,
+        previousHeartbeatAgeMs: now - instance.lastSeen,
+        acceptedAt: Date.now(),
+      };
+      instance.lastSeen = now;
+      this.control.afterCommit(() =>
+        diagnosticEvent('session.heartbeat', details, this.diagnostics),
+      );
     });
   }
   async sweep(): Promise<void> {
@@ -377,7 +455,7 @@ export class Bassfish {
       state.wallClockHighWaterMs = Math.max(state.wallClockHighWaterMs, wall);
       for (const instance of await state.all('instances'))
         if (instance.active && now - instance.lastSeen >= this.limits.instanceMs)
-          await this.disconnectIn(state, instance, false);
+          await this.disconnectIn(state, instance, false, 'heartbeat_expired');
       for (const request of await state.all('requests')) {
         if (request.turnId && this.committingTurns.has(request.turnId)) continue;
         const contentPaused = false;

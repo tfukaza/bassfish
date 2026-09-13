@@ -27,7 +27,11 @@ test(
     const status = await run('daemon', 'status', '--json');
     assert.deepEqual(JSON.parse(status.stdout), {
       state: 'stopped',
-      diagnostics: { logPath: join(data, 'run', 'daemon.log') },
+      diagnostics: {
+        logPath: join(data, 'run', 'daemon.log'),
+        runtimeLogPath: join(data, 'run', 'runtime.log'),
+        clientLogPath: join(data, 'run', 'clients.log'),
+      },
     });
     assert.equal(status.stderr, '');
     const redundantStop = await run('daemon', 'stop', '--json');
@@ -93,7 +97,7 @@ test(
     const after = await run('daemon', 'status', '--plain');
     assert.equal(
       after.stdout,
-      `○ Daemon stopped\n  Daemon log  ${join(data, 'run', 'daemon.log')}\n`,
+      `○ Daemon stopped\n  Daemon log  ${join(data, 'run', 'daemon.log')}\n  Runtime log ${join(data, 'run', 'runtime.log')}\n  Client log  ${join(data, 'run', 'clients.log')}\n`,
     );
     assert.equal(after.stderr, '');
   },

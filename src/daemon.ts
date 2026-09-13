@@ -1,3 +1,8 @@
+import { startRuntimeDiagnostics } from './runtime-diagnostics.js';
+import type { RuntimeDiagnostics } from './runtime-diagnostics.js';
+import { DiagnosticOperation, withDiagnostics } from './diagnostic-events.js';
+import { clientDiagnosticSink } from './diagnostic-log.js';
+import { packageVersion } from './config.js';
 import { closeSync } from 'node:fs';
 import {
   daemonDiagnostics,
@@ -128,13 +133,19 @@ export async function runDaemon(dataDir: string, overrides: DaemonOverrides = {}
   let control: TursoControl | undefined;
   let content: TursoContent | undefined;
   let rpc: Awaited<ReturnType<typeof listenRpc>> | undefined;
+  let runtimeDiagnostics: RuntimeDiagnostics | undefined;
   let stopMaintenance: (() => void) | undefined;
   let epoch: string | undefined;
   const fatal = (error: unknown): never => {
     recordDaemonLifecycle(dataDir, 'failed', { epoch, ...daemonError(error) });
     process.exit(1);
   };
-  recordDaemonLifecycle(dataDir, 'starting');
+  recordDaemonLifecycle(dataDir, 'starting', {
+    bassfishVersion: packageVersion,
+    nodeVersion: process.versions.node,
+    tursoVersion,
+    platform: `${process.platform}-${process.arch}`,
+  });
   let closing: Promise<void> | undefined;
   const stop = (reason = 'requested'): Promise<void> =>
     (closing ??= (async () => {
@@ -142,6 +153,7 @@ export async function runDaemon(dataDir: string, overrides: DaemonOverrides = {}
       await rpc?.close();
       await control?.activity.publish();
       await control?.close();
+      await runtimeDiagnostics?.close();
       if (reason !== 'startup_failed') recordDaemonLifecycle(dataDir, 'stopped', { epoch, reason });
       unlock();
     })());
@@ -179,7 +191,20 @@ export async function runDaemon(dataDir: string, overrides: DaemonOverrides = {}
       },
       dataDir,
     );
-    await service.initialize();
+    runtimeDiagnostics = startRuntimeDiagnostics(dataDir, {
+      bassfishVersion: packageVersion,
+      nodeVersion: process.versions.node,
+      tursoVersion,
+      platform: `${process.platform}-${process.arch}`,
+      epoch: service.epoch,
+      config,
+    });
+    service.diagnostics = runtimeDiagnostics?.emit;
+    await withDiagnostics(
+      runtimeDiagnostics?.emit,
+      { method: 'initialize', epoch: service.epoch },
+      () => service.initialize(),
+    );
     const sessions = new Map<Socket, AdapterSession>();
     const observers = new Map<Socket, string>();
     const observerSockets = new WeakSet<Socket>();
@@ -217,7 +242,7 @@ export async function runDaemon(dataDir: string, overrides: DaemonOverrides = {}
     const closeHandle = async (session: AdapterSession, sessionId: string, clean = true) => {
       const handle = session.handles.get(sessionId);
       if (!handle) return;
-      await service.disconnect(handle, clean);
+      await service.disconnect(handle, clean, closing ? 'daemon_shutdown' : undefined);
       session.handles.delete(sessionId);
       idleHostSessions.delete(`${session.id}:${sessionId}`);
       if (session.defaultHostSessionId === sessionId) session.defaultHostSessionId = undefined;
@@ -227,7 +252,7 @@ export async function runDaemon(dataDir: string, overrides: DaemonOverrides = {}
         ...(session.defaultHandle ? [session.defaultHandle] : []),
         ...session.handles.values(),
       ]))
-        await service.disconnect(handle, clean);
+        await service.disconnect(handle, clean, closing ? 'daemon_shutdown' : undefined);
       session.defaultHandle = undefined;
       session.defaultHostSessionId = undefined;
       session.handles.clear();
@@ -341,7 +366,10 @@ export async function runDaemon(dataDir: string, overrides: DaemonOverrides = {}
               epoch: service.epoch,
               dataDir,
               state: 'ready',
-              diagnostics: daemonDiagnostics(dataDir),
+              diagnostics: {
+                ...daemonDiagnostics(dataDir),
+                runtime: runtimeDiagnostics?.summary(),
+              },
               storage: {
                 engine: 'turso',
                 version: tursoVersion,
@@ -356,7 +384,10 @@ export async function runDaemon(dataDir: string, overrides: DaemonOverrides = {}
               pid: process.pid,
               epoch: service.epoch,
               state: 'ready',
-              diagnostics: daemonDiagnostics(dataDir),
+              diagnostics: {
+                ...daemonDiagnostics(dataDir),
+                runtime: runtimeDiagnostics?.summary(),
+              },
               storage: {
                 engine: 'turso',
                 version: tursoVersion,
@@ -414,7 +445,7 @@ export async function runDaemon(dataDir: string, overrides: DaemonOverrides = {}
                 nativeSessions.set(socket, session);
                 signalNativeChange();
               }
-              return result;
+              return { ...result, epoch: service.epoch };
             } finally {
               opening.delete(socket);
             }
@@ -679,23 +710,35 @@ export async function runDaemon(dataDir: string, overrides: DaemonOverrides = {}
         sessions.delete(socket);
         if (nativeSessions.delete(socket)) signalNativeChange();
       },
+      runtimeDiagnostics?.emit,
     );
     await chmod(path, 0o600);
     epoch = service.epoch;
     recordDaemonLifecycle(dataDir, 'ready', { epoch });
     stopMaintenance = startMaintenance(
-      async () => {
-        rotateDaemonLog(dataDir);
-        await service.sweep();
-        if (
-          !closing &&
-          sessions.size === 0 &&
-          observers.size === 0 &&
-          !(await service.hasPendingWork()) &&
-          Date.now() - lastActivity >= config.idleMs
-        )
-          void stop('idle').catch(fatal);
-      },
+      () =>
+        withDiagnostics(runtimeDiagnostics?.emit, { method: 'maintenance', epoch }, async () => {
+          const operation = new DiagnosticOperation('maintenance');
+          try {
+            operation.phase('log_rotation');
+            rotateDaemonLog(dataDir);
+            operation.phase('session_sweep');
+            await service.sweep();
+            operation.phase('idle_check');
+            if (
+              !closing &&
+              sessions.size === 0 &&
+              observers.size === 0 &&
+              !(await service.hasPendingWork()) &&
+              Date.now() - lastActivity >= config.idleMs
+            )
+              void stop('idle').catch(fatal);
+            operation.finish();
+          } catch (error) {
+            operation.finish(error);
+            throw error;
+          }
+        }),
       fatal,
       recovered =>
         recordDaemonLifecycle(
@@ -717,7 +760,7 @@ export async function runDaemon(dataDir: string, overrides: DaemonOverrides = {}
   }
 }
 export async function connectDaemon(dataDir: string): Promise<RpcClient> {
-  return RpcClient.connect(socketPath(dataDir));
+  return RpcClient.connect(socketPath(dataDir), clientDiagnosticSink(dataDir));
 }
 async function probe(dataDir: string, signal?: AbortSignal): Promise<boolean> {
   signal?.throwIfAborted();

@@ -30,6 +30,8 @@ Retained-memory checkpoints await complete major collection at an asynchronous e
 
 The 30-minute isolated daemon soak exercises six agents, heartbeats, six native notification monitors, and Sonar. Native-memory mode disables scheduled restarts, uses a test-only daemon entry point with IPC GC checkpoints, checks daemon identity, session expiry and replacement failures, measures physical footprint, and requires a stable final memory window. It records retained JS heap and external memory alongside physical footprint. The fixed-dataset regression has the 512 MiB safety ceiling; the mixed daemon workload is qualified by its final memory trend. A short soak is diagnostic evidence only. Release qualification also requires all three installed-platform tarballs and the existing host qualification; a host-only package does not qualify a release.
 
+Each retained daemon sample briefly leases all existing pool connections through the normal FIFO, waits for prior work and replacements to drain, collects, and holds those leases until footprint capture completes. A ten-second deadline and disconnect cleanup release the checkpoint. Work then resumes in the same daemon. The sample also records physical footprint immediately before the checkpoint, separately from the retained-memory trend. This avoids comparing an eight-connection steady state with permitted ninth-connection replacement work or a query's temporary allocations.
+
 See [the native build instructions](../native/turso/README.md) and [release qualification](release-qualification.md).
 
 ## Local qualification — September 13, 2026

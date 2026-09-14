@@ -206,34 +206,45 @@ try {
       global.gc?.();
       const memory = process.memoryUsage();
       if (nativeMemory) {
+        const workingMemory = await processMemory(expectedPid);
         const checkpoint = daemonMessage();
         nativeDaemon.send({ gc: true });
         const retained = await checkpoint;
-        assert.equal(retained.gc, true);
-        const probe = await connectDaemon(data);
-        let health;
         try {
-          health = await probe.call('probeHealth');
+          assert.equal(retained.gc, true);
+          const probe = await connectDaemon(data);
+          let health;
+          try {
+            health = await probe.call('probeHealth');
+          } finally {
+            probe.socket.destroy();
+          }
+          assert.equal(health.pid, expectedPid, 'unexpected daemon restart');
+          assert.equal(health.storage.bindingIdentity, '0.7.2-bassfish.1');
+          assert.equal(health.storage.replacementFailures, 0);
+          assert.equal(retained.connections, health.storage.connections.length);
+          assert.equal(health.storage.active, retained.connections);
+          assert.equal(health.storage.openConnections, retained.connections);
+          assert.equal(health.storage.replacementsPending, 0);
+          finalStorage = health.storage;
+          const sample = {
+            ...(await processMemory(expectedPid)),
+            elapsedMs: Date.now() - started,
+            heapUsedBytes: retained.memory.heapUsed,
+            externalBytes: retained.memory.external,
+            workingPhysicalBytes: workingMemory.physicalBytes,
+            checkpointConnections: retained.connections,
+          };
+          nativeSamples.push(sample);
+          process.stdout.write(
+            JSON.stringify({
+              nativeMemory: sample,
+              replacements: health.storage.replacementSuccesses,
+            }) + '\n',
+          );
         } finally {
-          probe.socket.destroy();
+          if (nativeDaemon.connected) nativeDaemon.send({ resume: true });
         }
-        assert.equal(health.pid, expectedPid, 'unexpected daemon restart');
-        assert.equal(health.storage.bindingIdentity, '0.7.2-bassfish.1');
-        assert.equal(health.storage.replacementFailures, 0);
-        finalStorage = health.storage;
-        const sample = {
-          ...(await processMemory(expectedPid)),
-          elapsedMs: Date.now() - started,
-          heapUsedBytes: retained.memory.heapUsed,
-          externalBytes: retained.memory.external,
-        };
-        nativeSamples.push(sample);
-        process.stdout.write(
-          JSON.stringify({
-            nativeMemory: sample,
-            replacements: health.storage.replacementSuccesses,
-          }) + '\n',
-        );
       }
       assert.ok(memory.heapUsed < 128 * 1048576, 'Sonar retained heap exceeded 128 MiB');
       assert.equal(performance.getEntriesByType('measure').length, 0);

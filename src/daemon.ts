@@ -24,7 +24,7 @@ import { BassfishError, requireThat } from './domain.js';
 import { Bassfish } from './service.js';
 import { TursoControl } from './storage/coordination.js';
 import { TursoContent } from './storage/content.js';
-import { requireFreshStorage } from './storage/turso.js';
+import { requireFreshStorage, type TursoStore } from './storage/turso.js';
 import { SystemClock } from './runtime.js';
 import { resolveRepository } from './repository.js';
 import { nameSchema } from './contracts.js';
@@ -123,7 +123,10 @@ function parse<T>(schema: z.ZodType<T>, value: unknown): T {
   return result.data;
 }
 export type DaemonOverrides = Partial<Pick<RuntimeConfig, 'turnTimeoutMs'>>;
-export async function runDaemon(dataDir: string, overrides: DaemonOverrides = {}): Promise<void> {
+export async function runDaemon(
+  dataDir: string,
+  overrides: DaemonOverrides = {},
+): Promise<TursoStore> {
   requireSupportedPlatform();
   process.umask(0o077);
   const path = socketPath(dataDir);
@@ -806,6 +809,7 @@ export async function runDaemon(dataDir: string, overrides: DaemonOverrides = {}
     process.once('SIGTERM', () => {
       void stop('SIGTERM').catch(fatal);
     });
+    return control.store;
   } catch (error) {
     recordDaemonLifecycle(dataDir, 'failed', { epoch, ...daemonError(error) });
     await stop('startup_failed').catch(() => {});

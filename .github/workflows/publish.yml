@@ -41,8 +41,33 @@ jobs:
       - run: npm run package:check
       - run: npm run test:memory-soak
 
+  storage-soak:
+    needs: native
+    env:
+      BASSFISH_RELEASE_BUILD: '1'
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24.12.0
+          cache: npm
+      - run: node scripts/verify-release-tag.mjs
+      - run: npm ci
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: native-*
+          path: native/turso/artifacts
+          merge-multiple: true
+      - run: npm run build:release
+      - run: npm run test:soak
+
   publish:
-    needs: qualify
+    needs: [qualify, storage-soak]
     runs-on: ubuntu-latest
     permissions:
       contents: read

@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { setImmediate as yieldTurn } from 'node:timers/promises';
 import { TursoStore } from '../dist/storage/turso.js';
 import { connect as officialConnect } from '@tursodatabase/database';
+import { collectRetainedMemory } from './memory-evidence.mjs';
 
 assert.equal(typeof global.gc, 'function', 'memory qualification requires --expose-gc');
 const mode = process.argv[2];
@@ -14,10 +15,7 @@ const dir = await mkdtemp(join(tmpdir(), 'bf-native-memory-'));
 const path = join(dir, 'bassfish.db');
 let store;
 const checkpoint = async (phase, operations) => {
-  global.gc();
-  await yieldTurn();
-  global.gc();
-  await yieldTurn();
+  const memory = await collectRetainedMemory();
   const diagnostics = store.diagnostics();
   for (const slot of diagnostics.connections) {
     if (recycling) assert.ok(slot.prepares < 4096 + 256, 'prepare count not bounded');
@@ -28,7 +26,7 @@ const checkpoint = async (phase, operations) => {
       );
   }
   assert.ok(process.memoryUsage().rss < 512 * 1048576, 'RSS safety ceiling exceeded');
-  process.send({ phase, operations, memory: process.memoryUsage(), diagnostics });
+  process.send({ phase, operations, memory, diagnostics });
   await new Promise(resolve => process.once('message', resolve));
 };
 try {

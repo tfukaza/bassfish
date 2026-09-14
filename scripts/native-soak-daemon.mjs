@@ -1,17 +1,13 @@
 // A test-only daemon entry point with an IPC GC checkpoint; no public command changes.
 import assert from 'node:assert/strict';
-import { setImmediate as yieldTurn } from 'node:timers/promises';
 import { runDaemon } from '../dist/daemon.js';
+import { collectRetainedMemory } from './memory-evidence.mjs';
 
 assert.equal(typeof global.gc, 'function');
 await runDaemon(process.argv[2]);
 process.on('message', async message => {
   if (message.gc) {
-    global.gc();
-    await yieldTurn();
-    global.gc();
-    await yieldTurn();
-    process.send({ gc: true, memory: process.memoryUsage() });
+    process.send({ gc: true, memory: await collectRetainedMemory() });
   }
 });
 process.on('disconnect', () => process.emit('SIGTERM'));

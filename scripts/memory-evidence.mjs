@@ -4,9 +4,20 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
+import { setImmediate as yieldTurn } from 'node:timers/promises';
 
 const exec = promisify(execFile);
 export const MiB = 1048576;
+/** Complete native weak finalizers at a clean stack boundary before retained-memory sampling. */
+export async function collectRetainedMemory() {
+  assert.equal(typeof global.gc, 'function', 'memory qualification requires --expose-gc');
+  for (let i = 0; i < 2; i++) {
+    await global.gc({ type: 'major', execution: 'async', flavor: 'last-resort' });
+    await yieldTurn();
+  }
+  return process.memoryUsage();
+}
+
 export async function processMemory(pid) {
   if (process.platform === 'darwin') {
     const dir = await mkdtemp(join(tmpdir(), 'bf-footprint-'));

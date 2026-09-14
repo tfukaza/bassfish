@@ -28,7 +28,7 @@ bassfish --version
 bassfish doctor
 ```
 
-The package contains both the human CLI and the `bassfish mcp` stdio server. Connect an agent and install both workflow skills for that host:
+The package contains both the human CLI and the `bassfish mcp` stdio server. Connect an agent and install the workflow skills for that host:
 
 ### Codex
 
@@ -37,7 +37,7 @@ codex mcp remove bassfish
 codex plugin marketplace add tfukaza/bassfish
 codex plugin add bassfish@bassfish
 npx --yes skills@latest add tfukaza/bassfish \
-  --skill use-bassfish --skill manage-bassfish \
+  --skill use-bassfish --skill manage-bassfish --skill lead-bassfish \
   --agent codex --global --yes
 codex plugin list
 ```
@@ -52,7 +52,7 @@ Remove an older manually configured Claude MCP entry first, if one exists, with 
 claude plugin marketplace add https://github.com/tfukaza/bassfish.git
 claude plugin install bassfish@bassfish --scope user
 npx --yes skills@latest add tfukaza/bassfish \
-  --skill use-bassfish --skill manage-bassfish \
+  --skill use-bassfish --skill manage-bassfish --skill lead-bassfish \
   --agent claude-code --global --yes
 ```
 
@@ -71,7 +71,7 @@ reconnect automatically.
 ```sh
 opencode plugin @bassfish/cli --global
 npx --yes skills@latest add tfukaza/bassfish \
-  --skill use-bassfish --skill manage-bassfish \
+  --skill use-bassfish --skill manage-bassfish --skill lead-bassfish \
   --agent opencode --global --yes
 ```
 
@@ -82,6 +82,8 @@ npm install -g @bassfish/cli@latest
 bassfish setup
 npx --yes skills@latest update \
   use-bassfish manage-bassfish --global --yes
+npx --yes skills@latest add tfukaza/bassfish \
+  --skill lead-bassfish --global --yes
 bassfish doctor
 ```
 

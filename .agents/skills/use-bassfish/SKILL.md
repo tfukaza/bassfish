@@ -1,12 +1,14 @@
 ---
 name: use-bassfish
-description: Coordinate proactive coding-agent teams through the Bassfish MCP server using shared threads, advisory file reservations, owned tickets, decisions, and handoffs. Use when the user asks to use Bassfish, collaborate with other agents, share project context, record a decision, or prepare a handoff. Do not use for unrelated single-agent coding tasks.
+description: Participate in a Bassfish coding team using updates, notifications, assigned tickets, shared threads, advisory file reservations, and handoffs. Use when the user asks to use Bassfish, collaborate with peers, share project context, or record team work. Team managers also use lead-bassfish. Do not use for unrelated single-agent work or CLI administration.
 license: MIT
 ---
 
 # Use Bassfish
 
 Use MCP for ordinary participation. Human CLI commands are for user-requested administration.
+
+Perform your assigned role; use [lead-bassfish](../lead-bassfish/SKILL.md) when appointed manager. Implementers deliver working code and relevant checks, QA delivers executable scenarios or reproducible failures, and reviewers deliver actionable findings on the assigned artifact. Recommend changes when they affect the task; team-wide planning and allocation are the lead's responsibility. Explicit planning-only requests remain planning-only.
 
 ## Bootstrap once, checkpoint changes
 
@@ -32,13 +34,13 @@ Native Codex CLI 0.154+ automatically queues actionable idle updates; finish you
 
 Other native hosts retain their supported delivery policies. Use explicit `waitForWork` when requested and MCP Tasks is supported; handle/acknowledge then rearm until interrupted or approval/input is needed. Capability failure must not become model-driven polling. Explain unavailable connections; configure only when requested.
 
-## Proactive peers and canonical discussion
+## Scoped work and canonical discussion
 
-Take responsibility for the initiative's outcome. Form independent recommendations, challenge assumptions, and surface material opportunities/integration concerns. Recommend broadly but implement only the user-approved initiative.
+Own your assignment through verification and handoff. Ordinary implementation, builds, and relevant tests within its authorized scope do not need successive managerial grants. Respect actual user restrictions, host permissions, and repository policy. If blocked, report evidence, affected scope, and the smallest needed decision; continue other ready authorized work when possible.
 
-Choose one canonical thread: explicit ID, root ticket's `Canonical thread: THREAD_ID`, oldest semantic match, or duplicate-safe creation. Put the link in related ticket bodies. Post substantive discussion there. Consolidate satellites with summaries, redirects, and direct notifications to participants needing action.
+Use the assigned canonical thread and record its link in related tickets. If no thread is assigned, reuse an explicit ID, root ticket's `Canonical thread: THREAD_ID`, oldest semantic match, or duplicate-safe creation. Raise overlap, interface conflicts, and concrete correctness concerns there. Ask the lead to resolve shared choices; do not initiate team-wide votes or independently take over management.
 
-At framing and major decisions, name materially affected participants. Each states an independent thesis, opportunity, assumptions, and strongest concern before reacting. Try one synthesis/revision round. If disagreement remains, request explicit votes from available named participants: silence is not agreement; abstentions do not count; majority decides; initiative lead breaks ties. Record the result and material dissent. User instructions remain authoritative.
+Progress updates should identify changed artifacts, useful findings, a handoff, or a real blocker. Link complete reports instead of appending their full history to tickets. Do not reread unchanged resources or post acknowledgements merely to show activity. Preserve failed results; distinguish a later successful check from the earlier failure.
 
 Use exact direct structured mentions for particular owners/reviewers; `mentions.here:true` for action from online thread followers; `mentions.global:true` for every online project agent. Include corresponding visible tags; structured fields are authoritative. Global cannot combine with other modes. Ordinary progress can be unmentioned. Put large verification details in files and share a concise result plus path.
 
@@ -50,9 +52,9 @@ Use `Introductions` with description `Shared team roster and agent introductions
 
 ## Tickets and review
 
-Create/reuse tickets for delegated workstreams and dependencies. Specify outcome, purpose, constraints/interfaces, acceptance evidence, owner, prerequisites, and canonical link. Preserve the owner's implementation latitude.
+Reuse your assigned ticket. Create a ticket when a new authorized workstream needs ownership, not for each message or review stage. Keep outcome, role, constraints/interfaces, acceptance evidence, owner, prerequisites, and integration handoff concise. Reconcile assignments conflicting with user intent instead of duplicating work.
 
-Dependency-blocked work stays `todo`; use `blocked` only for a blocker outside prerequisites, explained in the body. Set ready work `in_progress` before implementation. Material changes affecting shared interfaces, another workstream, correctness, UX, security, or data require a reviewer other than the owner, named in the body. Directly request review; the reviewer explicitly approves or requests changes. Resolve remaining material objections through the decision process. Mark `done` only after acceptance, verification, and required review, with evidence recorded in the body. Reconcile assignments conflicting with user intent instead of duplicating work.
+Dependency-blocked work stays `todo`; use `blocked` only for a blocker outside prerequisites, explained in the body. Set ready work `in_progress` before working. Material shared-interface, correctness, data-integrity, or security changes need a focused reviewer other than the owner before completion; ask the lead to name one if missing. Low-risk local work needs proportionate verification. Request review of the concrete artifact, resolve material findings, and involve the lead for unresolved choices. Do not add serial design/source/configuration/execution reviews. Mark `done` only after acceptance, verification, and required review, with evidence in the body. An isolated module does not complete a milestone requiring integration.
 
 ## Revisioned reads and writer turns
 

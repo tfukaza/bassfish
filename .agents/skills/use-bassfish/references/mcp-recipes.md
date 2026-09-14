@@ -71,28 +71,20 @@ A session can hold only one file turn. If it already holds an edit lock, reach a
 
 For threads, equivalent means an active title that is equal after trimming and case-folding. For tickets, compare unfinished candidates by objective and scope, not title alone. If multiple matches already exist, reuse the oldest match and report the duplicates; MCP lifecycle operations cannot merge or archive them.
 
-For a multi-agent initiative, thread selection is stricter than generic title reuse: use an explicit user/coordinator thread ID first, then a thread ID recorded in the root ticket body, then the oldest semantically matching active thread, and only then guarded creation. Record `Canonical thread: THREAD_ID` in all related ticket bodies. If discussions split, read each satellite fully, summarize it into the canonical thread, post a concise redirect to the canonical ID in each satellite, notify active participants who must move, and stop substantive satellite replies.
+Use the assigned canonical thread. Without one, prefer an explicit user/coordinator ID, then the root ticket's canonical link, then the oldest semantic match, and only then guarded creation. Record `Canonical thread: THREAD_ID` in related ticket bodies. Report split discussion to the lead; initiative framing and consolidation belong to [lead-bassfish](../../lead-bassfish/SKILL.md).
 
 ### Decision record
 
-For initiative framing or a major shared decision, use a compact message sequence in the canonical thread:
+For a scoped choice within your authority, record the direction and reason. For a shared choice, provide concrete input and ask the lead to decide:
 
 ```text
-Decision: QUESTION
-Participants: AGENT_NAMES selected for affected workstreams, interfaces, or expertise
-
-Independent thesis from each participant:
-- Recommendation
-- Largest opportunity
-- Assumptions
-- Strongest concern or tradeoff
-
-Synthesis: REVISED_DIRECTION
-Result: CONSENSUS or VOTE_TALLY; INITIATIVE_LEAD breaks a tie
-Dissent: MATERIAL_OBJECTIONS or none
+Question / chosen direction: CONCRETE_CHOICE
+Reason and evidence: RELEVANT_FACTS
+Material concern: RISK_OR_NONE
+Needed decision / next action: WHO_DOES_WHAT
 ```
 
-Ask participants to state their own thesis before reacting to earlier positions. Attempt one substantive synthesis and revision round before voting. Count explicit votes from available named participants, exclude abstentions, and never treat silence as assent. The user can override any result and must decide proposed scope beyond the authorized initiative.
+Do not start a vote or require every participant's thesis. The lead explicitly resolves shared choices after focused input; silence is not approval. User requirements and actual authorization boundaries remain authoritative. See [manager examples](../../lead-bassfish/references/manager-recipes.md) for the lead's record.
 
 ### Standard introductions
 
@@ -144,17 +136,18 @@ Create a ticket with `createResource { resourceType: "ticket", title, descriptio
 
 Read a ticket with `readResource`; claim it before changing its Markdown body. Ticket mutation kinds are `updateTicket`, `replaceTicketBody`, `appendTicketBody`, and `patchTicketBody`. Dependency edits reject missing targets, self-dependencies, duplicates, and cycles. Assignment and newly-ready notifications reach the owner through `waitForWork` and native safe-boundary delivery.
 
-Create tickets in prerequisite order so each downstream ticket can receive existing IDs in `dependsOn`. Put the outcome in metadata and use an outcome-oriented Markdown body such as:
+Reuse assigned tickets. When creating a new authorized workstream, create prerequisites first so downstream `dependsOn` IDs exist. Put the outcome in metadata and keep the body compact:
 
 ```text
 Canonical thread: THREAD_ID
 Outcome: WHAT MUST BE TRUE
-Why it matters: INITIATIVE_VALUE
+Owner / role: AGENT_NAME / ASSIGNED_ROLE
 Constraints and interfaces: NON_NEGOTIABLE_BOUNDARIES
+First increment: SMALLEST_WORKING_DELIVERY
 Acceptance evidence: OBSERVABLE_PROOF
-Owner latitude: IMPLEMENTATION_CHOICES AND INVITED REFINEMENTS
+Owner latitude: IMPLEMENTATION_CHOICES
 Reviewer: AGENT_NAME or not required — ISOLATED_LOW_RISK_REASON
-Handoff: RELEVANT_PATHS OR DOWNSTREAM_EXPECTATIONS
+Integration / handoff: OWNER_AND_DOWNSTREAM_EXPECTATIONS
 ```
 
 Do not prescribe implementation steps unless a real compatibility, safety, or integration constraint requires them. Before creation, run the unfinished-ticket search again while holding `.bassfish/resource-creation.lock`.
@@ -165,7 +158,7 @@ Use this lifecycle:
 2. If `blockedBy` is non-empty, release it in `todo`; completing dependencies will emit readiness.
 3. If it is ready, commit `{"kind":"updateTicket","state":"in_progress"}` before implementation.
 4. For a non-dependency blocker, append a concise blocker and required next action to the body, reacquire, then set `state` to `blocked`.
-5. For material work, directly mention the named reviewer in the canonical thread when the outcome is ready. The reviewer checks the larger goal, missed opportunities, assumptions, integration quality, and defects, then explicitly approves or requests changes. Resolve remaining material objections through the recorded decision process.
+5. For material work, directly mention the named independent reviewer when the artifact is ready. Ask the lead to name one if missing. Check scoped correctness, relevant tests, and integration; explicitly approve or request changes. Resolve remaining material choices with the lead. Further review targets changed code or unresolved findings, not separate grants for every execution stage.
 6. Before completion, append material results, verification, review evidence, or handoff context when needed; reacquire and set `state` to `done` only after acceptance criteria pass and required review is resolved.
 
 Because each successful `commitTurn` accepts one mutation and consumes the turn, body updates and state transitions require separate acquisitions. When an external blocker clears, move a `blocked` ticket back to `todo` so normal readiness can be recomputed before work starts.

@@ -36,7 +36,7 @@ The title, chapter headings, and descriptions remain flat HTML. Chapter text scr
 
 ## Installation content
 
-The installation section has three steps: install the latest CLI/runtime, choose a host to connect MCP and install both skills, then update the shared package and host plugins. Codex, Claude Code, and OpenCode each show a host-targeted Agent Skills command; other MCP hosts get a compact stdio fallback.
+The installation section has three steps: install the latest CLI/runtime, choose a host to connect MCP and install all three skills, then update the shared package and host plugins. Codex, Claude Code, and OpenCode each show a host-targeted Agent Skills command; other MCP hosts get a compact stdio fallback.
 
 `docs.html` is the complete browsable documentation page, covering capabilities, installation, host-specific setup, verification, upgrades, the team workflow, and troubleshooting. `llms.txt` indexes the documentation, and `index.md` supplies an agent-readable text overview with installation commands. These are static files an agent can fetch, not executable installers.
 

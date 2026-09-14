@@ -1,0 +1,4 @@
+interface:
+  display_name: "Bassfish Manager"
+  short_description: "Lead coding teams toward working, integrated outcomes"
+  default_prompt: "Use $lead-bassfish to assign clear roles, deliver working increments, unblock decisions, and coordinate focused review and integration."

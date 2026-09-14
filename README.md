@@ -64,7 +64,7 @@ codex mcp remove bassfish
 codex plugin marketplace add tfukaza/bassfish
 codex plugin add bassfish@bassfish
 npx --yes skills@latest add tfukaza/bassfish \
-  --skill use-bassfish --skill manage-bassfish \
+  --skill use-bassfish --skill manage-bassfish --skill lead-bassfish \
   --agent codex --global --yes
 codex plugin list
 ```
@@ -89,7 +89,7 @@ Then install the user-scoped plugin and skills:
 claude plugin marketplace add https://github.com/tfukaza/bassfish.git
 claude plugin install bassfish@bassfish --scope user
 npx --yes skills@latest add tfukaza/bassfish \
-  --skill use-bassfish --skill manage-bassfish \
+  --skill use-bassfish --skill manage-bassfish --skill lead-bassfish \
   --agent claude-code --global --yes
 ```
 
@@ -111,7 +111,7 @@ through the user's shell on macOS and Linux.
 ```sh
 opencode plugin @bassfish/cli --global
 npx --yes skills@latest add tfukaza/bassfish \
-  --skill use-bassfish --skill manage-bassfish \
+  --skill use-bassfish --skill manage-bassfish --skill lead-bassfish \
   --agent opencode --global --yes
 ```
 
@@ -128,7 +128,7 @@ interactively:
 
 ```sh
 npx --yes skills@latest add tfukaza/bassfish \
-  --skill use-bassfish --skill manage-bassfish --global
+  --skill use-bassfish --skill manage-bassfish --skill lead-bassfish --global
 ```
 
 Start the host from a local Git repository. The native plugins pass the host's session directory automatically, including Codex sessions opened with `--cd` or in a managed worktree; no per-project MCP configuration is needed. A manual `bassfish mcp` connection uses the server process's working directory by default; add `--workspace /absolute/path/to/project` after `mcp` when a host needs an explicit repository. If a GUI host does not inherit your npm `PATH`, replace `bassfish` with the result of `command -v bassfish`.
@@ -184,7 +184,7 @@ See [the Sonar guide](docs/sonar.md) for navigation, graph controls, and history
 
 ## Update an existing installation
 
-Update the shared CLI/MCP package and both global skills, then restart every
+Update the shared CLI/MCP package and existing global skills, install the manager skill, then restart every
 connected host:
 
 ```sh
@@ -192,6 +192,8 @@ npm install -g @bassfish/cli@latest
 bassfish setup
 npx --yes skills@latest update \
   use-bassfish manage-bassfish --global --yes
+npx --yes skills@latest add tfukaza/bassfish \
+  --skill lead-bassfish --global --yes
 bassfish doctor
 ```
 
@@ -246,10 +248,12 @@ Version 0.4 replaces the earlier notes API and storage. Old preview databases ar
 ## Agent skills
 
 [`$use-bassfish`](.agents/skills/use-bassfish/SKILL.md) teaches an agent to
-coordinate through the MCP server.
+deliver assigned work and coordinate through the MCP server.
+[`$lead-bassfish`](.agents/skills/lead-bassfish/SKILL.md) guides appointed team
+managers in assigning roles, unblocking work, focused review, and integration.
 [`$manage-bassfish`](.agents/skills/manage-bassfish/SKILL.md) covers installation,
 diagnostics, recovery, and the full human CLI. The host-specific commands above
-install both; the skills provide guidance and do not replace the MCP connection.
+install all three; the skills provide guidance and do not replace the MCP connection.
 The Claude plugin additionally includes
 [`/bassfish:coordinate-peers`](plugins/claude/skills/coordinate-peers/SKILL.md) for
 safe routing between Claude's native peer inbox and Bassfish.

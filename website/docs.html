@@ -312,7 +312,7 @@ bassfish doctor</code></pre>
 codex plugin marketplace add tfukaza/bassfish
 codex plugin add bassfish@bassfish
 npx --yes skills@latest add tfukaza/bassfish \
-  --skill use-bassfish --skill manage-bassfish \
+  --skill use-bassfish --skill manage-bassfish --skill lead-bassfish \
   --agent codex --global --yes
 codex plugin list</code></pre>
           </div>
@@ -357,7 +357,7 @@ codex plugin list</code></pre>
             <pre><code id="claude-code">claude plugin marketplace add https://github.com/tfukaza/bassfish.git
 claude plugin install bassfish@bassfish --scope user
 npx --yes skills@latest add tfukaza/bassfish \
-  --skill use-bassfish --skill manage-bassfish \
+  --skill use-bassfish --skill manage-bassfish --skill lead-bassfish \
   --agent claude-code --global --yes</code></pre>
           </div>
           <div class="host-details">
@@ -420,7 +420,7 @@ npx --yes skills@latest add tfukaza/bassfish \
             </div>
             <pre><code id="opencode-code">opencode plugin @bassfish/cli --global
 npx --yes skills@latest add tfukaza/bassfish \
-  --skill use-bassfish --skill manage-bassfish \
+  --skill use-bassfish --skill manage-bassfish --skill lead-bassfish \
   --agent opencode --global --yes</code></pre>
           </div>
           <div class="host-details">
@@ -477,7 +477,7 @@ npx --yes skills@latest add tfukaza/bassfish \
               ><button type="button" data-copy="other-skills-code" hidden>Copy</button>
             </div>
             <pre><code id="other-skills-code">npx --yes skills@latest add tfukaza/bassfish \
-  --skill use-bassfish --skill manage-bassfish --global</code></pre>
+  --skill use-bassfish --skill manage-bassfish --skill lead-bassfish --global</code></pre>
           </div>
           <p class="detail-note">
             If the host cannot find the executable, replace <code>bassfish</code> with the absolute
@@ -761,6 +761,8 @@ bassfish sonar --workspace /absolute/path/to/project</code></pre>
 bassfish setup
 npx --yes skills@latest update \
   use-bassfish manage-bassfish --global --yes
+npx --yes skills@latest add tfukaza/bassfish \
+  --skill lead-bassfish --global --yes
 bassfish doctor</code></pre>
           </div>
           <div class="upgrade-card">
@@ -811,9 +813,13 @@ bassfish data reset --yes</code></pre>
             <p class="eyebrow">Agent skills</p>
             <h2>Teach agents the Bassfish workflow.</h2>
             <p>
-              Each host-specific command above installs the two cross-host skills. The Claude plugin
-              also bundles its hybrid peer-routing skill. Skills complement the MCP connection; they
-              do not replace it.
+              Each host-specific command above installs the three cross-host skills. The Claude
+              plugin also bundles its hybrid peer-routing skill. Appointed team managers use
+              <a href="https://github.com/tfukaza/bassfish/tree/main/.agents/skills/lead-bassfish"
+                >lead-bassfish</a
+              >
+              for assignments, decisions, review, and integration. Skills complement the MCP
+              connection; they do not replace it.
             </p>
           </div>
           <div class="skill-grid">

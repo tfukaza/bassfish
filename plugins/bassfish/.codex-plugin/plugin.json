@@ -1,6 +1,6 @@
 {
   "name": "bassfish",
-  "version": "0.6.0+codex.20260913212712",
+  "version": "0.6.1+codex.20260914054142",
   "description": "Coordinate coding agents through shared threads, tickets, notifications, and file reservations",
   "author": {
     "name": "Bassfish",

@@ -307,7 +307,9 @@ bassfish doctor</code></pre>
               <span class="step-number" aria-hidden="true">02</span>
               <h2>Install MCP and Skills</h2>
             </div>
-            <p>Choose a host to connect its MCP integration and install both Bassfish skills.</p>
+            <p>
+              Choose a host to connect its MCP integration and install all three Bassfish skills.
+            </p>
             <div class="host-picker" aria-label="Choose your agent host">
               <a id="tab-codex" href="#host-codex">Codex</a
               ><a id="tab-claude" href="#host-claude">Claude Code</a
@@ -325,7 +327,7 @@ bassfish doctor</code></pre>
 codex plugin marketplace add tfukaza/bassfish
 codex plugin add bassfish@bassfish
 npx --yes skills@latest add tfukaza/bassfish \
-  --skill use-bassfish --skill manage-bassfish \
+  --skill use-bassfish --skill manage-bassfish --skill lead-bassfish \
   --agent codex --global --yes
 codex plugin list</code></pre>
               </div>
@@ -344,7 +346,7 @@ codex plugin list</code></pre>
                 <pre><code id="claude-code">claude plugin marketplace add https://github.com/tfukaza/bassfish.git
 claude plugin install bassfish@bassfish --scope user
 npx --yes skills@latest add tfukaza/bassfish \
-  --skill use-bassfish --skill manage-bassfish \
+  --skill use-bassfish --skill manage-bassfish --skill lead-bassfish \
   --agent claude-code --global --yes</code></pre>
               </div>
               <p>
@@ -361,7 +363,7 @@ npx --yes skills@latest add tfukaza/bassfish \
                 </div>
                 <pre><code id="opencode-code">opencode plugin @bassfish/cli --global
 npx --yes skills@latest add tfukaza/bassfish \
-  --skill use-bassfish --skill manage-bassfish \
+  --skill use-bassfish --skill manage-bassfish --skill lead-bassfish \
   --agent opencode --global --yes</code></pre>
               </div>
             </div>
@@ -385,7 +387,7 @@ npx --yes skills@latest add tfukaza/bassfish \
                   ><button type="button" data-copy="other-skills-code" hidden>Copy command</button>
                 </div>
                 <pre><code id="other-skills-code">npx --yes skills@latest add tfukaza/bassfish \
-  --skill use-bassfish --skill manage-bassfish --global</code></pre>
+  --skill use-bassfish --skill manage-bassfish --skill lead-bassfish --global</code></pre>
               </div>
             </div>
           </li>
@@ -404,6 +406,8 @@ npx --yes skills@latest add tfukaza/bassfish \
 bassfish setup
 npx --yes skills@latest update \
   use-bassfish manage-bassfish --global --yes
+npx --yes skills@latest add tfukaza/bassfish \
+  --skill lead-bassfish --global --yes
 bassfish doctor</code></pre>
             </div>
             <p>Refresh each host plugin:</p>

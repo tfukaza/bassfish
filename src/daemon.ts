@@ -102,7 +102,8 @@ const closeNativeHostSessionSchema = nativeDeliverySchema
 const hostDeliverySchema = z
   .object({
     sessionId: hostSessionIdSchema,
-    phase: z.enum(['prompt', 'active', 'idle']),
+    phase: z.enum(['prompt', 'active', 'idle', 'paused']),
+    queueEnabled: z.boolean().optional(),
   })
   .strict();
 type NativeConnection = z.infer<typeof nativeSchema>;
@@ -136,7 +137,11 @@ export async function runDaemon(dataDir: string, overrides: DaemonOverrides = {}
   let runtimeDiagnostics: RuntimeDiagnostics | undefined;
   let stopMaintenance: (() => void) | undefined;
   let epoch: string | undefined;
-  const fatal = (error: unknown): never => {
+  const fatal = async (error: unknown): Promise<never> => {
+    recordDaemonLifecycle(dataDir, 'failed', { epoch, ...daemonError(error) });
+    // A fail-closed store can still have valid leased transactions. Drain them
+    // before maintenance's fatal path exits the process.
+    await stop('failed').catch(() => {});
     recordDaemonLifecycle(dataDir, 'failed', { epoch, ...daemonError(error) });
     process.exit(1);
   };
@@ -150,12 +155,23 @@ export async function runDaemon(dataDir: string, overrides: DaemonOverrides = {}
   const stop = (reason = 'requested'): Promise<void> =>
     (closing ??= (async () => {
       stopMaintenance?.();
-      await rpc?.close();
-      await control?.activity.publish();
-      await control?.close();
-      await runtimeDiagnostics?.close();
-      if (reason !== 'startup_failed') recordDaemonLifecycle(dataDir, 'stopped', { epoch, reason });
+      const failures: unknown[] = [];
+      for (const cleanup of [
+        () => rpc?.close(),
+        () => control?.activity.publish(),
+        () => control?.close(),
+        () => runtimeDiagnostics?.close(),
+      ]) {
+        try {
+          await cleanup();
+        } catch (error) {
+          failures.push(error);
+        }
+      }
+      if (reason !== 'startup_failed' && reason !== 'failed' && !failures.length)
+        recordDaemonLifecycle(dataDir, 'stopped', { epoch, reason });
       unlock();
+      if (failures.length) throw failures[0];
     })());
   try {
     const config = runtimeConfigSchema.parse({
@@ -361,7 +377,7 @@ export async function runDaemon(dataDir: string, overrides: DaemonOverrides = {}
             return { closed: true };
           case 'getHealth':
             return {
-              apiVersion: 14,
+              apiVersion: 15,
               pid: process.pid,
               epoch: service.epoch,
               dataDir,
@@ -373,6 +389,7 @@ export async function runDaemon(dataDir: string, overrides: DaemonOverrides = {}
               storage: {
                 engine: 'turso',
                 version: tursoVersion,
+                ...control!.store.diagnostics(),
                 path: join(dataDir, 'bassfish.db'),
               },
               config,
@@ -380,7 +397,7 @@ export async function runDaemon(dataDir: string, overrides: DaemonOverrides = {}
             };
           case 'probeHealth':
             return {
-              apiVersion: 14,
+              apiVersion: 15,
               pid: process.pid,
               epoch: service.epoch,
               state: 'ready',
@@ -391,6 +408,7 @@ export async function runDaemon(dataDir: string, overrides: DaemonOverrides = {}
               storage: {
                 engine: 'turso',
                 version: tursoVersion,
+                ...control!.store.diagnostics(),
                 path: join(dataDir, 'bassfish.db'),
               },
             };
@@ -486,27 +504,74 @@ export async function runDaemon(dataDir: string, overrides: DaemonOverrides = {}
               'Host delivery hooks are available only to Claude Code and Codex.',
             );
             const args = parse(hostDeliverySchema, params);
+            if (session.defaultHostSessionId && session.defaultHostSessionId !== args.sessionId)
+              await bindHostSession(session, args.sessionId);
             const handle = await ensureHostHandle(session, args.sessionId);
             session.defaultHostSessionId = args.sessionId;
             const key = `${session.id}:${args.sessionId}`;
             if (args.phase === 'idle') idleHostSessions.add(key);
             else idleHostSessions.delete(key);
-            const batch = await service.waitForDeliveryHandle(
-              handle,
-              0,
-              args.phase === 'active' ? 'actionable' : 'all',
-              signal,
-            );
-            if (
-              (
-                batch as {
-                  count: number;
-                }
-              ).count > 0
-            )
-              idleHostSessions.delete(key);
+            if (args.phase === 'prompt' || args.phase === 'active')
+              await service.inbox.presented(handle, args.sessionId);
+            const batch =
+              session.native.host === 'codex' &&
+              (args.phase === 'paused' || (args.phase === 'idle' && args.queueEnabled))
+                ? { kind: 'none', count: 0, moreAvailable: false, notifications: [] }
+                : await service.inbox.capture(
+                    handle,
+                    session.native.host === 'codex' || args.phase === 'active'
+                      ? 'actionable'
+                      : 'all',
+                  );
             signalNativeChange();
             return batch;
+          }
+          case 'waitCodexWork':
+          case 'reserveCodexDelivery':
+          case 'codexDeliveryTransition': {
+            const session = sessions.get(socket);
+            requireThat(
+              session?.native?.host === 'codex',
+              'HOST_SESSION_UNAVAILABLE',
+              'Codex native adapter required.',
+            );
+            const args = parse(
+              z
+                .object({
+                  sessionId: hostSessionIdSchema,
+                  timeoutMs: z.number().int().min(0).max(20000).optional(),
+                  batchToken: z.string().uuid().optional(),
+                  status: z.enum(['submitting', 'accepted', 'uncertain', 'released']).optional(),
+                  issue: z.string().max(200).optional(),
+                })
+                .strict(),
+              params,
+            );
+            requireThat(
+              session.defaultHostSessionId === args.sessionId,
+              'HOST_SESSION_REQUIRED',
+              'Codex binding changed.',
+            );
+            const handle = await resolveHandle(session, args.sessionId);
+            const key = `${session.id}:${args.sessionId}`;
+            if (method === 'codexDeliveryTransition') {
+              requireThat(
+                args.batchToken && args.status,
+                'INVALID_ARGUMENT',
+                'Delivery token and status required.',
+              );
+              await service.inbox.transition(handle, args.batchToken, args.status, args.issue);
+              return { updated: true };
+            }
+            if (method === 'reserveCodexDelivery')
+              return idleHostSessions.has(key)
+                ? service.inbox.capture(handle, 'actionable', args.sessionId)
+                : { kind: 'none', count: 0, moreAvailable: false, notifications: [] };
+            if (!idleHostSessions.has(key)) {
+              await waitNativeChange(Math.min(args.timeoutMs ?? 20000, 1000), signal);
+              return { ready: false };
+            }
+            return service.waitInbox(handle, args.timeoutMs ?? 20000, signal);
           }
           case 'callTool': {
             const session = sessions.get(socket);
@@ -642,11 +707,8 @@ export async function runDaemon(dataDir: string, overrides: DaemonOverrides = {}
                     sessionId &&
                     (args.host === 'opencode' || idleHostSessions.has(`${session.id}:${sessionId}`))
                   ) {
-                    const batch = await service.waitForDeliveryHandle(
+                    const batch = await service.inbox.capture(
                       await ensureHostHandle(session, sessionId),
-                      0,
-                      'all',
-                      signal,
                     );
                     if (
                       (
@@ -665,16 +727,7 @@ export async function runDaemon(dataDir: string, overrides: DaemonOverrides = {}
                 }
               }
               if (remaining <= 0)
-                return {
-                  kind: 'none',
-                  count: 0,
-                  notificationIds: [],
-                  threadIds: [],
-                  ticketIds: [],
-                  reasons: [],
-                  senders: [],
-                  notifications: [],
-                };
+                return { kind: 'none', count: 0, moreAvailable: false, notifications: [] };
               await waitNativeChange(Math.min(remaining, 250), signal);
             }
           }
@@ -755,7 +808,7 @@ export async function runDaemon(dataDir: string, overrides: DaemonOverrides = {}
     });
   } catch (error) {
     recordDaemonLifecycle(dataDir, 'failed', { epoch, ...daemonError(error) });
-    await stop('startup_failed');
+    await stop('startup_failed').catch(() => {});
     throw error;
   }
 }
@@ -774,7 +827,7 @@ async function probe(dataDir: string, signal?: AbortSignal): Promise<boolean> {
       apiVersion: number;
     }>('probeHealth', {}, undefined, 2000);
     requireThat(
-      result.apiVersion === 14,
+      result.apiVersion === 15,
       'API_VERSION',
       'Incompatible daemon API. Update the CLI and host plugin together, then restart the daemon.',
     );
@@ -838,6 +891,23 @@ export async function ensureDaemon(
       overrides.turnTimeoutMs === undefined
         ? []
         : ['--turn-timeout', `${overrides.turnTimeoutMs}ms`];
+    // A stopping daemon removes its socket before draining requests and
+    // disconnects. Do not spawn its replacement until ownership is released.
+    for (;;) {
+      signal?.throwIfAborted();
+      try {
+        exclusiveLock(join(dataDir, 'run', 'daemon-owner.lock'))();
+        break;
+      } catch (error) {
+        if ((error as { code?: string }).code !== 'ALREADY_RUNNING') throw error;
+        if (performance.now() >= deadline)
+          throw new BassfishError(
+            'DAEMON_START_FAILED',
+            'The previous daemon did not release its ownership lock within 30 seconds. Inspect daemon status diagnostics.',
+          );
+        await delay(100, undefined, { signal });
+      }
+    }
     signal?.throwIfAborted();
     const logFd = openDaemonLog(dataDir);
     let child;

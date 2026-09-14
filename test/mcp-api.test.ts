@@ -48,7 +48,7 @@ test('the MCP boundary presents compact public data and acquires turns in one op
       name: string;
     }[];
     pendingTurns: unknown[];
-  }>(f.a.agentHandle, 'getContext');
+  }>(f.a.agentHandle, 'getUpdates');
   assert.equal(context.agentName, 'Alice');
   assert.deepEqual(
     context.agents.map(agent => agent.name),
@@ -88,14 +88,14 @@ test('the MCP boundary presents compact public data and acquires turns in one op
   assert.ok(claimed.requestToken);
   assert.ok(claimed.turnToken);
   assert.equal(claimed.resource.following, true);
-  assert.deepEqual(claimed.messages, []);
+  assert.equal(claimed.messages, undefined);
   const page = await call<{
     messages: unknown[];
-  }>(f.a.agentHandle, 'readTurn', {
+  }>(f.a.agentHandle, 'readResource', {
     view: 'page',
     turnToken: claimed.turnToken,
   });
-  assert.deepEqual(page.messages, []);
+  assert.deepEqual(page.messages ?? [], []);
   const committed = await call<{
     threadId: string;
     revision: string;
@@ -111,6 +111,7 @@ test('the MCP boundary presents compact public data and acquires turns in one op
   assert.equal(committed.threadId, created.threadId);
   assert.ok(committed.messageId);
   const inbox = await call<{
+    batchToken: string;
     notifications: {
       notificationId: string;
       sender: string;
@@ -119,7 +120,7 @@ test('the MCP boundary presents compact public data and acquires turns in one op
         body: string;
       };
     }[];
-  }>(f.b.agentHandle, 'notifications', { action: 'list' });
+  }>(f.b.agentHandle, 'notifications', { action: 'read' });
   assert.equal(inbox.notifications[0]!.sender, 'Alice');
   assert.deepEqual(inbox.notifications[0]!.content, {
     kind: 'thread_message',
@@ -129,7 +130,7 @@ test('the MCP boundary presents compact public data and acquires turns in one op
   });
   await call(f.b.agentHandle, 'notifications', {
     action: 'acknowledge',
-    notificationIds: [inbox.notifications[0]!.notificationId],
+    batchToken: inbox.batchToken,
   });
   const ticket = await call<{
     ticketId: string;
@@ -144,19 +145,19 @@ test('the MCP boundary presents compact public data and acquires turns in one op
     turnToken: string;
     text: string;
   }>(f.a.agentHandle, 'acquireTurn', { target: { type: 'ticket', ticketId: ticket.ticketId } });
-  assert.equal(ticketTurn.text, '# One\nsecret body');
+  assert.equal(ticketTurn.text, undefined);
   const outline = await call<{
     headings: {
       heading: string;
     }[];
-  }>(f.a.agentHandle, 'readTurn', {
+  }>(f.a.agentHandle, 'readResource', {
     view: 'outline',
     turnToken: ticketTurn.turnToken,
   });
   assert.equal(outline.headings[0]!.heading, 'One');
   const matches = await call<{
     matches: unknown[];
-  }>(f.a.agentHandle, 'readTurn', {
+  }>(f.a.agentHandle, 'readResource', {
     view: 'find',
     turnToken: ticketTurn.turnToken,
     query: 'secret',
@@ -210,7 +211,7 @@ test('the MCP boundary presents compact public data and acquires turns in one op
   });
   assert.equal(cancelled.state, 'cancelled');
   await call(f.a.agentHandle, 'releaseTurn', { turnToken: cancelHolder.turnToken });
-  assertPublic(await call(f.a.agentHandle, 'notifications', { action: 'list' }));
+  assertPublic(await call(f.a.agentHandle, 'notifications', { action: 'read' }));
 });
 test('a queued MCP Task claims only when polled and persists only a claim reference', async t => {
   const f = await fixture();
@@ -252,7 +253,7 @@ test('a queued MCP Task claims only when polled and persists only a claim refere
   assert.equal(completed.result.state, 'claimed');
   assert.equal(completed.result.requestToken, taskId);
   assert.ok(completed.result.turnToken);
-  assert.deepEqual(completed.result.messages, []);
+  assert.equal(completed.result.messages, undefined);
   assertPublic(completed);
   assert.deepEqual(
     await f.control.view(async state => (await state.get('tasks', taskId))!.result),

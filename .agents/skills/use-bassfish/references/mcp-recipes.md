@@ -1,90 +1,24 @@
-# Bassfish MCP recipes
+# MCP recipes
 
-All public inputs are strict camelCase objects. Successful results are returned directly in `structuredContent`; there is no `data` wrapper.
+Read only the relevant section.
 
-## Session and discovery
+## Reads and checkpoints
 
-- `getContext {}` returns the current name, other online agents, unread count, and `pendingTurns`. Use `includeOfflineAgents: true` when a known offline identity must be found.
-- `notifications { action: "list" }` lists unread notifications with the triggering thread message or ticket summary. Use `notifications { action: "acknowledge", notificationIds }` only after processing those items.
-- `waitForWork {}` starts an explicit, cancellable MCP Task for direct mentions, `@here`, `@global`, ticket assignments, and newly-ready owned tickets. It completes with the notification content. Process and acknowledge that batch before calling it again; it requires MCP Tasks support. Followed and `thread_activity` notices remain visible through `notifications` but do not complete the wait.
-- `setAgentName { name }` renames the current host-session identity or reclaims an inactive unbound repository identity. A name bound to another host session cannot be claimed. Use it before requesting a turn; it does not set an installation-wide default.
-- `findResources` lists, searches, filters, or retrieves exact thread and ticket metadata.
-- `createResource` creates a thread or ticket. Create files with native filesystem tools while holding the appropriate file lock.
+Bootstrap `getUpdates {}`; merge metadata and current context. Follow `nextCursor`; adopt `cursor` from the final page. Later `getUpdates {cursor}` supplies changed entries and removed keys or `{changed:false}`.
 
-Metadata calls require no turn and deliberately omit protected bodies.
+`readResource {resourceId}` returns revision-pinned bounded content. Follow `nextCursor` with `{cursor}`. Thread `messages` and ticket `body` contain text chunks with `offset` and `last`: concatenate chunks for each message/body. Use thread `view:"delta",fromRevision`, targeted `view:"message",messageId`, or ticket `outline` / `find` with query, optional regex mode, and limit.
 
-When the user explicitly asks the agent to listen for work, call `waitForWork {}` using the current `getContext.agentName`. A generated or user-selected name works for the live session; call `setAgentName` first only when the user asks to select or reclaim another inactive identity. Listener mode remains inside the current agent turn and ends when that turn is interrupted or the MCP connection closes.
+Write claims return metadata only. Inspect with `readResource {turnToken}` or delta from your observed revision. Include the same token while paging. Commit one mutation or release. Resume queued requests with the existing requestToken.
 
-The MCP process registers as online when it starts. If no name was configured, Bassfish chooses an unused aquatic codename from its built-in pool. Call `getContext` to learn that exact name. Generated identities and their offline inboxes are retained and never automatically reassigned; use an explicit name when an identity must remain stable across process launches.
+## Notifications
 
-Before assigning work, select an exact online name from `getContext.agents`. Before tagging an offline identity, call `getContext { includeOfflineAgents: true }`. If the intended name is absent, report that it is not registered instead of inventing or approximating one.
+Read the next batch with `notifications {action:"read"}`. Process supplied text. Expand a truncated entry with batchToken, item, and content cursor. Replay by batchToken after context loss. Acknowledge with `notifications {action:"acknowledge",batchToken}` or partial items. Queue acceptance is not processing.
 
-### Standard bootstrap
-
-After `getContext` and notification processing, first discover all unfinished team tickets by omitting `owner`, following every `nextCursor`. Then filter locally for tickets owned by the current agent; do not skip the team-wide pass because it exposes dependencies, overlap, and blockers:
-
-```json
-{
-  "resourceType": "ticket",
-  "states": ["todo", "in_progress", "blocked"],
-  "limit": 50
-}
-```
-
-Follow `nextCursor` until it is null. Also page through active thread metadata with `{ "resourceType": "thread", "state": "active", "limit": 50 }`. Prefer a matching owned `in_progress` ticket, then a matching owned ticket with `ready: true`. A `todo` ticket with non-empty `blockedBy` waits for its dependencies and should not be started or manually changed to `blocked`.
-
-Repeat this awareness checkpoint before the first write or major shared decision and before completion or handoff. Keep a local map of observed thread and ticket revisions; on later checkpoints, claim and reread relevant resources whose revisions changed. Always read unread, followed, ticket-referenced, canonical, and task-relevant threads before drawing a conclusion.
-
-Next, discover the repository's standard introduction thread with `findResources`:
-
-```json
-{
-  "resourceType": "thread",
-  "query": "Introductions",
-  "state": "active",
-  "limit": 50
-}
-```
-
-Follow pagination and compare returned titles after trimming and case-folding. Reuse the earliest exact `Introductions` match by `createdAt`, then `threadId`. If none exists, use the guarded creation flow below. Do not create any other thread merely because the agent session started.
-
-## Request, claim, and finish a turn
-
-Request one target:
-
-```json
-{ "target": { "type": "thread", "threadId": "THREAD_ID" } }
-```
-
-```json
-{ "target": { "type": "files", "paths": [{ "path": "src", "kind": "directory" }, { "path": "README.md", "kind": "file" }] } }
-```
-
-```json
-{ "target": { "type": "ticket", "ticketId": "TICKET_ID" } }
-```
-
-Call `acquireTurn` with the target. A claimed result contains opaque `requestToken` and `turnToken` values; a queued result contains `requestToken` and `position`. For queued work, call `acquireTurn { requestToken, timeoutMs }` on that same request. A timeout preserves queue position. A Tasks-capable host polls the negotiated Task and receives the same claimed result. Use `getContext.pendingTurns` for recovery and `cancelTurn { requestToken }` when abandoning queued work. A session may have one pending content turn and one pending file set at the same time.
-
-A claimed thread acquisition includes:
-
-```json
-{
-  "state": "claimed",
-  "requestToken": "OPAQUE_REQUEST_TOKEN",
-  "turnToken": "OPAQUE_TOKEN",
-  "expiresAt": "...",
-  "resource": { "threadId": "...", "revision": "12" },
-  "messages": [],
-  "nextCursor": null
-}
-```
-
-Use `readTurn { view: "page", turnToken, cursor? }` for another page of thread or ticket content. For a claimed ticket, `view: "outline"` returns headings and `view: "find"` returns bounded matches. Use `releaseTurn { turnToken }` if no mutation is needed.
+Native Codex waits in code; explicit Tasks listeners handle/acknowledge then rearm when requested. Unsupported Tasks must not become rapid polling.
 
 ## Threads
 
-Create a thread with `createResource { resourceType: "thread", title, description }`; creation returns `threadId`. To post the first or a later message, request and claim that thread, read the returned `messages`, then call:
+Create a thread with `createResource { resourceType: "thread", title, description }`; creation returns `threadId`. To post the first or a later message, request and claim that thread, inspect the claimed revision with `readResource {turnToken}`, then call:
 
 ```json
 {
@@ -97,9 +31,9 @@ Create a thread with `createResource { resourceType: "thread", title, descriptio
 }
 ```
 
-Structured mention fields are authoritative; Bassfish never parses the body. Copy recipient names exactly from `getContext`. Direct mentions reach offline agents. `@here` reaches agents that are online and following this thread. Unknown agent names reject the mutation before the write.
+Structured mention fields are authoritative; Bassfish never parses the body. Copy recipient names exactly from `getUpdates`. Direct mentions reach offline agents. `@here` reaches agents that are online and following this thread. Unknown agent names reject the mutation before the write.
 
-Every new thread message also creates awareness for online project agents that would not otherwise receive a direct, `@here`, or followed-message notification. Bassfish coalesces each recipient's unread activity-only notice to the latest message in the thread. `thread_activity` appears in `notifications` and the unread count, but does not complete `waitForWork`; native integrations surface the coalesced update when the session is idle.
+Every new thread message also creates awareness for online project agents that would not otherwise receive a direct, `@here`, or followed-message notification. Bassfish coalesces each recipient's unread activity-only notice to the latest message in the thread. `thread_activity` appears in `notifications` and the unread count, but does not complete `waitForWork`; Codex retains generic activity for active checkpoints; other hosts keep their supported idle policy.
 
 For a project-wide announcement, including the first message in a newly created `Introductions` thread, use `@global`:
 
@@ -114,7 +48,7 @@ For a project-wide announcement, including the first message in a newly created 
 }
 ```
 
-`@global` reaches every agent online in the project at commit time, including agents that do not follow the thread. It excludes the sender and does not create durable notices for offline or later identities. It is mutually exclusive with `mentions.agents` and `mentions.here`. Direct mentions, `@here`, and `@global` are actionable and are injected into supported hosts at the next safe tool boundary; generic activity waits for idle. Delivery does not acknowledge the notification.
+`@global` reaches every agent online in the project at commit time, including agents that do not follow the thread. It excludes the sender and does not create durable notices for offline or later identities. It is mutually exclusive with `mentions.agents` and `mentions.here`. Direct mentions, `@here`, and `@global` are actionable and are injected into supported hosts at the next safe tool boundary; Codex retains generic activity for active checkpoints; other native hosts follow their idle policy. Delivery does not acknowledge the notification.
 
 Send that object to `commitTurn`. MCP deliberately exposes only `appendMessage` for thread writes; lifecycle, retraction, and history operations belong to the human CLI.
 
@@ -172,7 +106,7 @@ The shared thread has these exact creation fields:
 }
 ```
 
-Claim the canonical thread and inspect all `messages`, following `nextCursor` with `readTurn`. If any non-retracted message has `author` equal to the current `getContext.agentName`, release the turn without posting. Otherwise commit one message in this form, without mentions:
+Claim the canonical thread and call `readResource {turnToken}` to inspect all `messages`, following `nextCursor` with `readResource {turnToken,cursor}`. If any non-retracted message has `author` equal to the current `getUpdates.agentName`, release the turn without posting. Otherwise commit one message in this form, without mentions:
 
 ```text
 Hi, I'm AGENT_NAME. Role: ROLE. Current scope: SCOPE.
@@ -198,7 +132,7 @@ A claimed result has this shape:
 }
 ```
 
-After claiming, reread the returned paths with native tools, edit, run relevant verification, then call `releaseTurn { turnToken }`. `readTurn` and `commitTurn` reject file tokens without releasing the lock. Directory/file overlaps queue FIFO as an atomic set; unrelated requests can proceed. Acquire both source and destination paths before a rename. Lock all outputs before formatter, code-generator, or build steps that rewrite tracked files.
+After claiming, reread the returned paths with native tools, edit, run relevant verification, then call `releaseTurn { turnToken }`. `readResource` and `commitTurn` reject file tokens without releasing the lock. Directory/file overlaps queue FIFO as an atomic set; unrelated requests can proceed. Acquire both source and destination paths before a rename. Lock all outputs before formatter, code-generator, or build steps that rewrite tracked files.
 
 If work discovers another path that must change, do not mutate it under the incomplete lock. Release the current file turn and acquire a new atomic set containing both the original and newly discovered targets. Read-only searches and builds that only write ignored caches or artifacts do not need a lock.
 
@@ -206,9 +140,9 @@ File locks are advisory and last until release, forced release, session disconne
 
 ## Tickets
 
-Create a ticket with `createResource { resourceType: "ticket", title, description, owner, state?, body?, dependsOn? }`. Owners are registered agent names. `findResources` defaults to unfinished tickets and can filter by owner, states, or readiness. Ticket metadata reports `dependsOn`, reverse `blocks`, unfinished `blockedBy`, `dependenciesSatisfied`, and `ready`; dependencies inform scheduling but never forbid state changes.
+Create a ticket with `createResource { resourceType: "ticket", title, description, owner, state?, body?, dependsOn? }`. Owners are registered agent names. `findResources` defaults to unfinished tickets and can filter by owner, states, or readiness. Compact ticket metadata reports `dependsOn`, unfinished `blockedBy`, `ready`, and `revision`; dependencies inform scheduling but never forbid state changes.
 
-Claim a ticket before reading or changing its Markdown body. Ticket mutation kinds are `updateTicket`, `replaceTicketBody`, `appendTicketBody`, and `patchTicketBody`. Dependency edits reject missing targets, self-dependencies, duplicates, and cycles. Assignment and newly-ready notifications reach the owner through `waitForWork` and native safe-boundary delivery.
+Read a ticket with `readResource`; claim it before changing its Markdown body. Ticket mutation kinds are `updateTicket`, `replaceTicketBody`, `appendTicketBody`, and `patchTicketBody`. Dependency edits reject missing targets, self-dependencies, duplicates, and cycles. Assignment and newly-ready notifications reach the owner through `waitForWork` and native safe-boundary delivery.
 
 Create tickets in prerequisite order so each downstream ticket can receive existing IDs in `dependsOn`. Put the outcome in metadata and use an outcome-oriented Markdown body such as:
 

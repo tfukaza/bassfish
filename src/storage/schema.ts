@@ -1,6 +1,15 @@
-export const schemaVersion = 1;
+export const schemaVersion = 2;
 
 export const coordinationSchema = `
+      CREATE TABLE IF NOT EXISTS notificationBatches (
+        _key TEXT NOT NULL UNIQUE, id TEXT PRIMARY KEY, projectId TEXT NOT NULL,
+        identityId TEXT NOT NULL, sessionId TEXT, status TEXT NOT NULL,
+        entriesJson TEXT NOT NULL CHECK(json_valid(entriesJson)),
+        acknowledgedJson TEXT NOT NULL CHECK(json_valid(acknowledgedJson)),
+        payloadJson TEXT NOT NULL CHECK(json_valid(payloadJson)), createdAt INTEGER NOT NULL,
+        finishedAt INTEGER, issue TEXT
+      );
+      CREATE INDEX IF NOT EXISTS batches_recipient ON notificationBatches(projectId,identityId,status);
       CREATE TABLE IF NOT EXISTS projects (
         _key TEXT NOT NULL UNIQUE,
         id TEXT PRIMARY KEY, commonDir TEXT NOT NULL UNIQUE
@@ -135,5 +144,5 @@ CREATE INDEX IF NOT EXISTS activity_project_sequence ON activityEvents(projectId
 CREATE INDEX IF NOT EXISTS activity_project_time ON activityEvents(projectId,at);
 CREATE TABLE IF NOT EXISTS activityProjects (projectId TEXT PRIMARY KEY, since INTEGER NOT NULL, prunedThrough INTEGER NOT NULL DEFAULT 0);
 INSERT OR IGNORE INTO controlMeta(key,value) VALUES('activitySince','0'),('activityHead','0');
-PRAGMA user_version=1;
+PRAGMA user_version=2;
 `;

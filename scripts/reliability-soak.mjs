@@ -1,8 +1,10 @@
 import { tmpdir } from 'node:os';
 import assert from 'node:assert/strict';
 import { mkdtemp, rm } from 'node:fs/promises';
+import { createReadStream } from 'node:fs';
 import { join } from 'node:path';
-import { spawn, execFile } from 'node:child_process';
+import { spawn, fork, execFile } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 import { randomUUID } from 'node:crypto';
 import { Writable, PassThrough } from 'node:stream';
@@ -11,7 +13,26 @@ import { ensureDaemon, connectDaemon } from '../dist/daemon.js';
 import { readOrCreateClaudeClientId } from '../dist/agents/claude-native.js';
 import { SonarClient } from '../dist/sonar/client.js';
 import { loadSonarUi } from '../dist/sonar/ui-runtime.js';
+import { processMemory, verifyMemoryWindow } from './memory-evidence.mjs';
 const exec = promisify(execFile);
+const nativeMemory = process.argv.includes('--native-memory');
+const nativeSamples = [];
+let finalStorage;
+let nativeDaemon, nativeExited;
+const daemonMessage = () =>
+  new Promise((resolve, reject) => {
+    const finish = (error, message) => {
+      clearTimeout(timer);
+      nativeDaemon.off('message', onMessage);
+      nativeDaemon.off('error', onError);
+      error ? reject(error) : resolve(message);
+    };
+    const onMessage = message => finish(undefined, message);
+    const onError = error => finish(error);
+    const timer = setTimeout(() => finish(new Error('native daemon checkpoint timed out')), 10_000);
+    nativeDaemon.once('message', onMessage);
+    nativeDaemon.once('error', onError);
+  });
 const durationMs = Number(
   process.argv.find(a => a.startsWith('--duration-ms='))?.split('=')[1] ?? 45 * 60_000,
 );
@@ -54,6 +75,16 @@ const connectAgents = async () => {
 const call = (client, name, args = {}) => client.call('callMcpTool', { name, args });
 try {
   await exec('git', ['init', repo]);
+  if (nativeMemory) {
+    nativeDaemon = fork(fileURLToPath(new URL('native-soak-daemon.mjs', import.meta.url)), [data], {
+      execArgv: ['--expose-gc'],
+      stdio: ['ignore', 'inherit', 'inherit', 'ipc'],
+    });
+    nativeExited = new Promise(resolve =>
+      nativeDaemon.once('exit', (code, signal) => resolve({ code, signal })),
+    );
+    assert.equal((await daemonMessage()).ready, true);
+  }
   for (let i = 0; i < 6; i++) {
     const pluginData = join(root, 'plugin-' + i);
     identities.push({
@@ -154,7 +185,11 @@ try {
       mutation: { kind: 'appendMessage', body: `@global soak-${operations} 魚🐟` },
     });
     operations++;
-    if (restarts < 2 && Date.now() - started >= (durationMs * (restarts + 1)) / 3) {
+    if (
+      !nativeMemory &&
+      restarts < 2 &&
+      Date.now() - started >= (durationMs * (restarts + 1)) / 3
+    ) {
       for (const c of agents.splice(0)) c.socket.destroy();
       const stop = await connectDaemon(data);
       await stop.call('stopDaemon');
@@ -167,6 +202,36 @@ try {
     if (Date.now() >= nextSample) {
       global.gc?.();
       const memory = process.memoryUsage();
+      if (nativeMemory) {
+        const checkpoint = daemonMessage();
+        nativeDaemon.send({ gc: true });
+        const retained = await checkpoint;
+        assert.equal(retained.gc, true);
+        const probe = await connectDaemon(data);
+        let health;
+        try {
+          health = await probe.call('probeHealth');
+        } finally {
+          probe.socket.destroy();
+        }
+        assert.equal(health.pid, expectedPid, 'unexpected daemon restart');
+        assert.equal(health.storage.bindingIdentity, '0.7.2-bassfish.1');
+        assert.equal(health.storage.replacementFailures, 0);
+        finalStorage = health.storage;
+        const sample = {
+          ...(await processMemory(expectedPid)),
+          elapsedMs: Date.now() - started,
+          heapUsedBytes: retained.memory.heapUsed,
+          externalBytes: retained.memory.external,
+        };
+        nativeSamples.push(sample);
+        process.stdout.write(
+          JSON.stringify({
+            nativeMemory: sample,
+            replacements: health.storage.replacementSuccesses,
+          }) + '\n',
+        );
+      }
       assert.ok(memory.heapUsed < 128 * 1048576, 'Sonar retained heap exceeded 128 MiB');
       assert.equal(performance.getEntriesByType('measure').length, 0);
       process.stdout.write(
@@ -193,9 +258,41 @@ try {
     observer.socket.destroy();
   }
   assert.ok(notifications > 0, 'no native notification delivery observed');
+  let nativeResult;
+  if (nativeMemory) {
+    assert.equal(restarts, 0);
+    for (const suffix of ['', '.1', '.2', '.3']) {
+      try {
+        let pending = '';
+        for await (const chunk of createReadStream(join(data, 'run', 'runtime.log' + suffix), {
+          encoding: 'utf8',
+        })) {
+          pending += chunk;
+          const lines = pending.split('\n');
+          pending = lines.pop();
+          for (const line of lines) {
+            const record = JSON.parse(line);
+            assert.ok(
+              record.event !== 'session.disconnected' || record.reason !== 'heartbeat_expired',
+              'unexpected session expiry',
+            );
+          }
+        }
+      } catch (error) {
+        if (error.code !== 'ENOENT') throw error;
+      }
+    }
+    assert.ok(finalStorage.replacementSuccesses >= 2, 'soak must span multiple recycling cycles');
+    nativeResult = verifyMemoryWindow(
+      nativeSamples.filter(s => s.elapsedMs >= (durationMs * 2) / 3),
+      'daemon soak',
+      Infinity,
+    );
+  }
   process.stdout.write(
     JSON.stringify({
       status: 'pass',
+      nativeResult,
       durationMs: Date.now() - started,
       operations,
       restarts,
@@ -221,5 +318,23 @@ try {
     c.socket.destroy();
     await delay(1000);
   } catch {}
+  if (nativeDaemon) {
+    nativeDaemon.kill('SIGTERM');
+    let timeout;
+    try {
+      const result = await Promise.race([
+        nativeExited,
+        new Promise((_, reject) => {
+          timeout = setTimeout(() => {
+            nativeDaemon.kill('SIGKILL');
+            reject(new Error('native daemon shutdown exceeded 10 seconds'));
+          }, 10_000);
+        }),
+      ]);
+      assert.equal(result.code, 0, 'native daemon exited unexpectedly');
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
   await rm(root, { recursive: true, force: true });
 }

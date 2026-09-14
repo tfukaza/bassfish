@@ -71,10 +71,11 @@ test('the guarded skill bootstrap reuses one introductions thread and introduces
     const turn = await call<ThreadTurn>(handle, 'acquireTurn', {
       target: { type: 'thread', threadId: created.threadId },
     });
-    const messages = [...turn.messages];
-    let cursor = turn.nextCursor;
+    const first = await call<ThreadTurn>(handle, 'readResource', { turnToken: turn.turnToken });
+    const messages = [...(first.messages ?? [])];
+    let cursor = first.nextCursor;
     while (cursor) {
-      const page = await call<Pick<ThreadTurn, 'messages' | 'nextCursor'>>(handle, 'readTurn', {
+      const page = await call<Pick<ThreadTurn, 'messages' | 'nextCursor'>>(handle, 'readResource', {
         view: 'page',
         turnToken: turn.turnToken,
         cursor,
@@ -99,18 +100,22 @@ test('the guarded skill bootstrap reuses one introductions thread and introduces
   await introduce(f.b.agentHandle, 'Bob');
   await introduce(f.a.agentHandle, 'Alice');
   const bobInbox = await call<{
+    batchToken: string;
     notifications: Array<{
       reasons: string[];
       content: {
         body: string;
       };
     }>;
-  }>(f.b.agentHandle, 'notifications', { action: 'list' });
+  }>(f.b.agentHandle, 'notifications', { action: 'read' });
   assert.ok(bobInbox.notifications[0]!.reasons.includes('global'));
   assert.match(bobInbox.notifications[0]!.content.body, /^@global/);
   const final = await call<ThreadTurn>(f.a.agentHandle, 'acquireTurn', {
     target: { type: 'thread', threadId: created.threadId },
   });
-  assert.deepEqual(final.messages.map(message => message.author).sort(), ['Alice', 'Bob']);
+  const content = await call<ThreadTurn>(f.a.agentHandle, 'readResource', {
+    turnToken: final.turnToken,
+  });
+  assert.deepEqual(content.messages.map(message => message.author).sort(), ['Alice', 'Bob']);
   await call(f.a.agentHandle, 'releaseTurn', { turnToken: final.turnToken });
 });

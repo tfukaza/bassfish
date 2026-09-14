@@ -1,3 +1,4 @@
+import { CodexQueue } from './agents/codex-queue.js';
 import { McpServer } from '@modelcontextprotocol/server';
 import type {
   JSONRPCMessage,
@@ -38,7 +39,7 @@ import {
 
 const hostSessionRouteKey = '__bassfishHostSessionId';
 const mcpInstructions =
-  'Before acting, call getContext and inspect the latest relevant discussions and tickets. Check ticket dependencies and current owners to avoid duplicate work. Acquire an advisory file turn before editing, reread files after acquiring it, and release it when done. Use existing threads—especially Introductions—instead of creating duplicates. Process injected Bassfish notifications before drawing conclusions, and leave a handoff when work changes ownership.';
+  'Before acting, call getUpdates and inspect the latest relevant discussions and tickets. Check ticket dependencies and current owners to avoid duplicate work. Acquire an advisory file turn before editing, reread files after acquiring it, and release it when done. Use existing threads—especially Introductions—instead of creating duplicates. Process injected Bassfish notifications before drawing conclusions, and leave a handoff when work changes ownership.';
 const hostSessionIdSchema = z.string().min(1).max(200);
 function routedToolSchema(schema: z.ZodType): StandardSchemaWithJSON {
   const standard = schema['~standard'];
@@ -239,6 +240,7 @@ export async function runMcp(workspace: string, dataDir: string, name?: string):
   let stopped = false;
   let preferredName = name;
   let defaultHostSessionId: string | undefined;
+  let reportedWakeStatus: string | undefined;
   let adapterWorkspace = workspace;
   const nativeClaude = process.env.BASSFISH_CLAUDE_NATIVE === '1';
   const nativeCodex = process.env.BASSFISH_CODEX_NATIVE === '1';
@@ -319,6 +321,30 @@ export async function runMcp(workspace: string, dataDir: string, name?: string):
       connecting = undefined;
     }));
   }
+  const codexQueue = nativeCodex
+    ? new CodexQueue(
+        {
+          wait: async (sessionId, signal) =>
+            (await connection()).call(
+              'waitCodexWork',
+              { sessionId, timeoutMs: 20000 },
+              signal,
+              25000,
+            ),
+          reserve: async sessionId =>
+            (await connection()).call('reserveCodexDelivery', { sessionId }),
+          transition: async (sessionId, batchToken, status, issue) =>
+            (await connection()).call('codexDeliveryTransition', {
+              sessionId,
+              batchToken,
+              status,
+              ...(issue ? { issue } : {}),
+            }),
+        },
+        () => adapterWorkspace,
+      )
+    : undefined;
+  let parentTurnId: string | undefined;
   const taskRoutes = new Map<string, string | undefined>();
   let protocolServer: McpServer | undefined;
   const watchers = new Map<string, AbortController>();
@@ -495,17 +521,17 @@ export async function runMcp(workspace: string, dataDir: string, name?: string):
             annotations: {
               readOnlyHint: [
                 'bindHostSession',
-                'getContext',
+                'getUpdates',
                 'waitForWork',
                 'findResources',
-                'readTurn',
+                'readResource',
               ].includes(name),
               destructiveHint: false,
               idempotentHint: [
                 'bindHostSession',
-                'getContext',
+                'getUpdates',
                 'findResources',
-                'readTurn',
+                'readResource',
                 'waitForWork',
               ].includes(name),
               openWorldHint: false,
@@ -561,6 +587,7 @@ export async function runMcp(workspace: string, dataDir: string, name?: string):
                 const sessionId = publicArgs.sessionId as string;
                 const data = await backend.call('bindHostSession', { sessionId });
                 defaultHostSessionId = sessionId;
+                codexQueue?.bind(sessionId);
                 return toolResult(data) as never;
               }
               if (name === 'deliverHostNotifications') {
@@ -570,17 +597,31 @@ export async function runMcp(workspace: string, dataDir: string, name?: string):
                     'This adapter does not support notification delivery hooks.',
                   );
                 const sessionId = publicArgs.sessionId as string;
-                const phase = publicArgs.phase as 'prompt' | 'active' | 'idle';
+                const phase = publicArgs.phase as 'prompt' | 'active' | 'idle' | 'paused';
+                if (nativeCodex) {
+                  if (phase === 'prompt') parentTurnId = publicArgs.turnId as string | undefined;
+                  else if (parentTurnId && publicArgs.turnId && publicArgs.turnId !== parentTurnId)
+                    return toolResult({}) as never;
+                  if (phase === 'paused') codexQueue?.pause();
+                }
                 const batch = await backend.call<DeliveryBatch>(
                   'takeHostDelivery',
                   {
                     sessionId,
                     phase,
+                    ...(nativeCodex ? { queueEnabled: codexQueue?.status === 'available' } : {}),
                   },
                   context.mcpReq.signal,
                   Math.max(1, hookDeadline - Date.now()),
                 );
                 defaultHostSessionId = sessionId;
+                if (phase === 'prompt') codexQueue?.bind(sessionId);
+                codexQueue?.observeHook(phase);
+                if (
+                  nativeCodex &&
+                  (phase === 'paused' || (phase === 'idle' && codexQueue?.status === 'available'))
+                )
+                  return toolResult({}) as never;
                 if (batch.count === 0) return toolResult({}) as never;
                 const message = formatDeliveryContext(batch);
                 if (phase === 'idle')
@@ -647,6 +688,19 @@ export async function runMcp(workspace: string, dataDir: string, name?: string):
                   structuredContent: { __bassfishTask: task },
                 };
               }
+              if (name === 'getUpdates' && codexQueue) {
+                const update = data as Record<string, unknown>;
+                if (update.changed || reportedWakeStatus !== codexQueue.readiness) {
+                  if (!update.changed)
+                    Object.assign(update, {
+                      changed: true,
+                      mode: 'delta',
+                      cursor: publicArgs.cursor,
+                    });
+                  update.nativeWake = codexQueue.readiness;
+                  reportedWakeStatus = codexQueue.readiness;
+                }
+              }
               return toolResult(data) as never;
             } catch (error) {
               const failure =
@@ -688,6 +742,7 @@ export async function runMcp(workspace: string, dataDir: string, name?: string):
     if (stopped) return;
     stopped = true;
     if (heartbeat) clearInterval(heartbeat);
+    codexQueue?.stop();
     for (const watcher of watchers.values()) watcher.abort();
     watchers.clear();
     try {

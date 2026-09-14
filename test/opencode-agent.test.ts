@@ -61,17 +61,13 @@ test('OpenCode package entry exports the native plugin server', () => {
   const prompt = formatOpenCodeDeliveryPrompt({
     kind: 'actionable',
     count: 1,
-    notificationIds: ['n-1'],
-    threadIds: ['t-1'],
-    ticketIds: [],
-    senders: ['WildSeal'],
-    reasons: ['direct_mention'],
+    batchToken: 'n-1',
+    moreAvailable: false,
     notifications: [
       {
-        notificationId: 'n-1',
+        index: 0,
         resourceType: 'thread',
         resourceId: 't-1',
-        threadId: 't-1',
         sender: 'WildSeal',
         reasons: ['direct_mention'],
         content: {
@@ -164,17 +160,13 @@ test('native OpenCode actionable delivery is inserted into a busy top-level sess
           return {
             kind: 'actionable',
             count: 1,
-            notificationIds: ['direct-1'],
-            threadIds: ['thread-1'],
-            ticketIds: [],
-            reasons: ['direct_mention'],
-            senders: ['Alice'],
+            batchToken: 'direct-1',
+            moreAvailable: false,
             notifications: [
               {
-                notificationId: 'direct-1',
+                index: 0,
                 resourceType: 'thread',
                 resourceId: 'thread-1',
-                threadId: 'thread-1',
                 sender: 'Alice',
                 reasons: ['direct_mention'],
                 content: {
@@ -246,14 +238,11 @@ test('native OpenCode plugin routes each top-level session independently and wai
           return {
             kind: 'activity',
             count: 1,
-            notificationIds: [`n-${sessionId}`],
-            threadIds: [`t-${sessionId}`],
-            ticketIds: [],
-            reasons: ['thread_activity'],
-            senders: ['WildSeal'],
+            batchToken: `n-${sessionId}`,
+            moreAvailable: false,
             notifications: [
               {
-                notificationId: `n-${sessionId}`,
+                index: 0,
                 resourceType: 'thread',
                 resourceId: `t-${sessionId}`,
                 threadId: `t-${sessionId}`,

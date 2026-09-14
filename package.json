@@ -1,6 +1,6 @@
 {
   "name": "@bassfish/cli",
-  "version": "0.5.3",
+  "version": "0.6.0",
   "description": "A local coordination layer for coding agents",
   "license": "MIT",
   "repository": {
@@ -50,17 +50,24 @@
     "test": "node --import tsx --test test/*.test.ts",
     "test:integration": "node --import tsx --test --test-concurrency=1 test/integration/*.test.ts",
     "test:hosts": "node scripts/host-smoke.mjs",
+    "test:codex-queue": "node --import tsx scripts/codex-queue-smoke.mjs",
     "test:soak": "node scripts/soak.mjs",
     "package:check": "node scripts/package-smoke.mjs",
     "release:check": "npm run ci && npm run package:check && npm run test:hosts",
     "ci": "npm run format:check && npm run check && npm run check:dead-code && npm test && npm run build && npm run test:integration",
     "dev": "tsx src/cli.ts",
-    "prepack": "npm run build"
+    "prepack": "npm run build:release",
+    "build:release": "node scripts/build.mjs --release",
+    "native:build": "node scripts/native-build.mjs",
+    "native:package": "node scripts/native-package.mjs",
+    "test:memory": "node scripts/native-memory.mjs",
+    "test:memory-soak": "node --expose-gc scripts/reliability-soak.mjs --native-memory --duration-ms=1800000",
+    "package:check:host": "node scripts/package-smoke.mjs --host-only"
   },
   "dependencies": {
     "@dagrejs/dagre": "^3.1.1",
     "@modelcontextprotocol/server": "2.0.0",
-    "@tursodatabase/database": "0.7.2",
+    "@tursodatabase/database-common": "0.7.2",
     "fflate": "^0.8.2",
     "ink": "^7.1.1",
     "re2-wasm": "^1.0.2",
@@ -72,6 +79,7 @@
     "@modelcontextprotocol/client": "2.0.0",
     "@opencode-ai/plugin": "1.18.29",
     "@opencode/plugin": "0.0.0-beta-19296",
+    "@tursodatabase/database": "0.7.2",
     "@types/node": "24.13.3",
     "@types/react": "^19.2.18",
     "ink-testing-library": "^4.0.0",

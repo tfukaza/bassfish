@@ -16,6 +16,7 @@ export type RowTypes = {
 };
 export type TableName = keyof RowTypes;
 const tables: Record<TableName, string> = {
+  notificationBatches: 'notificationBatches',
   projects: 'projects',
   identities: 'identities',
   instances: 'instances',

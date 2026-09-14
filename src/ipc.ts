@@ -56,7 +56,7 @@ export type RpcHandler = (
 export async function listenRpc(
   path: string,
   handler: RpcHandler,
-  disconnected: (socket: Socket) => void,
+  disconnected: (socket: Socket) => void | Promise<void>,
   diagnostics?: DiagnosticSink,
 ): Promise<{ server: Server; close: () => Promise<void> }> {
   const sockets = new Set<Socket>();
@@ -65,6 +65,7 @@ export async function listenRpc(
     sockets.add(socket);
     const connectionId = randomUUID();
     const running = new Map<string, AbortController>();
+    const connectionJobs = new Set<Promise<unknown>>();
     socket.on('error', () => {
       emitDiagnostic(diagnostics, 'connection.error', { connectionId });
     });
@@ -75,7 +76,18 @@ export async function listenRpc(
         connectionId,
         pendingRequestCount: running.size,
       });
-      disconnected(socket);
+      // Disconnect releases durable session state. Finish cancelled requests
+      // first, and keep this cleanup in the drain before storage can close.
+      const cleanup = Promise.allSettled([...connectionJobs])
+        .then(() => disconnected(socket))
+        .catch(error => {
+          emitDiagnostic(diagnostics, 'connection.disconnect_failed', {
+            connectionId,
+            code: diagnosticCode(error),
+          });
+        })
+        .finally(() => jobs.delete(cleanup));
+      jobs.add(cleanup);
     });
     frames(socket, frame => {
       const parsed = requestSchema.safeParse(frame);
@@ -146,9 +158,11 @@ export async function listenRpc(
         )
         .finally(() => {
           running.delete(request.id);
+          connectionJobs.delete(job);
           jobs.delete(job);
         });
       jobs.add(job);
+      connectionJobs.add(job);
     });
   });
   await new Promise<void>((resolve, reject) => {
@@ -158,9 +172,13 @@ export async function listenRpc(
   return {
     server,
     close: async () => {
+      const closed = [...sockets].map(
+        socket => new Promise<void>(resolve => socket.once('close', () => resolve())),
+      );
       for (const socket of sockets) socket.destroy();
       await new Promise<void>(resolve => server.close(() => resolve()));
-      await Promise.allSettled([...jobs]);
+      await Promise.all(closed);
+      while (jobs.size) await Promise.allSettled([...jobs]);
     },
   };
 }
@@ -317,6 +335,7 @@ export class RpcClient {
 const waitMethods = new Set([
   'waitObservation',
   'waitNativeDelivery',
+  'waitCodexWork',
   'getTurnOffer',
   'waitTask',
   'waitForWork',

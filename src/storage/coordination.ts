@@ -22,12 +22,13 @@ export class TursoControl {
       const version = await store.read(tx =>
         tx.get<{ user_version: number }>('PRAGMA user_version'),
       );
-      if (version?.user_version && version.user_version !== schemaVersion)
+      if (version?.user_version && ![1, schemaVersion].includes(version.user_version))
         throw new BassfishError(
           'SCHEMA_MISMATCH',
           'This Turso schema requires a compatible Bassfish version.',
         );
       await store.close();
+      // TursoStore.open executes initialization in one write transaction.
       const initialized = await TursoStore.open(path, coordinationSchema + contentSchema);
       try {
         return new TursoControl(initialized, await coordinationColumns(initialized));

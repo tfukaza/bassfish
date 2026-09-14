@@ -73,6 +73,9 @@ import {
 } from './service/notifications.js';
 import { dispatchAdmin } from './service/admin-dispatch.js';
 import { dispatchMcp } from './service/mcp-dispatch.js';
+import { Inbox } from './service/inbox.js';
+import { AgentUpdates } from './service/updates.js';
+import { ResourceReads } from './service/reads.js';
 export interface Limits {
   offerMs: number;
   turnTimeoutMs: number;
@@ -117,6 +120,9 @@ const ticketMutationKinds = [
 ];
 /** Application service: all coordination is persisted by ControlStore; all content uses ContentStore. */
 export class Bassfish {
+  readonly inbox = new Inbox(this);
+  readonly updates = new AgentUpdates(this);
+  readonly reads = new ResourceReads(this);
   readonly epoch = uid();
   diagnostics?: DiagnosticSink;
   readonly limits: Limits;
@@ -152,6 +158,13 @@ export class Bassfish {
           );
         }
         instance.active = false;
+      }
+      for (const batch of await state.all('notificationBatches')) {
+        if (batch.status === 'submitting' || batch.status === 'reserved') {
+          batch.status = 'uncertain';
+          batch.issue =
+            'Delivery interrupted by daemon restart; inspect this batch at the next checkpoint.';
+        }
       }
       for (const request of await state.all('requests')) {
         if (request.resourceType === 'files') {
@@ -424,6 +437,8 @@ export class Bassfish {
       if (instance) await this.disconnectIn(state, instance, clean, reason);
       await this.promote(state);
     });
+    this.updates.close(handle);
+    this.reads.close(handle);
   }
   async heartbeat(handle: string): Promise<void> {
     await this.sweep();
@@ -488,6 +503,9 @@ export class Bassfish {
         if (now >= task.discardAt) await state.remove('tasks', task.id);
       for (const task of await state.all('workTasks'))
         if (now >= task.discardAt) await state.remove('workTasks', task.id);
+      for (const batch of await state.all('notificationBatches'))
+        if (batch.finishedAt !== undefined && now - batch.finishedAt >= this.limits.retentionMs)
+          await state.remove('notificationBatches', batch.id);
       await this.promote(state);
     });
   }
@@ -823,34 +841,10 @@ export class Bassfish {
   }
   private async workNotifications(
     handle: string,
-    limit = 100,
-  ): Promise<{
-    notifications: Record<string, unknown>[];
-    moreAvailable: boolean;
-  }> {
-    const batch = await this.control.view(async state => {
-      const actor = await this.actor(state, handle);
-      const matching = (await state.all('notifications'))
-        .filter(
-          item =>
-            item.projectId === actor.projectId &&
-            item.identityId === actor.identityId &&
-            isWorkNotification(item),
-        )
-        .sort(
-          (a, b) =>
-            notificationPriority(a) - notificationPriority(b) ||
-            a.createdAt - b.createdAt ||
-            compare(a.id, b.id),
-        );
-      return {
-        notifications: matching.slice(0, limit),
-        moreAvailable: matching.length > limit,
-      };
-    });
-    return {
-      ...batch,
-      notifications: await this.presentNotifications(batch.notifications),
+  ): Promise<{ notifications: Record<string, unknown>[]; moreAvailable: boolean }> {
+    return (await this.inbox.capture(handle, 'actionable')) as unknown as {
+      notifications: Record<string, unknown>[];
+      moreAvailable: boolean;
     };
   }
   async waitForWork(handle: string, timeout: number, signal?: AbortSignal): Promise<unknown> {
@@ -1009,6 +1003,27 @@ export class Bassfish {
   }
   private signalWake(identityIds: Iterable<string>): void {
     this.control.afterCommit(() => this.wakeSignals.signal(identityIds));
+  }
+  async waitInbox(
+    handle: string,
+    timeout: number,
+    signal?: AbortSignal,
+  ): Promise<{ ready: boolean }> {
+    const until = performance.now() + Math.min(timeout, 20000);
+    while (true) {
+      const actor = await this.control.view(state => this.actor(state, handle));
+      const remaining = Math.max(0, until - performance.now());
+      const waiting = this.wakeSignals.wait(actor.identityId, remaining, signal);
+      if (await this.inbox.hasActionable(handle)) {
+        waiting.cancel();
+        return { ready: true };
+      }
+      if (!remaining) {
+        waiting.cancel();
+        return { ready: false };
+      }
+      await waiting.promise;
+    }
   }
   private async takeDelivery(
     handle: string,

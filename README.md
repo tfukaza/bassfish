@@ -35,7 +35,7 @@ File locks reserve an atomic set of explicit file or directory paths. Directorie
 
 ## Install Bassfish
 
-Use **Node.js `>=24.12.0 <25`** and Git. Bassfish supports Apple Silicon macOS and glibc Linux on arm64 or x64. It bundles **Turso 0.7.2** as an embedded native database; no database server or cloud account is required.
+Use **Node.js `>=24.12.0 <25`** and Git. Bassfish supports Apple Silicon macOS and glibc Linux on arm64 or x64. It bundles **Turso 0.7.2** (patched binding `0.7.2-bassfish.1`) as an embedded native database; no database server or cloud account is required. The [native memory protections](docs/native-memory.md) preserve the database format and require no migration or reset.
 
 ```sh
 npm install -g @bassfish/cli@latest
@@ -71,11 +71,13 @@ codex plugin list
 
 The plugin starts the MCP adapter and passes Codex's session ID through a prompt
 hook. Codex CLI, the IDE extension, and ChatGPT desktop share this configuration.
-Current Codex releases use the portable Agent Plugins manifest; Bassfish retains
-the compatibility manifest for older installations. Review the refreshed hook
+Bassfish uses the native `.codex-plugin/plugin.json` manifest because Codex 0.154
+does not execute hooks bundled in the portable Agent Plugins format. Review the refreshed hook
 definitions with `/hooks`, trust them, and start a new thread after an update.
 
-In a Tasks-capable Codex session, ask the agent to “listen for Bassfish work.” Bassfish keeps that active turn waiting for direct mentions, `@here`, `@global`, ticket assignments, and newly-ready owned tickets, processes each content-bearing batch, and waits again until you interrupt it. This does not wake a closed Codex session.
+Codex CLI 0.154+ automatically queues actionable idle notifications when the native plugin is enabled and bound. Waiting occurs in the MCP adapter, with no model polling. Generic activity is available at active checkpoints. Interrupting pauses automatic queueing until the next prompt. Other Codex clients retain hook delivery.
+
+In a Tasks-capable Codex session, optionally ask the agent to “listen for Bassfish work.” Bassfish keeps that active turn waiting for direct mentions, `@here`, `@global`, ticket assignments, and newly-ready owned tickets, processes each content-bearing batch, and waits again until you interrupt it. This does not wake a closed Codex session.
 
 ### Claude Code
 
@@ -235,7 +237,7 @@ bassfish daemon start --turn-timeout 90s
 
 The same option works with `bassfish daemon run` for foreground diagnostics. To persist the setting across daemon starts, run `bassfish config set turnTimeoutMs 90000`, then restart the daemon.
 
-Claimed file locks have session lifetime and no content-turn deadline. They end on explicit release, forced release, disconnect, heartbeat failure, or daemon restart. Reread after acquiring before editing; release with `releaseTurn`. File turns do not use `readTurn` or `commitTurn`.
+Claimed file locks have session lifetime and no content-turn deadline. They end on explicit release, forced release, disconnect, heartbeat failure, or daemon restart. Reread after acquiring before editing; release with `releaseTurn`. File turns do not use `readResource` or `commitTurn`.
 
 Coordination state, threads, and tickets are stored outside your source repository: `~/Library/Application Support/bassfish` on macOS, or `$XDG_DATA_HOME/bassfish` on Linux (defaulting to `~/.local/share/bassfish`). To override it, set `BASSFISH_DATA_DIR` consistently for all agents and diagnostic commands that should share a backend. File contents remain at their original paths and are excluded from Bassfish exports.
 
@@ -265,3 +267,15 @@ npm run ci            # formatting, types, dead code, unit, build, and integrati
 ```
 
 Generated artifacts, vendored code, media, recorded fixtures, and Markdown prose are intentionally excluded from automatic formatting. CI runs the non-mutating formatter and dead-code checks on every supported platform.
+
+## Bassfish 0.6 notification and read API
+
+Update the CLI, native plugins, and shared skills together, stop old hosts, then restart them. Schema 1 migrates in one transaction without a reset; daemon API 15 rejects mismatched adapters.
+
+`getUpdates` bootstraps project metadata once and returns delta checkpoints using an opaque cursor. Consume all `nextCursor` pages before adopting its final `cursor`. `readResource` reads pinned snapshots without a writer turn; pass a `turnToken` to inspect a claimed revision before writing. Claims contain metadata only. Notifications use immutable `batchToken` acknowledgements, with optional entry indices for partial processing. Expand oversized text by its batch token and item index. Default pages and delivery batches are bounded to 8 KiB; notification batches contain at most 20 entries.
+
+Unhandled batches remain available for recovery. Completed or released batches expire one hour after completion; acknowledgement retries are idempotent during that retention period.
+
+Native Codex uses the inherited environment and workspace. Customized installations can set `BASSFISH_CODEX_QUEUE_EXECUTABLE`, `BASSFISH_CODEX_QUEUE_PROFILE`, or an absolute `BASSFISH_CODEX_QUEUE_SQLITE_HOME` in the MCP environment. Match the session's SQLite directory; no remote App Server is required. An uncertain queue outcome is retained for explicit checkpoint recovery rather than automatic resubmission.
+
+After `npm run build`, run `npm run test:codex-queue` for a private Codex CLI test using the repository's native hooks and a local fake model. It verifies actionable wakeup, generic activity staying idle, and 60 seconds with no additional generation requests. It requires Codex CLI 0.154+ and Python 3; evidence is saved in `.tmp/codex-queue-smoke`. The test creates one new fake-model transcript and uses separate SQLite and Bassfish data directories.

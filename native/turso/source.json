@@ -1,0 +1,15 @@
+{
+  "identity": "0.7.2-bassfish.1",
+  "repository": "https://github.com/tursodatabase/turso",
+  "revision": "046e9cbf67d22491e8ecc941ec2891b02a9f3cad",
+  "sourceSha256": "476773a589b9b4ce3fcdae73c35541d07da46bddee47fea0db00ebdeb3ab14a7",
+  "cargoLockSha256": "9a09a0dabd8912fd65724bae1da3b09e9bc65e6497778d86b3152e2631ee3836",
+  "toolchainSha256": "41d30c7015c6cbac18286c4daa0f4a705aadc57b9ba278cf112abadc961ad4c4",
+  "toolchain": "1.88",
+  "profile": "release-official",
+  "targets": {
+    "darwin-arm64": "aarch64-apple-darwin",
+    "linux-arm64-gnu": "aarch64-unknown-linux-gnu",
+    "linux-x64-gnu": "x86_64-unknown-linux-gnu"
+  }
+}

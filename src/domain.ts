@@ -203,7 +203,22 @@ interface HostSessionBinding {
   createdAt: number;
   updatedAt: number;
 }
+export interface NotificationBatchRecord {
+  id: string;
+  projectId: string;
+  identityId: string;
+  sessionId?: string;
+  status:
+    'reserved' | 'submitting' | 'accepted' | 'uncertain' | 'presented' | 'handled' | 'released';
+  entries: Notification[];
+  acknowledged: number[];
+  payload: import('./notification-delivery.js').DeliveryBatch;
+  createdAt: number;
+  finishedAt?: number;
+  issue?: string;
+}
 export interface ControlRows {
+  notificationBatches: Record<string, NotificationBatchRecord>;
   /** Transaction-local activity outbox; never loaded as retained history. */
   observationEvents?: ActivityDraft[];
   projects: Record<string, Project>;
@@ -221,6 +236,7 @@ export interface ControlRows {
 }
 export type ControlState = import('./storage/rows.js').CoordinationState;
 export interface ControlStore {
+  activity: { head(): Promise<string>; gap(projectId: string, cursor: string): Promise<boolean> };
   view<T>(fn: (state: ControlState) => T | Promise<T>): Promise<T>;
   update<T>(fn: (state: ControlState) => T | Promise<T>): Promise<T>;
   readTransaction<T>(fn: () => Promise<T>): Promise<T>;
@@ -391,6 +407,20 @@ export interface ProjectHistoryEntry {
 }
 export type StorageResult = MutationResult;
 export interface ContentStore {
+  threadDelta(
+    projectId: string,
+    resourceId: string,
+    fromRevision: string,
+    revision?: string,
+    before?: string,
+  ): Promise<Snapshot>;
+  messageAt(
+    projectId: string,
+    resourceId: string,
+    messageId: string,
+    revision: string,
+  ): Promise<Message>;
+  listTicketMetadata(projectId: string): Promise<Ticket[]>;
   ensureProject(projectId: string): Promise<void>;
   listThreads(projectId: string): Promise<Thread[]>;
   listTickets(projectId: string): Promise<Ticket[]>;

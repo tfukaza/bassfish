@@ -84,24 +84,28 @@ export const mcpSchemas = {
   deliverHostNotifications: z
     .object({
       sessionId: token,
-      phase: z.enum(['prompt', 'active', 'idle']),
+      phase: z.enum(['prompt', 'active', 'idle', 'paused']),
+      turnId: token.optional(),
       workspace: z.string().min(1).max(4096).optional(),
     })
     .strict(),
-  getContext: z.object({ includeOfflineAgents: z.boolean().default(false) }).strict(),
+  getUpdates: z.object({ cursor: z.string().max(500).optional() }).strict(),
   setAgentName: z.object({ name: nameSchema }).strict(),
   notifications: z.discriminatedUnion('action', [
     z
       .object({
-        action: z.literal('list'),
-        limit: z.number().int().min(1).max(100).default(20),
-        cursor: z.string().max(500).optional(),
+        action: z.literal('read'),
+        batchToken: token.optional(),
+        item: z.number().int().min(0).max(19).optional(),
+        cursor: z.string().regex(/^\d+$/).max(20).optional(),
       })
-      .strict(),
+      .strict()
+      .refine(v => v.item === undefined || Boolean(v.batchToken), 'Expansion needs batchToken.'),
     z
       .object({
         action: z.literal('acknowledge'),
-        notificationIds: z.array(token).min(1).max(100),
+        batchToken: token,
+        items: z.array(z.number().int().min(0).max(19)).min(1).max(20).optional(),
       })
       .strict(),
   ]),
@@ -183,21 +187,30 @@ export const mcpSchemas = {
       .strict(),
   ]),
   cancelTurn: z.object({ requestToken: token }).strict(),
-  readTurn: z.discriminatedUnion('view', [
-    z
-      .object({ view: z.literal('page'), turnToken: token, cursor: z.string().max(500).optional() })
-      .strict(),
-    z.object({ view: z.literal('outline'), turnToken: token }).strict(),
-    z
-      .object({
-        view: z.literal('find'),
-        turnToken: token,
-        query: z.string().min(1).max(1024),
-        mode: z.enum(['literal', 'regex']).default('literal'),
-        limit: pageLimitSchema,
-      })
-      .strict(),
-  ]),
+  readResource: z
+    .object({
+      resourceId: token.optional(),
+      turnToken: token.optional(),
+      view: z.enum(['page', 'delta', 'message', 'outline', 'find']).default('page'),
+      revision: z.string().regex(/^\d+$/).optional(),
+      fromRevision: z.string().regex(/^\d+$/).optional(),
+      cursor: z.string().max(4096).optional(),
+      messageId: token.optional(),
+      query: z.string().min(1).max(1024).optional(),
+      mode: z.enum(['literal', 'regex']).default('literal'),
+      limit: pageLimitSchema,
+    })
+    .strict()
+    .refine(
+      v => Boolean(v.resourceId || v.turnToken || v.cursor),
+      'Provide resourceId, turnToken, or cursor.',
+    )
+    .refine(v => v.view !== 'find' || Boolean(v.query), 'Find needs query.')
+    .refine(v => v.view !== 'message' || Boolean(v.messageId), 'Message needs messageId.')
+    .refine(
+      v => v.view !== 'delta' || Boolean(v.fromRevision || v.cursor),
+      'Delta needs fromRevision.',
+    ),
   commitTurn: z.object({ turnToken: token, mutation: publicMutation }).strict(),
   releaseTurn: z.object({ turnToken: token }).strict(),
 } satisfies Record<string, z.ZodType>;
@@ -218,19 +231,21 @@ export const mcpDescriptions: Record<McpToolName, string> = {
     'Internal host integration: bind this adapter to the current coding-agent session.',
   deliverHostNotifications:
     'Internal host integration: inject unread Bassfish notifications at a safe host boundary.',
-  getContext:
-    'Get the current agent name, teammate presence, unread count, and pending content and file turns.',
+  getUpdates:
+    'Bootstrap compact project metadata once; pass its cursor for changes at later checkpoints. Finish nextCursor pages before adopting cursor.',
   setAgentName: 'Choose or reclaim an inactive agent name before requesting a turn.',
   notifications:
-    'List unread project activity and work notifications, or acknowledge them after processing.',
+    'Read the next new content batch, replay/expand a batchToken, or acknowledge processed entry versions with batchToken and optional items.',
   waitForWork:
     'Wait for unread direct mentions, @here, @global, ticket assignments, or newly-ready tickets. Requires MCP Tasks.',
-  findResources: 'Find thread or ticket metadata without reading protected bodies.',
+  findResources:
+    'Search compact thread or ticket metadata. Reuse getUpdates inventory for routine checkpoints.',
   createResource: 'Create a new chat thread or project ticket.',
   acquireTurn:
     'Acquire FIFO access to a thread, ticket, or an atomic set of files/directories. Resume with requestToken. Content turns have short leases; advisory file locks last until release or session loss. Reread files with native tools after acquiring.',
   cancelTurn: 'Cancel a queued request or unclaimed offer.',
-  readTurn: 'Read another content page, or inspect headings or matches in a claimed ticket.',
+  readResource:
+    'Read revision-pinned content without a writer turn: page, delta fromRevision, message, outline, or find. Use turnToken to inspect a claimed revision. Follow nextCursor.',
   commitTurn: 'Commit one supported chat or ticket change and release the turn. Never retries.',
   releaseTurn:
     'Release a content turn or the complete file set. File writes use native filesystem tools.',

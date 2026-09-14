@@ -50,3 +50,63 @@ test('an incompatible Turso schema is refused without changing its version', asy
     await inspect.close();
   }
 });
+
+test('schema 1 migrates transactionally without changing existing content or coordination rows', async t => {
+  const f = await fixture();
+  t.after(f.close);
+  const turn = await hold(f.service, f.a.agentHandle, f.thread);
+  await f.service.commitTurn(
+    f.a.agentHandle,
+    turn.turn.id,
+    turn.turn.fencingToken,
+    turn.snapshot.revision,
+    { kind: 'appendMessage', body: 'Keep me', mentions: { agents: ['Bob'], here: false } },
+  );
+  await f.service.callMcp(f.a.agentHandle, 'createResource', {
+    resourceType: 'ticket',
+    title: 'Existing task',
+    description: 'Preserve metadata',
+    owner: 'Bob',
+    body: '# Existing content\nPreserve the body',
+    state: 'blocked',
+  });
+  const tables = [
+    'projects',
+    'identities',
+    'instances',
+    'resources',
+    'turnRequests',
+    'notifications',
+    'threadContent',
+    'ticketContent',
+    'messages',
+    'revisions',
+    'activityEvents',
+  ];
+  const original: Record<string, unknown> = {};
+  for (const table of tables)
+    original[table] = await f.control.store.read(tx =>
+      tx.all(`SELECT * FROM ${table} ORDER BY rowid`),
+    );
+  // Removing the only v2 table reproduces the previous schema with populated data.
+  await f.control.close();
+  const old = await TursoStore.open(
+    join(f.dir, 'bassfish.db'),
+    'DROP TABLE notificationBatches; PRAGMA user_version=1;',
+  );
+  await old.close();
+  const migrated = await TursoControl.open(join(f.dir, 'bassfish.db'));
+  try {
+    for (const table of tables)
+      assert.deepEqual(
+        await migrated.store.read(tx => tx.all(`SELECT * FROM ${table} ORDER BY rowid`)),
+        original[table],
+      );
+    assert.deepEqual(await migrated.store.read(tx => tx.get('PRAGMA user_version')), {
+      user_version: 2,
+    });
+    assert.deepEqual(await migrated.view(state => state.all('notificationBatches')), []);
+  } finally {
+    await migrated.close();
+  }
+});

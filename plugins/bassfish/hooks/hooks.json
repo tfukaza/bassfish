@@ -10,7 +10,8 @@
             "input": {
               "sessionId": "${session_id}",
               "workspace": "${cwd}",
-              "phase": "prompt"
+              "phase": "prompt",
+              "turnId": "${turn_id}"
             },
             "timeout": 15,
             "statusMessage": "Restoring Bassfish session identity"
@@ -29,7 +30,8 @@
             "input": {
               "sessionId": "${session_id}",
               "workspace": "${cwd}",
-              "phase": "active"
+              "phase": "active",
+              "turnId": "${turn_id}"
             },
             "timeout": 15,
             "statusMessage": "Checking Bassfish notifications"
@@ -47,10 +49,29 @@
             "input": {
               "sessionId": "${session_id}",
               "workspace": "${cwd}",
-              "phase": "idle"
+              "phase": "idle",
+              "turnId": "${turn_id}"
             },
             "timeout": 15,
-            "statusMessage": "Checking Bassfish notifications"
+            "statusMessage": "Bassfish idle listener ready"
+          }
+        ]
+      }
+    ],
+    "Interrupt": [
+      {
+        "hooks": [
+          {
+            "type": "mcp_tool",
+            "server": "bassfish",
+            "tool": "deliverHostNotifications",
+            "input": {
+              "sessionId": "${session_id}",
+              "workspace": "${cwd}",
+              "turnId": "${turn_id}",
+              "phase": "paused"
+            },
+            "timeout": 3
           }
         ]
       }

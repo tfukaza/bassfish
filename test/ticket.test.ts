@@ -62,13 +62,16 @@ test('tickets expose a validated DAG and notify owners when assigned and newly r
   })) as Claimed;
   assert.equal(claimed.resource.ready, false);
   assert.deepEqual(claimed.resource.blockedBy, [dependency.ticketId]);
-  assert.equal(claimed.text, '# Work\nqueued');
+  const content = (await f.service.callMcp(f.a.agentHandle, 'readResource', {
+    turnToken: claimed.turnToken,
+  })) as { body: Array<{ text: string }> };
+  assert.equal(content.body.map(p => p.text).join(''), '# Work\nqueued');
   await f.service.callMcp(f.a.agentHandle, 'releaseTurn', { turnToken: claimed.turnToken });
   const depTurn = (await f.service.callMcp(f.a.agentHandle, 'acquireTurn', {
     target: { type: 'ticket', ticketId: dependency.ticketId },
     timeoutMs: 0,
   })) as Claimed;
-  assert.deepEqual(depTurn.resource.blocks, [downstream.ticketId]);
+  assert.equal(depTurn.resource.blocks, undefined);
   await assert.rejects(
     f.service.callMcp(f.a.agentHandle, 'commitTurn', {
       turnToken: depTurn.turnToken,
@@ -87,12 +90,12 @@ test('tickets expose a validated DAG and notify owners when assigned and newly r
   });
   const ready = (await f.service.waitForWork(f.b.agentHandle, 0)) as {
     notifications: {
-      ticketId: string;
+      resourceId: string;
       reasons: string[];
     }[];
   };
   assert.equal(ready.notifications.length, 1);
-  assert.equal(ready.notifications[0]!.ticketId, downstream.ticketId);
+  assert.equal(ready.notifications[0]!.resourceId, downstream.ticketId);
   assert.deepEqual(ready.notifications[0]!.reasons, ['ticket_ready']);
 });
 test('ticket discovery defaults to unfinished metadata and body edits stay turn-protected', async t => {

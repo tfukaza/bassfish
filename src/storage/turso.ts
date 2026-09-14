@@ -3,7 +3,12 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 import { mkdir, chmod, access } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
-import type { Database, Transaction } from '@tursodatabase/database';
+import type {
+  DatabasePromise as Database,
+  Transaction,
+  StatementPromise,
+} from '@tursodatabase/database-common';
+import { connect, nativeIdentity, type RegistryStats } from './native.js';
 import { requireSupportedPlatform } from './platform.js';
 import { BassfishError, requireThat } from '../domain.js';
 import { DiagnosticOperation } from '../diagnostic-events.js';
@@ -49,25 +54,40 @@ export class TursoTransaction {
     }
   }
 
+  private async prepared<T>(sql: string, work: (stmt: StatementPromise) => Promise<T>): Promise<T> {
+    const stmt = await this.transaction.prepare(sql);
+    let failed = false;
+    try {
+      return await work(stmt);
+    } catch (error) {
+      failed = true;
+      throw error;
+    } finally {
+      try {
+        await stmt.close();
+      } catch (error) {
+        // Cleanup must not hide the original execution error, including rollback conflicts.
+        if (!failed) throw error;
+      }
+    }
+  }
+
   async all<T extends object>(sql: string, ...args: SqlValue[]): Promise<T[]> {
-    return this.statement(
-      'all',
-      async () => (await this.transaction.prepare(sql)).all(...args) as Promise<T[]>,
+    return this.statement('all', () =>
+      this.prepared(sql, stmt => stmt.all(...args) as Promise<T[]>),
     );
   }
 
   async get<T extends object>(sql: string, ...args: SqlValue[]): Promise<T | undefined> {
-    return this.statement(
-      'get',
-      async () => (await this.transaction.prepare(sql)).get(...args) as Promise<T | undefined>,
+    return this.statement('get', () =>
+      this.prepared(sql, stmt => stmt.get(...args) as Promise<T | undefined>),
     );
   }
 
   async run(sql: string, ...args: SqlValue[]): Promise<number> {
     requireThat(this.writable, 'READ_ONLY', 'A read transaction cannot modify storage.');
-    return this.statement(
-      'run',
-      async () => (await (await this.transaction.prepare(sql)).run(...args)).changes,
+    return this.statement('run', () =>
+      this.prepared(sql, async stmt => (await stmt.run(...args)).changes),
     );
   }
 
@@ -109,40 +129,86 @@ export async function requireFreshStorage(dataDir: string): Promise<void> {
   }
 }
 
+interface ConnectionSlot {
+  db: Database;
+  generation: number;
+  prepares: number;
+  totalPrepares: number;
+  state: 'available' | 'leased' | 'retiring' | 'quarantined' | 'closed';
+}
+
+/** Internal injection points let acceptance tests exercise each protection independently. */
+export interface TursoStoreOptions {
+  prepareLimit?: number;
+  connect?: (path: string) => Promise<Database>;
+  bindingIdentity?: string;
+}
+const connectionPragmas =
+  "PRAGMA journal_mode='mvcc'; PRAGMA foreign_keys=ON; PRAGMA synchronous=FULL;";
+
 /** One daemon owns the file; independent units of work lease independent connections. */
 export class TursoStore {
   private readonly context = new AsyncLocalStorage<TursoTransaction>();
-  private readonly available: Database[];
+  private readonly available: ConnectionSlot[];
   private readonly waiters: Array<{
-    resolve: (db: Database) => void;
+    resolve: (slot: ConnectionSlot) => void;
     reject: (error: Error) => void;
   }> = [];
   private readonly drained = new Set<() => void>();
+  // Includes replacements as soon as they open, until close succeeds.
+  private readonly openConnections = new Set<Database>();
   private active = 0;
   private closing = false;
   private closePromise?: Promise<void>;
+  private replacements: Promise<void> = Promise.resolve();
+  private replacementsPending = 0;
+  private replacementSuccesses = 0;
+  private replacementFailures = 0;
+  private lastReplacement?: {
+    slot: number;
+    generation: number;
+    durationMs: number;
+    success: boolean;
+  };
 
-  private constructor(private readonly connections: Database[]) {
-    this.available = [...connections];
+  private constructor(
+    private readonly path: string,
+    private readonly slots: ConnectionSlot[],
+    private readonly connector: (path: string) => Promise<Database>,
+    private readonly prepareLimit: number,
+    private readonly identity: string,
+  ) {
+    this.available = [...slots];
+    for (const slot of slots) this.openConnections.add(slot.db);
   }
 
-  static async open(path: string, schema = '', connectionCount = 8): Promise<TursoStore> {
+  static async open(
+    path: string,
+    schema = '',
+    connectionCount = 8,
+    options: TursoStoreOptions = {},
+  ): Promise<TursoStore> {
     requireThat(
       Number.isInteger(connectionCount) && connectionCount > 0,
       'INVALID_ARGUMENT',
       'Invalid connection count.',
     );
+    const prepareLimit = options.prepareLimit ?? 4096;
+    requireThat(
+      (Number.isSafeInteger(prepareLimit) && prepareLimit > 0) || prepareLimit === Infinity,
+      'INVALID_ARGUMENT',
+      'Invalid prepare limit.',
+    );
     requireSupportedPlatform();
-    const { connect } = await import('@tursodatabase/database');
+    const connector = options.connect ?? connect;
+    const identity = options.bindingIdentity ?? nativeIdentity();
     await mkdir(dirname(path), { recursive: true, mode: 0o700 });
     const connections: Database[] = [];
     try {
       for (let index = 0; index < connectionCount; index++) {
-        const db = await connect(path);
+        const db = await connector(path);
         connections.push(db);
-        await db.exec(
-          "PRAGMA journal_mode='mvcc'; PRAGMA foreign_keys=ON; PRAGMA synchronous=FULL;",
-        );
+        await db.exec(connectionPragmas);
         if (index === 0 && schema) {
           await db.transactionAsync(async transaction => {
             await transaction.exec(schema);
@@ -150,11 +216,58 @@ export class TursoStore {
         }
       }
       await chmod(path, 0o600);
-      return new TursoStore(connections);
+      return new TursoStore(
+        path,
+        connections.map(db => ({
+          db,
+          generation: 0,
+          prepares: 0,
+          totalPrepares: 0,
+          state: 'available',
+        })),
+        connector,
+        prepareLimit,
+        identity,
+      );
     } catch (error) {
       await Promise.allSettled(connections.map(db => db.close()));
       throw error;
     }
+  }
+
+  diagnostics() {
+    return {
+      bindingIdentity: this.identity,
+      prepareLimit: Number.isFinite(this.prepareLimit) ? this.prepareLimit : null,
+      closing: this.closing,
+      active: this.active,
+      queued: this.waiters.length,
+      openConnections: this.openConnections.size,
+      replacementsPending: this.replacementsPending,
+      replacementSuccesses: this.replacementSuccesses,
+      replacementFailures: this.replacementFailures,
+      lastReplacement: this.lastReplacement,
+      connections: this.slots.map((slot, index) => {
+        let registry: RegistryStats | undefined;
+        if (this.openConnections.has(slot.db)) {
+          try {
+            registry = (
+              slot.db as Database & { registryStats?: () => RegistryStats }
+            ).registryStats?.();
+          } catch {
+            /* closing */
+          }
+        }
+        return {
+          slot: index,
+          generation: slot.generation,
+          prepares: slot.prepares,
+          totalPrepares: slot.totalPrepares,
+          state: slot.state,
+          registry,
+        };
+      }),
+    };
   }
 
   current(): TursoTransaction | undefined {
@@ -169,25 +282,96 @@ export class TursoStore {
     return this.execute(true, callback);
   }
 
-  private async acquire(): Promise<Database> {
+  private async acquire(): Promise<ConnectionSlot> {
     requireThat(!this.closing, 'STORAGE_UNAVAILABLE', 'Storage is closing.');
-    const db = this.available.pop();
-    if (db) {
+    const slot = this.available.shift();
+    if (slot) {
+      slot.state = 'leased';
       this.active++;
-      return db;
+      return slot;
     }
     return new Promise((resolve, reject) => this.waiters.push({ resolve, reject }));
   }
 
-  private release(db: Database): void {
+  private makeAvailable(slot: ConnectionSlot): void {
+    if (this.closing) return;
     const waiter = this.waiters.shift();
-    if (waiter && !this.closing) {
-      waiter.resolve(db);
-      return;
+    if (waiter) {
+      slot.state = 'leased';
+      this.active++;
+      waiter.resolve(slot);
+    } else {
+      slot.state = 'available';
+      this.available.push(slot);
     }
-    this.available.push(db);
+  }
+
+  private release(slot: ConnectionSlot): void {
     this.active--;
-    if (!this.active) for (const resolve of this.drained) resolve();
+    if (!this.closing && slot.prepares >= this.prepareLimit) {
+      slot.state = 'retiring';
+      this.replacementsPending++;
+      // Serialized opening/configuration/closing permits at most one extra connection.
+      // No await here: a completed transaction's outcome and publication stand alone.
+      this.replacements = this.replacements.then(() => this.replace(slot));
+    } else {
+      this.makeAvailable(slot);
+    }
+    if (!this.active) {
+      for (const resolve of this.drained) resolve();
+      this.drained.clear();
+    }
+  }
+
+  private async replace(slot: ConnectionSlot): Promise<void> {
+    const started = performance.now();
+    const operation = new DiagnosticOperation('storage.replacement', {
+      slot: this.slots.indexOf(slot),
+      generation: slot.generation,
+    });
+    try {
+      if (this.closing) {
+        operation.finish();
+        return;
+      }
+      operation.phase('open');
+      const replacement = await this.connector(this.path);
+      this.openConnections.add(replacement);
+      operation.phase('configure');
+      await replacement.exec(connectionPragmas);
+      operation.phase('close_retired');
+      await slot.db.close();
+      this.openConnections.delete(slot.db);
+      slot.db = replacement;
+      slot.generation++;
+      slot.prepares = 0;
+      this.replacementSuccesses++;
+      this.lastReplacement = {
+        slot: this.slots.indexOf(slot),
+        generation: slot.generation,
+        durationMs: performance.now() - started,
+        success: true,
+      };
+      operation.event('storage.replacement_succeeded', this.lastReplacement);
+      this.makeAvailable(slot);
+      operation.finish();
+    } catch (error) {
+      slot.state = 'quarantined';
+      this.replacementFailures++;
+      this.lastReplacement = {
+        slot: this.slots.indexOf(slot),
+        generation: slot.generation,
+        durationMs: performance.now() - started,
+        success: false,
+      };
+      operation.event('storage.replacement_failed', this.lastReplacement);
+      operation.finish(error);
+      // This closes acquisition immediately, but drains already leased transactions.
+      // Never await close here: shutdown itself awaits this replacement chain.
+      void this.close().catch(() => {});
+    } finally {
+      this.replacementsPending--;
+    }
   }
 
   private async execute<T>(
@@ -216,13 +400,20 @@ export class TursoStore {
         operation.phase('pool_wait', {
           attempt: attempts,
           poolActive: this.active,
-          poolSize: this.connections.length,
+          poolSize: this.slots.length,
           poolQueued: this.waiters.length + (this.available.length === 0 ? 1 : 0),
         });
         const waitStarted = performance.now();
-        const db = await this.acquire();
+        const slot = await this.acquire();
+        const db = slot.db;
         poolWaitMs += performance.now() - waitStarted;
-        operation.phase('transaction_begin', { poolWaitMs });
+        operation.phase('transaction_begin', {
+          poolWaitMs,
+          bindingIdentity: this.identity,
+          connectionSlot: this.slots.indexOf(slot),
+          connectionGeneration: slot.generation,
+          connectionPrepares: slot.prepares,
+        });
         let scope: TursoTransaction | undefined;
         let callbackError: unknown;
         let commitError: unknown;
@@ -242,6 +433,13 @@ export class TursoStore {
                   if (sql.trim().toUpperCase() === 'COMMIT') commitError = error;
                   throw error;
                 }
+              };
+              const prepare = transaction.prepare.bind(transaction);
+              transaction.prepare = async sql => {
+                const stmt = await prepare(sql);
+                slot.prepares++;
+                slot.totalPrepares++;
+                return stmt;
               };
               scope = new TursoTransaction(transaction, writable, operation);
               operation.phase('callback');
@@ -309,7 +507,7 @@ export class TursoStore {
             statementCount += scope.metrics().statementCount;
             maxStatementMs = Math.max(maxStatementMs, scope.metrics().maxStatementMs);
           }
-          this.release(db);
+          this.release(slot);
         }
         const backoff = 5 * 2 ** attempt + Math.floor(Math.random() * 5);
         backoffMs += backoff;
@@ -330,12 +528,30 @@ export class TursoStore {
   }
 
   close(): Promise<void> {
-    return (this.closePromise ??= (async () => {
-      this.closing = true;
-      for (const waiter of this.waiters.splice(0))
-        waiter.reject(new BassfishError('STORAGE_UNAVAILABLE', 'Storage is closing.'));
+    if (this.closePromise) return this.closePromise;
+    this.closing = true;
+    this.available.length = 0;
+    for (const waiter of this.waiters.splice(0))
+      waiter.reject(new BassfishError('STORAGE_UNAVAILABLE', 'Storage is closing.'));
+    this.closePromise = (async () => {
       if (this.active) await new Promise<void>(resolve => this.drained.add(resolve));
-      await Promise.all(this.connections.map(db => db.close()));
-    })());
+      await this.replacements;
+      const results = await Promise.allSettled(
+        [...this.openConnections].map(async db => {
+          await db.close();
+          this.openConnections.delete(db);
+        }),
+      );
+      for (const slot of this.slots) if (!this.openConnections.has(slot.db)) slot.state = 'closed';
+      const failures = results.filter(
+        (result): result is PromiseRejectedResult => result.status === 'rejected',
+      );
+      if (failures.length)
+        throw new AggregateError(
+          failures.map(result => result.reason),
+          'Storage connection cleanup failed.',
+        );
+    })();
+    return this.closePromise;
   }
 }

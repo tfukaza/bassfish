@@ -1,18 +1,23 @@
 # v0 release qualification
 
-Bassfish has no backward-compatibility or migration gate in v0. A schema or API change is validated only against a fresh data directory.
+Bassfish v0 does not promise public API compatibility. The 0.6 schema-1-to-2 migration is transactional and preserves content and unread work; qualification covers both fresh storage and that migration.
 
 ## Automated gate
 
-Run on both a current macOS runner and a current Ubuntu runner:
+The native-build workflow first builds and merges patched binaries for macOS arm64 and glibc Linux arm64/x64. With those artifacts in `native/turso/artifacts`, run on all three matching runners:
 
 ```sh
 npm ci
+npm run build:release
 npm run release:check
+npm run test:memory
+npm run test:memory-soak
 npm run test:soak
 ```
 
 `test:soak` uses embedded Turso for 30 minutes by default. A short diagnostic run is `node scripts/soak.mjs --duration-ms=5000`; it is not release evidence.
+
+Release packaging requires all three verified binaries, their build metadata and hashes, and the upstream license. The compressed package limit is 64 MiB. `package:check` installs the complete tarball on each supported platform and verifies the patched identity without the official native dependency. `build` and `package:check:host` allow host-only development and do not qualify a release. See [native memory acceptance](native-memory.md) for isolated regressions, physical footprint measurement, and activation instructions.
 
 The automated suites cover:
 
@@ -24,6 +29,8 @@ The automated suites cover:
 
 The suites also fix the public MCP inventory at 13 tools, cap serialized tool descriptors at 14 KiB, reject private control and storage fields at the MCP boundary, and require empty `content` beside structured results.
 
+CI and publication also install Codex 0.154.0 and run `test:codex-queue` on all three native platforms. This installs the actual native plugin into private state, verifies an assigned ticket and direct mention reach the same idle TUI, checks coexistence with inline hooks and preserved permissions, and requires zero further model requests during 60 seconds of settled idle. It uses a fake local provider and does not qualify paid-provider host sessions.
+
 ## Host matrix
 
 The supported matrix and pinned release-candidate versions are listed in [compatibility.md](compatibility.md). Install all three, install `@bassfish/cli`, and configure the `bassfish mcp` stdio command as shown in the README, then run:
@@ -33,11 +40,11 @@ npm run test:hosts
 node scripts/host-smoke.mjs --live
 ```
 
-The default command verifies that each executable and its MCP command launch. `--live` makes one real model invocation per host and requires each host to call `getContext`; it therefore needs the operator's configured accounts and may incur usage. Record the exact versions printed by the script with the release evidence. Missing hosts fail unless `--allow-missing` is explicitly used for local development.
+The default command verifies that each executable and its MCP command launch. `--live` makes one real model invocation per host and requires each host to call `getUpdates`; it therefore needs the operator's configured accounts and may incur usage. Record the exact versions printed by the script with the release evidence. Missing hosts fail unless `--allow-missing` is explicitly used for local development.
 
-For Codex, install `bassfish@bassfish`, rename the agent, exit, resume the same Codex session, and verify the name is restored. Start a different Codex session and verify it receives a different identity. Then ask the first session to listen for Bassfish work, send a direct mention or owned-ticket event from a second identity, verify the same active turn processes and acknowledges it, and verify cancellation leaves later notifications unread. Confirm a completed or closed Codex turn is never described as wakeable.
+For Codex CLI 0.154+, install `bassfish@bassfish`, rename the agent, exit, resume the same session, and verify the name is restored. Start a different session and verify it receives a different identity. Complete a normal turn, send an actionable update, and verify the queue wakes the same idle session without a standby prompt. Generic activity must leave it idle. Verify interruption pauses queueing until the next prompt and closing the TUI leaves later work unread. Explicit Tasks listeners remain an optional active-turn workflow.
 
-For native-delivery qualification, install `bassfish@bassfish` at Claude and Codex user scope and `@bassfish/cli` at OpenCode global plugin scope, then launch each host normally. Send direct, `@here`, `@global`, generic thread-activity, assignment, and newly-ready-ticket events from a second identity. Verify actionable content arrives at the next supported tool boundary, generic activity arrives only at idle, delivery leaves notifications unread, and resuming the same session redelivers unread items under the same identity. Confirm logs contain no turn credentials. For OpenCode, run two simultaneous top-level sessions, verify each receives only its own content, verify busy delivery uses a synthetic no-reply prompt without aborting, and verify subagent calls route to their top-level parent. For Codex, verify post-idle activity remains pending until the next prompt or explicit `waitForWork`.
+For native-delivery qualification, install `bassfish@bassfish` at Claude and Codex user scope and `@bassfish/cli` at OpenCode global plugin scope, then launch each host normally. Send direct, `@here`, `@global`, generic thread-activity, assignment, and newly-ready-ticket events from a second identity. Verify actionable content arrives at the next supported tool boundary, Codex keeps generic activity for active checkpoints while Claude and OpenCode retain idle delivery, delivery leaves notifications unread, and resuming the same session permits replay of unhandled batch tokens under the same identity. Confirm logs contain no turn credentials. For OpenCode, run two simultaneous top-level sessions, verify each receives only its own content, verify busy delivery uses a synthetic no-reply prompt without aborting, and verify subagent calls route to their top-level parent. For Codex CLI 0.154+, verify actionable updates wake the same bound UUID after idle, generic activity stays pending for a checkpoint, and an accepted batch never creates recurring wakes. Verify uncertain queue outcomes retain unread work and are reported at the next checkpoint. Include a 60-second settled-idle fake-provider interval with zero generation requests.
 
 ## Disruptive OS gate
 

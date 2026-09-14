@@ -62,25 +62,19 @@ async function acquire(
 }
 async function fullBody(
   call: Call,
-  turn: {
-    turnToken: string;
-    text: string;
-    nextCursor: string | null;
-  },
+  target: { turnToken?: string; resourceId?: string },
+  first?: { body?: Array<{ text: string }>; nextCursor: string | null },
 ): Promise<string> {
-  let text = turn.text;
-  let cursor = turn.nextCursor;
-  while (cursor) {
-    const page = await call<{
-      text: string;
-      nextCursor: string | null;
-    }>('readTurn', {
-      view: 'page',
-      turnToken: turn.turnToken,
-      cursor,
-    });
-    text += page.text;
-    cursor = page.nextCursor;
+  let page =
+    first ??
+    (await call<{ body?: Array<{ text: string }>; nextCursor: string | null }>(
+      'readResource',
+      target,
+    ));
+  let text = (page.body ?? []).map(p => p.text).join('');
+  while (page.nextCursor) {
+    page = await call('readResource', { ...target, cursor: page.nextCursor });
+    text += (page.body ?? []).map(p => p.text).join('');
   }
   return text;
 }
@@ -88,6 +82,7 @@ async function mutate(call: Call, id: string, mutation: Record<string, unknown>)
   const turn = await acquire(call, id);
   let consumed = false;
   try {
+    await fullBody(call, { turnToken: turn.turnToken });
     const value = await call('commitTurn', { turnToken: turn.turnToken, mutation });
     consumed = true;
     return value;
@@ -160,12 +155,25 @@ export async function runTicketCli(
     return { value: await resourceHistoryCli(action!, args, id, historyCall) };
   if (action === 'show') {
     requireThat(args.length === 0, 'INVALID_ARGUMENT', 'Unknown ticket show argument.');
-    const turn = await acquire(call, id);
-    try {
-      return { value: { ticket: turn.resource, body: await fullBody(call, turn) } };
-    } finally {
-      await call('releaseTurn', { turnToken: turn.turnToken });
-    }
+    const page = await call<{
+      resource: Record<string, unknown>;
+      revision: string;
+      body?: Array<{ text: string }>;
+      nextCursor: string | null;
+    }>('readResource', { resourceId: id });
+    const metadata = await historyCall<{ page: { ticket: Record<string, unknown> } }>(
+      'readRevision',
+      {
+        resourceId: id,
+        revision: page.revision,
+      },
+    );
+    return {
+      value: {
+        ticket: { ...page.resource, ...metadata.page.ticket },
+        body: await fullBody(call, { resourceId: id }, page),
+      },
+    };
   }
   if (action === 'update') {
     const title = take(args, '--title');
@@ -192,7 +200,7 @@ export async function runTicketCli(
   if (['edit', 'append', 'patch'].includes(action ?? '')) {
     if (action === 'edit' && args.includes('--editor')) {
       const first = await acquire(call, id);
-      const original = await fullBody(call, first);
+      const original = await fullBody(call, { turnToken: first.turnToken });
       await call('releaseTurn', { turnToken: first.turnToken });
       const body = await source(args, dataDir, original);
       requireThat(args.length === 0, 'INVALID_ARGUMENT', 'Unknown ticket edit argument.');

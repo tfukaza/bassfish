@@ -229,6 +229,8 @@ test('mention waiting ignores followed-only updates and wakes immediately for a 
     { kind: 'appendMessage', body: 'ordinary followed update' },
   );
   assert.deepEqual(await service.waitForWork(b.agentHandle, 0), {
+    kind: 'none',
+    count: 0,
     notifications: [],
     moreAvailable: false,
   });
@@ -261,10 +263,13 @@ test('mention waiting ignores followed-only updates and wakes immediately for a 
   assert.equal(batch.notifications.length, 1);
   assert.ok(batch.notifications[0]!.reasons.includes('direct_mention'));
   assert.equal(batch.moreAvailable, false);
-  await service.call(b.agentHandle, 'ackNotifications', {
-    notificationIds: [batch.notifications[0]!.notificationId],
-  });
+  await service.inbox.acknowledge(
+    b.agentHandle,
+    (batch as unknown as { batchToken: string }).batchToken,
+  );
   assert.deepEqual(await service.waitForWork(b.agentHandle, 0), {
+    kind: 'none',
+    count: 0,
     notifications: [],
     moreAvailable: false,
   });
@@ -320,6 +325,8 @@ test('online project identities see coalesced thread activity without following 
   assert.equal(inbox.notifications[0]!.messageId, first.messageId);
   const activityId = inbox.notifications[0]!.notificationId;
   assert.deepEqual(await service.waitForWork(b.agentHandle, 0), {
+    kind: 'none',
+    count: 0,
     notifications: [],
     moreAvailable: false,
   });
@@ -397,7 +404,8 @@ test('@global notifies every online project identity, including non-followers', 
     }[];
     moreAvailable: boolean;
   };
-  assert.equal(work.notifications[0]!.notificationId, inbox.notifications[0]!.notificationId);
+  assert.ok((work as unknown as { batchToken: string }).batchToken);
+  assert.deepEqual(work.notifications[0]!.reasons, inbox.notifications[0]!.reasons);
   const charlieNotification = await f.control.view(async state =>
     (await state.all('notifications')).find(
       item =>
@@ -455,7 +463,7 @@ test('mention waiting bounds a batch and reports remaining work', async t => {
     notifications: unknown[];
     moreAvailable: boolean;
   };
-  assert.equal(batch.notifications.length, 100);
+  assert.equal(batch.notifications.length, 20);
   assert.equal(batch.moreAvailable, true);
 });
 test('native delivery includes content, prioritizes actionable work, and leases a delivery', async t => {

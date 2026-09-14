@@ -14,5 +14,19 @@ const result = spawnSync(
   },
 );
 if (result.error) throw result.error;
-if (result.status === 0) await chmod(new URL('dist/cli.js', root), 0o755);
+if (result.status === 0) {
+  await chmod(new URL('dist/cli.js', root), 0o755);
+  const native = spawnSync(
+    process.execPath,
+    [
+      'scripts/native-package.mjs',
+      ...(process.argv.includes('--release') || process.env.BASSFISH_RELEASE_BUILD === '1'
+        ? ['--release']
+        : []),
+    ],
+    { cwd: fileURLToPath(root), stdio: 'inherit' },
+  );
+  if (native.error) throw native.error;
+  if (native.status !== 0) process.exit(native.status ?? 1);
+}
 process.exitCode = result.status ?? 1;

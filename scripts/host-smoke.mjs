@@ -3,13 +3,13 @@ import { spawnSync } from 'node:child_process';
 const expected = [
   {
     name: 'Codex',
-    minimumVersion: '0.153.4',
+    minimumVersion: '0.154.0',
     command: 'codex',
     version: ['--version'],
     mcp: ['mcp', '--help'],
     live: [
       'exec',
-      'Use the configured Bassfish MCP server, call getContext, and print exactly BASSFISH_HOST_OK after it succeeds.',
+      'Use the configured Bassfish MCP server, call getUpdates, and print exactly BASSFISH_HOST_OK after it succeeds.',
     ],
   },
   {
@@ -20,7 +20,7 @@ const expected = [
     mcp: ['mcp', '--help'],
     live: [
       '-p',
-      'Use the configured Bassfish MCP server, call getContext, and print exactly BASSFISH_HOST_OK after it succeeds.',
+      'Use the configured Bassfish MCP server, call getUpdates, and print exactly BASSFISH_HOST_OK after it succeeds.',
     ],
   },
   {
@@ -31,7 +31,7 @@ const expected = [
     mcp: ['mcp', '--help'],
     live: [
       'run',
-      'Use the configured Bassfish MCP server, call getContext, and print exactly BASSFISH_HOST_OK after it succeeds.',
+      'Use the configured Bassfish MCP server, call getUpdates, and print exactly BASSFISH_HOST_OK after it succeeds.',
     ],
   },
 ];

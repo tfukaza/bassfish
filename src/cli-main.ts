@@ -327,8 +327,13 @@ async function main(): Promise<void> {
     let storage: Record<string, unknown>;
     try {
       requireSupportedPlatform();
-      await import('@tursodatabase/database');
-      storage = { engine: 'turso', state: 'ready', version: tursoVersion };
+      const { nativeIdentity } = await import('./storage/native.js');
+      storage = {
+        engine: 'turso',
+        state: 'ready',
+        version: tursoVersion,
+        bindingIdentity: nativeIdentity(),
+      };
     } catch (error) {
       storage = {
         state: 'unavailable',

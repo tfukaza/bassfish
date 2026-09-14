@@ -1,5 +1,6 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
   "entry": ["test/**/*.test.ts", "scripts/*.mjs"],
+  "ignoreBinaries": ["rustup"],
   "project": ["src/**/*.ts", "src/**/*.tsx", "test/**/*.ts", "scripts/*.mjs"]
 }

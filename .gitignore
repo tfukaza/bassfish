@@ -12,3 +12,6 @@ website/qa/
 
 # Generated npm release archives
 *.tgz
+native/turso/artifacts/*
+
+.scratch/

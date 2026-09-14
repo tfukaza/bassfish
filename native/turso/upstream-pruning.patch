@@ -1,0 +1,92 @@
+--- a/bindings/javascript/src/lib.rs
++++ b/bindings/javascript/src/lib.rs
+@@ -35,6 +35,26 @@
+ /// `DATABASE_MANAGER` registry.
+ type StatementHandle = Arc<RefCell<Option<turso_core::Statement>>>;
+ 
++
++/// Prune on a separate prepare counter, never on registry length (live handles
++/// can keep length above the threshold). Keep live handles for close().
++#[derive(Default)]
++struct StatementRegistry {
++    handles: Vec<Weak<RefCell<Option<turso_core::Statement>>>>,
++    prepares_since_prune: u32,
++}
++
++impl StatementRegistry {
++    fn register(&mut self, stmt: &StatementHandle) {
++        self.prepares_since_prune += 1;
++        if self.prepares_since_prune == 256 {
++            self.handles.retain(|handle| handle.strong_count() > 0);
++            self.prepares_since_prune = 0;
++        }
++        self.handles.push(Arc::downgrade(stmt));
++    }
++}
++
+ /// Step result constants
+ const STEP_ROW: u32 = 1;
+ const STEP_DONE: u32 = 2;
+@@ -66,7 +86,7 @@
+     /// Weak refs to every shared statement handle created by this database.
+     /// `close()` upgrades each live handle and sets it to `None`, which
+     /// finalizes the statement and releases its `Arc<Connection>`.
+-    stmts: Mutex<Vec<Weak<RefCell<Option<turso_core::Statement>>>>>,
++    stmts: Mutex<StatementRegistry>,
+ }
+ 
+ pub struct DatabaseConnect {
+@@ -399,7 +419,7 @@
+                 io,
+                 connect: OnceLock::new(),
+                 default_safe_integers: Mutex::new(false),
+-                stmts: Mutex::new(Vec::new()),
++                stmts: Mutex::new(StatementRegistry::default()),
+             })),
+         })
+     }
+@@ -492,7 +512,7 @@
+             .collect();
+         #[allow(clippy::arc_with_non_send_sync)]
+         let stmt: StatementHandle = Arc::new(RefCell::new(Some(stmt)));
+-        inner.stmts.lock().unwrap().push(Arc::downgrade(&stmt));
++        inner.stmts.lock().unwrap().register(&stmt);
+         Ok(Statement {
+             stmt,
+             column_names,
+@@ -574,7 +594,7 @@
+             // DATABASE_MANAGER can still be upgraded after the file is renamed,
+             // causing a stale Database to be returned on the next open().
+             let mut stmts = inner.stmts.lock().unwrap();
+-            for weak in stmts.drain(..) {
++            for weak in stmts.handles.drain(..) {
+                 if let Some(stmt) = weak.upgrade() {
+                     *stmt.borrow_mut() = None;
+                 }
+@@ -1025,6 +1045,26 @@
+ 
+ #[cfg(test)]
+ mod tests {
++    #[test]
++    fn registry_prunes_dead_handles_on_prepare_cadence_and_preserves_live_handles() {
++        use super::*;
++        let mut registry = StatementRegistry::default();
++        let live = Arc::new(RefCell::new(None));
++        registry.register(&live);
++        for _ in 0..254 {
++            registry.register(&Arc::new(RefCell::new(None)));
++        }
++        assert_eq!(registry.handles.len(), 255);
++        registry.register(&Arc::new(RefCell::new(None)));
++        assert_eq!(registry.handles.len(), 2);
++        assert!(registry.handles[0].upgrade().is_some());
++        // More than 256 live handles must not cause pruning on every prepare.
++        let handles: Vec<_> = (0..300).map(|_| Arc::new(RefCell::new(None))).collect();
++        for handle in &handles { registry.register(handle); }
++        assert_eq!(registry.prepares_since_prune, 44);
++        assert_eq!(registry.handles.iter().filter(|s| s.upgrade().is_some()).count(), 301);
++    }
++
+     use super::apply_experimental_features;
+ 
+     #[test]

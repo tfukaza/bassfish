@@ -10,6 +10,59 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { ensureDaemon, connectDaemon } from '../../src/daemon.js';
 import { exclusiveLock } from '../../src/lock.js';
 const exec = promisify(execFile);
+test('startup waits for a stopping daemon whose socket is gone but ownership remains', async t => {
+  const root = await mkdtemp(
+    join(process.platform === 'darwin' ? '/private/tmp' : tmpdir(), 'bf-owner-test-'),
+  );
+  const data = join(root, 'data');
+  let release: (() => void) | undefined = exclusiveLock(join(data, 'run', 'daemon-owner.lock'));
+  t.after(async () => {
+    release?.();
+    try {
+      const c = await connectDaemon(data);
+      await c.call('stopDaemon');
+      c.close();
+      await delay(1000);
+    } catch {}
+    await rm(root, { recursive: true, force: true });
+  });
+  let started = false;
+  const pending = ensureDaemon(data).then(() => {
+    started = true;
+  });
+  await delay(400);
+  assert.equal(started, false);
+  release();
+  release = undefined;
+  await pending;
+  const c = await connectDaemon(data);
+  try {
+    assert.equal((await c.call<{ state: string }>('probeHealth')).state, 'ready');
+  } finally {
+    c.close();
+  }
+});
+
+test('waiting for a previous daemon ownership lock remains cancellable', async t => {
+  const root = await mkdtemp(
+    join(process.platform === 'darwin' ? '/private/tmp' : tmpdir(), 'bf-owner-abort-'),
+  );
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const data = join(root, 'data');
+  const release = exclusiveLock(join(data, 'run', 'daemon-owner.lock'));
+  try {
+    const controller = new AbortController();
+    const pending = ensureDaemon(data, {}, controller.signal);
+    setTimeout(() => controller.abort(), 100);
+    await assert.rejects(pending, { name: 'AbortError' });
+    assert.throws(() => exclusiveLock(join(data, 'run', 'daemon-owner.lock')), {
+      code: 'ALREADY_RUNNING',
+    });
+  } finally {
+    release();
+  }
+});
+
 test(
   'six simultaneous starts wait asynchronously through a long ownership lock',
   { timeout: 30000 },
@@ -106,7 +159,7 @@ test(
     const server = await listenRpc(
       socketPath(data),
       async (method, _params, signal) => {
-        if (method === 'probeHealth') return { apiVersion: 14 };
+        if (method === 'probeHealth') return { apiVersion: 15 };
         assert.equal(method, 'waitNativeDelivery');
         const index = polls++;
         if (index < codes.length) throw new BassfishError(codes[index]!, 'temporary failure');
@@ -257,7 +310,7 @@ test('an unresponsive readiness probe aborts without starting another daemon', a
     socketPath(data),
     async (_method, _params, signal) => {
       await delay(10000, undefined, { signal });
-      return { apiVersion: 14 };
+      return { apiVersion: 15 };
     },
     async () => {},
   );

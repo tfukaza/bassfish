@@ -137,14 +137,14 @@ test(
         online: boolean;
       }[];
       pendingTurns: PublicTicket[] | null;
-    }>(alice, 'getContext');
+    }>(alice, 'getUpdates');
     assert.equal(discovered.agents.find(agent => agent.name === 'Bob')?.online, true); // Bob has made no Bassfish tool call.
     const anonymousSession = await call<{
       agentName: string;
-    }>(anonymous, 'getContext');
+    }>(anonymous, 'getUpdates');
     assert.ok(generatedAgentNames.includes(anonymousSession.agentName));
     const codex = await client(undefined, { BASSFISH_CODEX_NATIVE: '1' });
-    const unbound = await codex.callTool({ name: 'getContext', arguments: {} });
+    const unbound = await codex.callTool({ name: 'getUpdates', arguments: {} });
     assert.equal(unbound.isError, true);
     assert.match(JSON.stringify(unbound.content), /HOST_SESSION_REQUIRED:/);
     assert.equal(
@@ -160,7 +160,7 @@ test(
     await call(codex, 'bindHostSession', { sessionId: 'codex-session-one' });
     const codexInitial = await call<{
       agentName: string;
-    }>(codex, 'getContext');
+    }>(codex, 'getUpdates');
     await call(codex, 'setAgentName', { name: 'DurableCodex' });
     await codex.close();
     const resumedCodex = await client(undefined, { BASSFISH_CODEX_NATIVE: '1' });
@@ -169,7 +169,7 @@ test(
       (
         await call<{
           agentName: string;
-        }>(resumedCodex, 'getContext')
+        }>(resumedCodex, 'getUpdates')
       ).agentName,
       'DurableCodex',
     );
@@ -179,7 +179,7 @@ test(
     // shell PWD points somewhere else. The session hook supplies the real repo.
     const cachedCodex = await client(undefined, { BASSFISH_CODEX_NATIVE: '1' }, dir);
     assert.equal((await cachedCodex.listTools()).tools.length, 13);
-    const cachedUnbound = await cachedCodex.callTool({ name: 'getContext', arguments: {} });
+    const cachedUnbound = await cachedCodex.callTool({ name: 'getUpdates', arguments: {} });
     assert.equal(cachedUnbound.isError, true);
     assert.match(JSON.stringify(cachedUnbound), /HOST_SESSION_REQUIRED/);
     const relativeWorkspace = await cachedCodex.callTool({
@@ -195,7 +195,7 @@ test(
     });
     const workspaceContext = await call<{
       agents: { name: string; online: boolean }[];
-    }>(cachedCodex, 'getContext');
+    }>(cachedCodex, 'getUpdates');
     assert.ok(workspaceContext.agents.some(agent => agent.name === 'Alice' && agent.online));
     await call(cachedCodex, 'setAgentName', { name: 'CodexWorkspace' });
     const fileLock = await call<{ turnToken: string }>(cachedCodex, 'acquireTurn', {
@@ -228,7 +228,7 @@ test(
       workspace: repo,
     });
     assert.equal(
-      (await call<{ agentName: string }>(resumedCachedCodex, 'getContext')).agentName,
+      (await call<{ agentName: string }>(resumedCachedCodex, 'getUpdates')).agentName,
       'CodexWorkspace',
     );
     await resumedCachedCodex.close();
@@ -238,10 +238,10 @@ test(
     await call(opencode, 'setAgentName', { ...rootOne, name: 'OpenCodeOne' });
     const routedOne = await call<{
       agentName: string;
-    }>(opencode, 'getContext', rootOne);
+    }>(opencode, 'getUpdates', rootOne);
     const routedTwo = await call<{
       agentName: string;
-    }>(opencode, 'getContext', rootTwo);
+    }>(opencode, 'getUpdates', rootTwo);
     assert.equal(routedOne.agentName, 'OpenCodeOne');
     assert.notEqual(routedTwo.agentName, routedOne.agentName);
     await opencode.close();
@@ -270,7 +270,7 @@ test(
     assert.equal(queued.state, 'queued');
     assert.ok(!JSON.stringify(queued).includes('Protected'));
     const denied = await bob.callTool({
-      name: 'readTurn',
+      name: 'readResource',
       arguments: { view: 'page', turnToken: turn.turnToken },
     });
     assert.equal(denied.isError, true);
@@ -290,11 +290,12 @@ test(
     const read = await waiter;
     assert.equal(read.state, 'claimed');
     const inbox = await call<{
+      batchToken: string;
       notifications: {
         notificationId: string;
         reasons: string[];
       }[];
-    }>(bob, 'notifications', { action: 'list' });
+    }>(bob, 'notifications', { action: 'read' });
     assert.deepEqual(inbox.notifications[0]!.reasons, ['direct_mention']);
     const unsupportedListener = await alice.callTool({ name: 'waitForWork', arguments: {} });
     assert.equal(unsupportedListener.isError, true);
@@ -308,15 +309,20 @@ test(
       ).error.code,
       'TASKS_REQUIRED',
     );
-    assert.equal(read.messages[0]!.body, '@Bob hello from real MCP');
-    assert.deepEqual(read.messages[0]!.mentions, {
+    const content = await call<{ messages: Array<{ text: string; mentions?: unknown }> }>(
+      bob,
+      'readResource',
+      { turnToken: read.turnToken },
+    );
+    assert.equal(content.messages[0]!.text, '@Bob hello from real MCP');
+    assert.deepEqual(content.messages[0]!.mentions, {
       agents: ['Bob'],
       here: false,
       global: false,
     });
     await call(bob, 'notifications', {
       action: 'acknowledge',
-      notificationIds: [inbox.notifications[0]!.notificationId],
+      batchToken: inbox.batchToken,
     });
     const modern = new Client(
       { name: 'bassfish-tasks-integration', version: '1.0.0' },
@@ -439,20 +445,24 @@ test(
     const resumed = await call<{
       agentName: string;
       pendingTurns: PublicTicket[];
-    }>(alice, 'getContext');
+    }>(alice, 'getUpdates');
     assert.equal(resumed.agentName, 'Alice');
     const retained = resumed.pendingTurns[0]!;
     assert.equal(retained.state, 'offered');
     assert.equal(retained.requestToken, pending.requestToken);
     const stale = await bob.callTool({
-      name: 'readTurn',
+      name: 'readResource',
       arguments: { view: 'page', turnToken: crashHolder.turnToken },
     });
     assert.equal(stale.isError, true);
     const final = await call<PublicTurn>(alice, 'acquireTurn', {
       requestToken: retained.requestToken,
     });
-    assert.equal(final.messages.length, 1);
+    assert.equal(
+      (await call<{ messages: unknown[] }>(alice, 'readResource', { turnToken: final.turnToken }))
+        .messages.length,
+      1,
+    );
     await call(alice, 'releaseTurn', { turnToken: final.turnToken });
     const cli = await exec(
       process.execPath,

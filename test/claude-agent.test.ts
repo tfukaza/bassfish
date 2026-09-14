@@ -351,14 +351,6 @@ test('Codex marketplace plugin enables native MCP and delivers at safe boundarie
     await readFile(join(root, '.codex-plugin', 'plugin.json'), 'utf8'),
   ) as Record<string, any>;
   const mcp = JSON.parse(await readFile(join(root, '.mcp.json'), 'utf8')) as Record<string, any>;
-  const portableManifest = JSON.parse(await readFile(join(root, 'plugin.json'), 'utf8')) as Record<
-    string,
-    any
-  >;
-  const portableMcp = JSON.parse(await readFile(join(root, 'mcp.json'), 'utf8')) as Record<
-    string,
-    any
-  >;
   const hooks = JSON.parse(await readFile(join(root, 'hooks', 'hooks.json'), 'utf8')) as Record<
     string,
     any
@@ -371,13 +363,10 @@ test('Codex marketplace plugin enables native MCP and delivers at safe boundarie
     new RegExp(`^${packageVersion.replaceAll('.', '\\.')}\\+codex\\.\\d{14}$`),
   );
   assert.equal(mcp.mcpServers.bassfish.env.BASSFISH_CODEX_NATIVE, '1');
-  assert.equal(
-    portableManifest.$schema,
-    'https://agent-plugins.org/schemas/1.0.0/plugin.schema.json',
-  );
-  assert.equal(portableManifest.extensions['com.openai'].hooks, './hooks/hooks.json');
-  assert.equal(portableMcp.mcpServers.bassfish.type, 'stdio');
-  assert.equal(portableMcp.mcpServers.bassfish.env.BASSFISH_CODEX_NATIVE, '1');
+  // Codex 0.154 silently skips portable-manifest hooks, even when an overlay
+  // declares them. A root manifest would take precedence over the native one.
+  await assert.rejects(stat(join(root, 'plugin.json')), { code: 'ENOENT' });
+  await assert.rejects(stat(join(root, 'mcp.json')), { code: 'ENOENT' });
   assert.equal(hooks.hooks.UserPromptSubmit[0].hooks[0].tool, 'deliverHostNotifications');
   assert.equal(hooks.hooks.UserPromptSubmit[0].hooks[0].input.sessionId, '${session_id}');
   assert.equal(hooks.hooks.PostToolUse[0].hooks[0].input.phase, 'active');
@@ -391,18 +380,14 @@ test('Claude monitor emits content-bearing native notifications', () => {
   const notification = formatClaudeDeliveryNotification({
     kind: 'actionable',
     count: 1,
-    notificationIds: ['direct-1'],
-    threadIds: ['thread-1'],
-    ticketIds: [],
-    reasons: ['direct_mention'],
-    senders: ['Alice'],
+    batchToken: 'direct-1',
+    moreAvailable: false,
     notifications: [
       {
-        notificationId: 'direct-1',
+        index: 0,
         resourceType: 'thread',
         resourceId: 'thread-1',
-        threadId: 'thread-1',
-        sender: { identityId: 'alice', name: 'Alice' },
+        sender: 'Alice',
         reasons: ['direct_mention'],
         content: {
           kind: 'thread_message',

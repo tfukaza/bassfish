@@ -41,7 +41,7 @@ test('MCP exposes only the compact collaboration surface', () => {
   assert.deepEqual(Object.keys(mcpSchemas), [
     'bindHostSession',
     'deliverHostNotifications',
-    'getContext',
+    'getUpdates',
     'setAgentName',
     'notifications',
     'waitForWork',
@@ -49,14 +49,13 @@ test('MCP exposes only the compact collaboration surface', () => {
     'createResource',
     'acquireTurn',
     'cancelTurn',
-    'readTurn',
+    'readResource',
     'commitTurn',
     'releaseTurn',
   ]);
-  assert.deepEqual(mcpSchemas.getContext.parse({}), { includeOfflineAgents: false });
-  assert.deepEqual(mcpSchemas.notifications.parse({ action: 'list' }), {
-    action: 'list',
-    limit: 20,
+  assert.deepEqual(mcpSchemas.getUpdates.parse({}), {});
+  assert.deepEqual(mcpSchemas.notifications.parse({ action: 'read' }), {
+    action: 'read',
   });
   assert.deepEqual(mcpSchemas.findResources.parse({ resourceType: 'thread' }), {
     resourceType: 'thread',

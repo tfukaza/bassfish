@@ -212,6 +212,10 @@ export function renderHuman(
           ? `${text(storage.version)} ${success('✓')}`
           : `${text(storage.state)} ${warning('!')}`,
       ),
+      ...(storage.bindingIdentity ? [field('Binding', storage.bindingIdentity)] : []),
+      ...(data(daemon.storage).replacementSuccesses !== undefined
+        ? [field('Connection replacements', data(daemon.storage).replacementSuccesses)]
+        : []),
       field('Daemon', daemon.state === 'stopped' ? muted('stopped ○') : success('running ✓')),
       field('Data', object.dataDir),
       ...(data(daemon.diagnostics).logPath

@@ -9,7 +9,12 @@ permissions:
   contents: read
 
 jobs:
+  native:
+    uses: ./.github/workflows/native.yml
   qualify:
+    needs: native
+    env:
+      BASSFISH_RELEASE_BUILD: '1'
     strategy:
       fail-fast: false
       matrix:
@@ -23,8 +28,18 @@ jobs:
           cache: npm
       - run: node scripts/verify-release-tag.mjs
       - run: npm ci
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: native-*
+          path: native/turso/artifacts
+          merge-multiple: true
+      - run: npm run build:release
       - run: npm run ci
+      - run: npm install -g @openai/codex@0.154.0
+      - run: npm run test:codex-queue
+      - run: npm run test:memory
       - run: npm run package:check
+      - run: npm run test:memory-soak
 
   publish:
     needs: qualify
@@ -41,4 +56,9 @@ jobs:
           package-manager-cache: false
       - run: node scripts/verify-release-tag.mjs
       - run: npm ci
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: native-*
+          path: native/turso/artifacts
+          merge-multiple: true
       - run: npm publish --access public

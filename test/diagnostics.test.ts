@@ -6,7 +6,7 @@ import { mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { setTimeout as delay } from 'node:timers/promises';
-import type { Database, Transaction } from '@tursodatabase/database';
+import type { DatabasePromise as Database, Transaction } from '@tursodatabase/database-common';
 import { DiagnosticOperation, diagnosticHash, withDiagnostics } from '../src/diagnostic-events.js';
 import type { DiagnosticFields, DiagnosticSink } from '../src/diagnostic-events.js';
 import {
@@ -351,7 +351,7 @@ test('uncertain native commit and rollback outcomes retain phase evidence withou
       'CREATE TABLE test(value INTEGER); INSERT INTO test VALUES(0)',
       1,
     );
-    const db = (store as unknown as { connections: Database[] }).connections[0]!;
+    const db = (store as unknown as { slots: { db: Database }[] }).slots[0]!.db;
     const transactionAsync = db.transactionAsync.bind(db);
     let calls = 0;
     const mocked = t.mock.method(

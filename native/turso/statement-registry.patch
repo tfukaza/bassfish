@@ -1,0 +1,128 @@
+--- a/bindings/javascript/src/lib.rs
++++ b/bindings/javascript/src/lib.rs
+@@ -35,6 +35,43 @@
+ /// `DATABASE_MANAGER` registry.
+ type StatementHandle = Arc<RefCell<Option<turso_core::Statement>>>;
+ 
++
++/// Prune on a separate prepare counter, never on registry length (live handles
++/// can keep length above the threshold). Keep live handles for close().
++#[derive(Default)]
++struct StatementRegistry {
++    handles: Vec<Weak<RefCell<Option<turso_core::Statement>>>>,
++    prepares_since_prune: u32,
++    prepare_count: u64,
++    prune_count: u64,
++}
++
++impl StatementRegistry {
++    fn register(&mut self, stmt: &StatementHandle) {
++        self.prepare_count += 1;
++        self.prepares_since_prune += 1;
++        if self.prepares_since_prune == 256 {
++            self.handles.retain(|handle| handle.strong_count() > 0);
++            self.prepares_since_prune = 0;
++            self.prune_count += 1;
++        }
++        self.handles.push(Arc::downgrade(stmt));
++    }
++}
++
++#[napi(object)]
++pub struct StatementRegistryStats {
++    pub prepare_count: f64,
++    pub retained_references: u32,
++    pub live_references: u32,
++    pub prune_count: f64,
++}
++
++#[napi]
++pub fn bassfish_binding_identity() -> String {
++    "0.7.2-bassfish.1".to_owned()
++}
++
+ /// Step result constants
+ const STEP_ROW: u32 = 1;
+ const STEP_DONE: u32 = 2;
+@@ -66,7 +103,7 @@
+     /// Weak refs to every shared statement handle created by this database.
+     /// `close()` upgrades each live handle and sets it to `None`, which
+     /// finalizes the statement and releases its `Arc<Connection>`.
+-    stmts: Mutex<Vec<Weak<RefCell<Option<turso_core::Statement>>>>>,
++    stmts: Mutex<StatementRegistry>,
+ }
+ 
+ pub struct DatabaseConnect {
+@@ -399,7 +436,7 @@
+                 io,
+                 connect: OnceLock::new(),
+                 default_safe_integers: Mutex::new(false),
+-                stmts: Mutex::new(Vec::new()),
++                stmts: Mutex::new(StatementRegistry::default()),
+             })),
+         })
+     }
+@@ -492,7 +529,7 @@
+             .collect();
+         #[allow(clippy::arc_with_non_send_sync)]
+         let stmt: StatementHandle = Arc::new(RefCell::new(Some(stmt)));
+-        inner.stmts.lock().unwrap().push(Arc::downgrade(&stmt));
++        inner.stmts.lock().unwrap().register(&stmt);
+         Ok(Statement {
+             stmt,
+             column_names,
+@@ -574,13 +611,25 @@
+             // DATABASE_MANAGER can still be upgraded after the file is renamed,
+             // causing a stale Database to be returned on the next open().
+             let mut stmts = inner.stmts.lock().unwrap();
+-            for weak in stmts.drain(..) {
++            for weak in stmts.handles.drain(..) {
+                 if let Some(stmt) = weak.upgrade() {
+                     *stmt.borrow_mut() = None;
+                 }
+             }
+         }
+         Ok(())
++    }
++
++    /// Content-free internal diagnostics. Inspecting does not prune the registry.
++    #[napi]
++    pub fn bassfish_statement_registry_stats(&self) -> napi::Result<StatementRegistryStats> {
++        let stmts = self.inner()?.stmts.lock().unwrap();
++        Ok(StatementRegistryStats {
++            prepare_count: stmts.prepare_count as f64,
++            retained_references: stmts.handles.len() as u32,
++            live_references: stmts.handles.iter().filter(|s| s.strong_count() > 0).count() as u32,
++            prune_count: stmts.prune_count as f64,
++        })
+     }
+ 
+     /// Sets the default safe integers mode for all statements from this database.
+@@ -1025,6 +1074,27 @@
+ 
+ #[cfg(test)]
+ mod tests {
++    #[test]
++    fn registry_prunes_dead_handles_on_prepare_cadence_and_preserves_live_handles() {
++        use super::*;
++        let mut registry = StatementRegistry::default();
++        let live = Arc::new(RefCell::new(None));
++        registry.register(&live);
++        for _ in 0..254 {
++            registry.register(&Arc::new(RefCell::new(None)));
++        }
++        assert_eq!(registry.handles.len(), 255);
++        registry.register(&Arc::new(RefCell::new(None)));
++        assert_eq!(registry.handles.len(), 2);
++        assert!(registry.handles[0].upgrade().is_some());
++        // More than 256 live handles must not cause pruning on every prepare.
++        let handles: Vec<_> = (0..300).map(|_| Arc::new(RefCell::new(None))).collect();
++        for handle in &handles { registry.register(handle); }
++        assert_eq!(registry.prune_count, 2);
++        assert_eq!(registry.prepare_count, 556);
++        assert_eq!(registry.handles.iter().filter(|s| s.upgrade().is_some()).count(), 301);
++    }
++
+     use super::apply_experimental_features;
+ 
+     #[test]

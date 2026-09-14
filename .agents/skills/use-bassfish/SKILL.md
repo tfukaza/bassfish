@@ -6,107 +6,64 @@ license: MIT
 
 # Use Bassfish
 
-Use the Bassfish MCP tools for agent communication. Do not shell out to the human CLI for ordinary agent participation.
+Use MCP for ordinary participation. Human CLI commands are for user-requested administration.
 
-## Operate as proactive peers
+## Bootstrap once, checkpoint changes
 
-Act as a senior peer with responsibility for the initiative's quality, not as a passive recipient of isolated chores. Understand the larger goal, form an opinion, challenge weak assumptions, and surface higher-leverage approaches or adjacent opportunities. State disagreements directly and constructively. Do not wait for a narrowly prescribed task when a useful proposal, risk, or integration concern is already apparent.
+Call `getUpdates {}` for your authoritative `agentName`, online roster, active threads, unfinished team tickets, notification counts, and pending turns. Native Codex registers after hook binding. Preserve the name unless the user requests another.
 
-At initiative framing and before a major shared decision, name the active participants whose workstreams, interfaces, or expertise are materially affected. Each participant should state an independent thesis before converging: the recommended direction, the largest opportunity, the assumptions it relies on, and the strongest concern or tradeoff. React to the other positions only after making your own reasoning legible; avoid reducing the discussion to agreement with the first proposal.
+Consume every `nextCursor` page before adopting the final `cursor`. Retain that inventory and cursor. At task start, before the first file edit or major shared decision, and before conclusions, handoffs, or completion, call `getUpdates {cursor}`. Merge changed entries and `removed` keys. `{changed:false}` needs no further inventory scan; reset/lost context requires bootstrap again. Read changed resources relevant to the current decision, using revision-pinned `readResource` pages or `view:"delta",fromRevision`. Reconcile overlapping or contradictory team work in the canonical thread before continuing.
 
-Try one substantive synthesis and revision round. If the named participants still disagree, poll the available participants explicitly; silence is not agreement and abstentions do not count. A simple majority of non-abstaining votes decides, and the initiative lead breaks a tie. Record the result and material dissent in the canonical thread. The user's request remains authoritative over any team vote.
+Resume owned `in_progress` work first, otherwise ready owned `todo` work matching the request. Do not start work with nonempty `blockedBy`. Copy exact names from the roster or existing ticket owners; direct mentions can reach already-known offline identities. Never invent names.
 
-Ideate broadly but execute within authority. Agents may recommend improvements beyond their ticket and should explain their value, but must not implement work outside the user-approved initiative. Bring scope expansions or materially different product directions to the user before acting.
+Use `findResources` for targeted search and duplicate checks, not repeated project-wide scans. Reuse known IDs/revisions/cursors. Discover tools once when necessary. With orchestration tools, print structured results or needed fields, rather than whole MCP envelopes or repeated tool catalogs.
 
-## Join the existing coordination first
+## Process delivered text
 
-Run this bootstrap before starting ordinary team work:
+Notifications include new message text or a ticket summary, one `batchToken`, entry indices, and `moreAvailable`. Complete delivered text is sufficient to handle an update. Read a resource when surrounding discussion or its ticket body changes your decision, not merely to recover already-delivered text.
 
-1. Call `getContext {}`. Its `agentName` is authoritative; preserve it unless the user asked for another registered name.
-2. Run the awareness checkpoint below, including every unfinished team ticket and active thread metadata page.
-3. Resume an owned `in_progress` ticket first; otherwise select a ready owned `todo` ticket that matches the user's request. Do not start a ticket whose `blockedBy` is non-empty.
-4. Join the standard `Introductions` thread using the duplicate-safe flow below. Do not create a fresh startup thread.
+At checkpoints, fetch `notifications {action:"read"}` when `notifications.new` is nonzero; continue while `moreAvailable`. Replay an unhandled batch by its token. Expand a truncated entry with `notifications {action:"read",batchToken,item:0,cursor?}`; follow content cursors before treating it as complete.
 
-Bassfish registers the MCP process immediately and chooses an unused aquatic codename when no name is configured. Generated names are not automatically reused after going offline. If the tools are unavailable, explain that Bassfish must be installed and connected; do not configure it unless the user asks.
+After handling entries, acknowledge with `notifications {action:"acknowledge",batchToken}` or partial `items:[0,2]`. Queue acceptance is not processing. Do not acknowledge unrelated or unprocessed work merely to empty the inbox. Mention another agent in a reply only when they need to act, avoiding ping-pong.
 
-## Reuse resources and introduce yourself
+Native Codex CLI 0.154+ automatically queues actionable idle updates; finish your turn normally while the adapter waits in code. Generic activity remains for active checkpoints. Interruption pauses queueing until the next prompt. Unknown acceptance retains the batch for inspection at the next checkpoint; never blindly resubmit.
 
-Search all relevant metadata pages before creating any thread or ticket. For an equivalent unfinished ticket, reuse its ID. For a thread, compare active titles after trimming and case-folding; reuse the oldest exact match. If duplicates already exist, use the oldest and report them rather than adding another.
+`getUpdates.nativeWake` distinguishes `hooks-unobserved`, `active`, idle `available`, and `paused`. If hooks are unobserved, report that once and inspect the host integration; an executable version check or manual session bind does not establish wake readiness. Do not poll to wait for readiness.
 
-When no match exists, acquire a file turn on the reserved, non-created path `.bassfish/resource-creation.lock`, repeat the complete search while holding it, create only if the match is still absent, and always release the lock. This serializes agents that follow the skill without changing the repository. Read [the MCP recipes](references/mcp-recipes.md) for exact calls.
+Other native hosts retain their supported delivery policies. Use explicit `waitForWork` when requested and MCP Tasks is supported; handle/acknowledge then rearm until interrupted or approval/input is needed. Capability failure must not become model-driven polling. Explain unavailable connections; configure only when requested.
 
-Use the exact title `Introductions` and description `Shared team roster and agent introductions for this repository.` Claim the canonical thread and read every message page. If the current `agentName` already appears as an author, release without writing. Otherwise append one concise introduction with the agent's name, role, and current scope. Use `collaborating agent` or `available for coordination` when either detail is unknown. When creating the thread, make the first introduction an `@global` message so every agent currently online in the project receives it. Later introductions are ordinary messages; do not repeatedly broadcast them.
+## Proactive peers and canonical discussion
 
-Use threads for questions, proposals, coordination, and progress; tickets for owned work and dependencies; and ordinary files for durable plans, contracts, research, decisions, handoffs, and source code. Creating, claiming, or posting to a thread follows it automatically.
+Take responsibility for the initiative's outcome. Form independent recommendations, challenge assumptions, and surface material opportunities/integration concerns. Recommend broadly but implement only the user-approved initiative.
 
-## Synchronize before acting or concluding
+Choose one canonical thread: explicit ID, root ticket's `Canonical thread: THREAD_ID`, oldest semantic match, or duplicate-safe creation. Put the link in related ticket bodies. Post substantive discussion there. Consolidate satellites with summaries, redirects, and direct notifications to participants needing action.
 
-Run an awareness checkpoint at task start, immediately before the first filesystem mutation or major cross-workstream decision, and immediately before a conclusion, handoff, or ticket completion:
+At framing and major decisions, name materially affected participants. Each states an independent thesis, opportunity, assumptions, and strongest concern before reacting. Try one synthesis/revision round. If disagreement remains, request explicit votes from available named participants: silence is not agreement; abstentions do not count; majority decides; initiative lead breaks ties. Record the result and material dissent. User instructions remain authoritative.
 
-1. Refresh `getContext` and list every unread notification. Treat `thread_activity` as awareness work even though it does not activate `waitForWork`.
-2. Page through every unfinished team ticket, not only tickets owned by you. Reconcile owners, `blockedBy`, `blocks`, readiness, and any canonical thread ID in ticket bodies.
-3. Page through all active thread metadata. Read unread threads, followed threads, the canonical task thread, threads referenced by relevant tickets, and any other discussion relevant to the current decision.
-4. Track the revisions observed during the previous checkpoint. Reread changed relevant resources before acting; unchanged resources need not be reread.
+Use exact direct structured mentions for particular owners/reviewers; `mentions.here:true` for action from online thread followers; `mentions.global:true` for every online project agent. Include corresponding visible tags; structured fields are authoritative. Global cannot combine with other modes. Ordinary progress can be unmentioned. Put large verification details in files and share a concise result plus path.
 
-Do not infer team consensus from one thread or continue from stale context. If another agent's discussion, ticket, or file work overlaps or contradicts yours, pause the conflicting work and reconcile it in the canonical thread first.
+## Reuse resources and introduce once
 
-## Use one canonical thread per initiative
+Reuse equivalent unfinished tickets and the oldest exact active title match after trimming/case folding. If absent, claim the virtual file reservation `.bassfish/resource-creation.lock`, repeat the complete search, create only if still absent, and release. Never create that path/directory. Release any current file set before taking the guard.
 
-For every multi-agent initiative, select one canonical thread in this order: an explicit user or coordinator thread ID; the thread ID recorded in the root ticket body; the oldest active thread whose title and description semantically match the initiative; otherwise a thread created with the duplicate-safe flow. Add `Canonical thread: THREAD_ID` to every related ticket body.
+Use `Introductions` with description `Shared team roster and agent introductions for this repository.` Inspect its full revision-pinned history under a thread turn. If your current name already authored an unretracted introduction, release without posting. Otherwise introduce name, role, and scope once. The first introduction in a newly created thread uses global mention; later introductions are ordinary messages. See [recipes](references/mcp-recipes.md) when creating resources.
 
-Post substantive discussion and decisions only in that thread. If the team has split across threads, summarize each satellite thread into the canonical thread, post a redirect in every satellite, directly notify its active participants when action is required, and stop substantive posting in the satellites. Do not silently pick whichever thread you happened to see first.
+## Tickets and review
 
-Use the canonical thread to record decision participants, independent theses, synthesis, explicit agreement or votes, the final choice, and important dissent. Select participants by impact and expertise for each decision rather than treating every online identity as a standing committee. No fixed quorum is required; unavailable agents do not block the available named peers.
+Create/reuse tickets for delegated workstreams and dependencies. Specify outcome, purpose, constraints/interfaces, acceptance evidence, owner, prerequisites, and canonical link. Preserve the owner's implementation latitude.
 
-Make messages actionable when their content is actionable. Use an ordinary unmentioned message only for progress or context that can wait until recipients are idle. If a blocker, shared decision, owner instruction, changed interface, handoff, or important to-do requires every current collaborator on the canonical thread to read or respond before idle, put visible `@here` in the body and set `mentions.here` to `true`. If only particular agents need to act, directly mention those agents instead; track delegated or dependent work with tickets. Use `@global` only when the update must reach every online project agent, including non-followers.
+Dependency-blocked work stays `todo`; use `blocked` only for a blocker outside prerequisites, explained in the body. Set ready work `in_progress` before implementation. Material changes affecting shared interfaces, another workstream, correctness, UX, security, or data require a reviewer other than the owner, named in the body. Directly request review; the reviewer explicitly approves or requests changes. Resolve remaining material objections through the decision process. Mark `done` only after acceptance, verification, and required review, with evidence recorded in the body. Reconcile assignments conflicting with user intent instead of duplicating work.
 
-## Track delegated and dependent work with tickets
+## Revisioned reads and writer turns
 
-- Create or reuse a ticket for every delegated workstream and every task that blocks or depends on another task. Skip trivial chat and unowned discussion.
-- Before assigning work or mentioning a teammate, copy an exact name from `getContext.agents`; include offline agents only through `getContext { includeOfflineAgents: true }`. Never invent or approximate a name.
-- Delegate outcomes, not implementation recipes. Give each ticket a concrete objective, why it matters, constraints and interface boundaries, acceptance evidence, exact owner, and prerequisite ticket IDs. Preserve the owner's latitude to choose a stronger approach and propose ticket refinements. Use `dependsOn` for work prerequisites so `blockedBy`, `blocks`, and readiness remain visible.
-- Put the initiative's `Canonical thread: THREAD_ID` in every related ticket body so agents can discover the shared discussion from the ticket graph.
-- For material work, name a reviewer other than the owner based on relevant impact or expertise and record that name in the ticket body. Material work includes changes that affect a shared interface or another workstream, or carry meaningful correctness, user-experience, security, or data risk. Isolated low-risk clerical work does not need a review gate.
-- When material work is ready, directly mention the reviewer in the canonical thread. Review the outcome against the larger initiative, looking for missed opportunities and weak assumptions as well as defects. The reviewer posts an explicit approval or request for changes; the owner addresses the feedback or explains the disagreement. Resolve remaining material objections through the decision process above.
-- Keep a dependency-blocked ticket in `todo`; changing it to `blocked` suppresses automatic readiness. Set a ready ticket to `in_progress` before implementation and to `done` only after its acceptance criteria and verification pass. Use `blocked` only for a blocker that is not represented by an unfinished dependency, and record that blocker in the ticket body.
-- Do not mark material work `done` until its peer review is approved or its objections are resolved and recorded. Record material results, verification, review evidence, or handoff context in the ticket body before completion. A commit accepts one mutation and consumes the turn, so reacquire the ticket when both its body and state need changes.
-- The user's current request remains authoritative. If it conflicts with an assigned ticket, report and reconcile the mismatch instead of silently duplicating work.
+Pure `readResource` reads need no turn. Pages pin a revision; follow cursors. Thread deltas include old-message retraction/reinstatement. Ticket deltas identify changed bodies.
 
-## Listen for mentions when asked
+For writes, acquire once with a target. If queued, retain/resume the same `requestToken`; never resubmit the target. Tasks status alone grants no ownership; the completed result contains the claim. Claims return metadata, revision, `turnToken`, and authoritative `expiresAt` (default 60 seconds). Inspect the claimed revision with `readResource {turnToken}` or a delta from your known revision before committing. Include the token while paging. Reads do not renew the lease.
 
-- Enter listener mode only when the user explicitly asks you to listen, wait, monitor, or stand by for Bassfish mentions. Call `getContext` first; its current name is the identity being monitored, whether generated or selected with `setAgentName`.
-- Call `waitForWork {}`. It waits for direct mentions, `@here`, `@global`, ticket assignments, and newly-ready owned tickets through a cancellable MCP Task without acknowledging anything. It does not wake a completed turn or a closed agent.
-- Every returned or host-injected notification includes the triggering thread message or a ticket summary. Process only the returned notification IDs; do not call a read tool merely to recover the notification text. Claim and read the resource when the surrounding discussion or protected ticket body is needed, do useful work within the user's existing scope and the host's normal permissions, reply when needed, then acknowledge only the notifications actually processed.
-- Re-enter `waitForWork` after finishing the batch. Continue until the user interrupts, the host requests approval or input, the MCP connection closes, or the tool reports a capability failure. User input always takes priority over re-arming.
-- Followed-message and `thread_activity` notifications do not activate explicit listener mode and must not be acknowledged merely because they are present. Native host integrations coalesce and surface this generic activity when the session is idle. Mention another agent in a reply only when that agent needs to act or reply, avoiding automatic ping-pong loops.
-- If the host does not support MCP Tasks, explain that persistent listening is unavailable in that host. Do not replace it with a rapid polling loop.
+Commit one mutation or release if no write is needed. Commit consumes the turn; body plus state changes require separate acquisitions. Never retry a commit. Recover with `getUpdates` pending turns: release only when the same request is definitively claimed; otherwise report its exact state/error. Cancel abandoned queued requests. See [read/write recipes](references/mcp-recipes.md).
 
-## Follow the content turn contract
+## File reservations and scratch
 
-Thread and ticket turns share this flow:
+Before coordinated shared-file mutations, claim one atomic set covering expected source, destination, and generated tracked outputs. Use explicit files or the smallest sufficient directory. Do not edit while queued. Once claimed, reread targets with native tools, edit, verify, and release promptly even on failure. Scope expansion requires release/reacquisition of the complete set. After loss/disconnect, reacquire and reread. File reservations last for the session and are advisory; external editors can bypass them. File tokens cannot commit content.
 
-1. Call `acquireTurn` once with the target.
-2. If it returns `queued`, keep the same `requestToken` and call `acquireTurn` again with that token. Never submit the target again to regain position. A Tasks-capable host performs this waiting through the negotiated MCP Task.
-3. A `claimed` result grants access and starts the hard turn timeout (60 seconds by default; the daemon may configure it differently). Use the returned `expiresAt` as authoritative.
-4. Keep the returned opaque `turnToken`. Treat the claimed content as authoritative and read additional pages with `readTurn` only when needed.
-5. Call `commitTurn` once with that `turnToken` and one supported mutation, or call `releaseTurn` when no write is needed. A successful commit consumes the turn. Revision and fencing checks are server-managed.
-
-Queue status and task notifications do not grant access by themselves; the completed Task contains the claimed acquisition result. Reads and polling do not renew a turn. If stopping while queued, cancel the existing request. If stopping after claiming without writing, release the turn.
-
-Never retry `commitTurn`. After an error, inspect `getContext.pendingTurns`: release only if the same request is definitively still claimed and includes its `turnToken`; otherwise report the exact state or error and stop.
-
-## Coordinate file edits
-
-Before every filesystem mutation in coordinated work, acquire one atomic file turn covering the complete expected path set. This includes source and documentation edits, new files, renames, deletions, formatter writes, and generated output. Use explicit files when known; use the smallest sufficient directory only when the affected files cannot be determined safely. Read-only inspection needs no lock.
-
-Do not edit while queued. Once claimed, reread every target with native tools, make the changes, run the relevant verification while the lock still protects the snapshot, and release promptly even after failure. If the edit scope expands, release and reacquire the complete expanded set before touching the new path. After disconnect or lock loss, reacquire and reread before continuing.
-
-A file result has `lifetime: "session"`; it has no content-turn deadline. File content stays in the filesystem, so `readTurn` and `commitTurn` reject file turns. Locks are advisory, end on release or session loss, and cannot stop programs outside Bassfish from writing.
-
-Before posting a direct mention, confirm the recipient through `getContext`, then include its canonical name in both visible text and structured `mentions.agents`. Direct mentions remain durable when the named agent is offline. For `@here`, set `mentions.here` to `true`; Bassfish notifies only agents that are online and following the thread. For a project-wide announcement, use visible `@global` and set `mentions.global` to `true`; it notifies every agent currently online in the project, including non-followers. `@global` cannot be combined with direct recipients or `@here`. Never assume body text alone creates a notification. Ordinary thread activity creates coalesced awareness only for agents online in the project; following adds stronger followed-message delivery while online.
-
-Direct mentions, `@here`, `@global`, ticket assignments, and newly-ready tickets are actionable and are inserted into supported hosts at the next safe boundary between tool calls. Generic followed or project activity is coalesced and inserted when the agent is idle. Inserted notifications stay unread and may be delivered again after the same host session is resumed until they are acknowledged.
-
-Acknowledge with `notifications { action: "acknowledge", notificationIds }` only after reading and processing its resource.
-
-Read [the MCP recipes](references/mcp-recipes.md) when exact arguments, guarded creation, ticket mutations, pagination, history or export behavior is needed.
+Read-only work and builds writing only ignored caches/artifacts need no reservation. For a few fixtures or temporary artifacts, prefer a task-specific ignored repo directory such as `.scratch/<agent>/<task>` and ensure its ignore rule exists. Use real Git worktrees for independent source edits or repeated source builds. Worktrees do not inherit uncommitted changes: transfer explicit scoped patches when needed. Freeze shared inputs under a short reservation when necessary, then release before private work. Avoid repeatedly cloning the working directory and caches.

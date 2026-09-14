@@ -64,6 +64,17 @@ export class TursoContent implements ContentStore {
     );
   }
 
+  async listTicketMetadata(projectId: string): Promise<Ticket[]> {
+    return this.store.read(async tx =>
+      (
+        await tx.all<{ dataJson: string }>(
+          "SELECT json_remove(dataJson,'$.body') AS dataJson FROM ticketContent WHERE projectId=?",
+          projectId,
+        )
+      ).map(row => ({ ...decode<Ticket>(row), body: '' })),
+    );
+  }
+
   async resourceType(projectId: string, resourceId: string): Promise<ContentResourceType> {
     return this.store.read(async tx => {
       if (
@@ -112,6 +123,92 @@ export class TursoContent implements ContentStore {
       revision ? 'Resource revision not found.' : 'Resource not found.',
     );
     return decode<T>(row);
+  }
+
+  async messageAt(
+    projectId: string,
+    resourceId: string,
+    messageId: string,
+    revision: string,
+  ): Promise<Message> {
+    return this.store.read(async tx => {
+      const thread = await this.resource<Thread>(tx, projectId, 'thread', resourceId, revision);
+      const row = await tx.get<{ dataJson: string }>(
+        'SELECT dataJson FROM messages WHERE threadId=? AND id=?',
+        resourceId,
+        messageId,
+      );
+      requireThat(row, 'NOT_FOUND', 'Message not found in this thread.');
+      const message = decode<Message>(row);
+      requireThat(
+        BigInt(message.sequence) <= BigInt(thread.headSequence),
+        'NOT_FOUND',
+        'Message is newer than the pinned revision.',
+      );
+      const visibility = await tx.get<{ visible: number }>(
+        `SELECT visible FROM messageVisibility WHERE messageId=? AND (length(revision)<length(?) OR (length(revision)=length(?) AND revision<=?)) ORDER BY length(revision) DESC,revision DESC LIMIT 1`,
+        message.id,
+        revision,
+        revision,
+        revision,
+      );
+      message.retracted = visibility?.visible === 0;
+      if (message.retracted) message.body = '';
+      return message;
+    });
+  }
+
+  async threadDelta(
+    projectId: string,
+    resourceId: string,
+    fromRevision: string,
+    revision?: string,
+    before?: string,
+  ): Promise<Snapshot> {
+    return this.store.read(async tx => {
+      const from = await this.resource<Thread>(tx, projectId, 'thread', resourceId, fromRevision);
+      const thread = await this.resource<Thread>(tx, projectId, 'thread', resourceId, revision);
+      requireThat(
+        BigInt(from.revision) <= BigInt(thread.revision),
+        'INVALID_REVISION',
+        'Delta starts after its target revision.',
+      );
+      const rows = await tx.all<{ id: string }>(
+        `SELECT id FROM messages WHERE threadId=? AND
+        (length(sequence)<length(?) OR (length(sequence)=length(?) AND sequence<=?)) AND
+        ((length(sequence)>length(?) OR (length(sequence)=length(?) AND sequence>?)) OR EXISTS
+          (SELECT 1 FROM messageVisibility v WHERE v.messageId=messages.id AND
+           (length(v.revision)>length(?) OR (length(v.revision)=length(?) AND v.revision>?)) AND
+           (length(v.revision)<length(?) OR (length(v.revision)=length(?) AND v.revision<=?))))
+        ${before ? 'AND (length(sequence)<length(?) OR (length(sequence)=length(?) AND sequence<?))' : ''}
+        ORDER BY length(sequence) DESC,sequence DESC LIMIT 21`,
+        resourceId,
+        thread.headSequence,
+        thread.headSequence,
+        thread.headSequence,
+        from.headSequence,
+        from.headSequence,
+        from.headSequence,
+        from.revision,
+        from.revision,
+        from.revision,
+        thread.revision,
+        thread.revision,
+        thread.revision,
+        ...(before ? [before, before, before] : []),
+      );
+      const messages: Message[] = [];
+      for (const row of rows.slice(0, 20).reverse())
+        messages.push(await this.messageAt(projectId, resourceId, row.id, thread.revision));
+      return {
+        resourceType: 'thread',
+        thread,
+        revision: thread.revision,
+        messages,
+        truncated: rows.length > 20,
+        nextBefore: rows.length > 20 ? messages[0]!.sequence : null,
+      };
+    });
   }
 
   async snapshot(

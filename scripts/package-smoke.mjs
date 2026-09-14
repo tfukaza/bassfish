@@ -20,14 +20,27 @@ let installedBinary;
 let runtimeEnv;
 try {
   const npmEnv = { ...process.env, npm_config_cache: join(temporary, 'npm-cache') };
-  const packed = await exec('npm', ['pack', '--json', '--pack-destination', temporary], {
+  const hostOnly = process.argv.includes('--host-only');
+  await exec('npm', ['run', hostOnly ? 'build' : 'build:release'], {
     cwd: root,
     env: npmEnv,
     maxBuffer: 10_000_000,
   });
+  const packed = await exec(
+    'npm',
+    ['pack', '--ignore-scripts', '--json', '--pack-destination', temporary],
+    {
+      cwd: root,
+      env: npmEnv,
+      maxBuffer: 10_000_000,
+    },
+  );
   const manifest = JSON.parse(packed.stdout)[0];
   assert.equal(manifest.name, '@bassfish/cli');
-  assert.ok(manifest.size < 1_000_000, `package tarball is unexpectedly large: ${manifest.size}`);
+  assert.ok(
+    manifest.size <= 64 * 1024 * 1024,
+    `package tarball is unexpectedly large: ${manifest.size}`,
+  );
   const paths = manifest.files.map(file => file.path);
   for (const required of [
     'package.json',
@@ -46,12 +59,19 @@ try {
     'plugins/claude/skills/coordinate-peers/SKILL.md',
     'plugins/bassfish/.codex-plugin/plugin.json',
     'plugins/bassfish/.mcp.json',
-    'plugins/bassfish/plugin.json',
-    'plugins/bassfish/mcp.json',
     'plugins/bassfish/hooks/hooks.json',
     'plugins/opencode/README.md',
   ])
     assert.ok(paths.includes(required), `missing ${required}`);
+  const native = JSON.parse(await readFile(join(root, 'dist/native/manifest.json'), 'utf8'));
+  assert.equal(native.release, !hostOnly);
+  for (const platform of hostOnly
+    ? Object.keys(native.artifacts)
+    : ['darwin-arm64', 'linux-arm64-gnu', 'linux-x64-gnu'])
+    assert.ok(paths.includes(`dist/native/turso.${platform}.node`), `missing native ${platform}`);
+  assert.ok(paths.includes('dist/native/LICENSE.md'));
+  assert.ok(paths.includes('dist/native/manifest.json'));
+  assert.ok(paths.includes('dist/native/statement-registry.patch'));
   for (const removed of [
     'dist/agent-runner.js',
     'dist/agents/opencode.js',
@@ -106,12 +126,6 @@ try {
       'utf8',
     ),
   );
-  const portableCodexPlugin = JSON.parse(
-    await readFile(join(installedRoot, 'plugins', 'bassfish', 'plugin.json'), 'utf8'),
-  );
-  const portableCodexMcp = JSON.parse(
-    await readFile(join(installedRoot, 'plugins', 'bassfish', 'mcp.json'), 'utf8'),
-  );
   assert.equal(
     marketplace.plugins.find(plugin => plugin.name === 'bassfish')?.version,
     packageJson.version,
@@ -121,12 +135,9 @@ try {
     codexPlugin.version,
     new RegExp(`^${packageJson.version.replaceAll('.', '\\.')}\\+codex\\.\\d{14}$`),
   );
-  assert.equal(portableCodexPlugin.version, packageJson.version);
-  assert.equal(portableCodexPlugin.name, codexPlugin.name);
-  assert.equal(portableCodexPlugin.description, codexPlugin.description);
-  assert.deepEqual(portableCodexPlugin.extensions['com.openai'].interface, codexPlugin.interface);
-  assert.equal(portableCodexPlugin.extensions['com.openai'].hooks, './hooks/hooks.json');
-  assert.equal(portableCodexMcp.mcpServers.bassfish.type, 'stdio');
+  await assert.rejects(stat(join(installedRoot, 'plugins', 'bassfish', 'plugin.json')), {
+    code: 'ENOENT',
+  });
   assert.equal((await exec(binary, ['--version'])).stdout.trim(), packageJson.version);
   assert.match((await exec(binary, ['--help'])).stdout, /bassfish setup/);
 
@@ -151,6 +162,15 @@ try {
   assert.ok(doctor.daemon.diagnostics.runtime.summaryAgeMs < 2000);
   assert.equal(doctor.version, packageJson.version);
   assert.equal(doctor.storage.state, 'ready');
+  assert.equal(doctor.storage.bindingIdentity, '0.7.2-bassfish.1');
+  assert.equal(doctor.daemon.storage.bindingIdentity, '0.7.2-bassfish.1');
+  assert.equal(doctor.daemon.storage.prepareLimit, 4096);
+  await assert.rejects(
+    exec(process.execPath, ['--input-type=module', '-e', "import('@tursodatabase/database')"], {
+      cwd: installedRoot,
+    }),
+    'official binding must not be installed in production',
+  );
   assert.equal(doctor.daemon.state, 'ready');
 
   const repo = join(temporary, 'repo');
@@ -168,7 +188,7 @@ try {
   const tools = (await client.listTools()).tools;
   assert.equal(tools.length, 13);
   assert.ok(tools.every(tool => tool.outputSchema?.type === 'object'));
-  const session = await client.callTool({ name: 'getContext', arguments: {} });
+  const session = await client.callTool({ name: 'getUpdates', arguments: {} });
   assert.notEqual(session.isError, true);
   assert.ok(session.structuredContent?.agentName);
   assert.deepEqual(session.content, []);

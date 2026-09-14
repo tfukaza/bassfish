@@ -8,11 +8,7 @@ import type {
 import { dataDirectory, socketPath } from './config.js';
 import { RpcClient } from './ipc.js';
 import { processAncestry, readOrCreateOpenCodeClientId } from './agents/claude-native.js';
-import {
-  formatDeliveryContext,
-  type DeliveredNotification,
-  type DeliveryBatch,
-} from './notification-delivery.js';
+import { formatDeliveryContext, type DeliveryBatch } from './notification-delivery.js';
 export type OpenCodeDeliveryBatch = DeliveryBatch;
 interface OpenCodeClient {
   session: {
@@ -66,13 +62,6 @@ function responseData(value: unknown): unknown {
   if (!wrapper) return value;
   if (wrapper.error) throw new Error('OpenCode rejected a Bassfish plugin request.');
   return 'data' in wrapper ? wrapper.data : value;
-}
-function strings(value: unknown): string[] {
-  return Array.isArray(value)
-    ? [
-        ...new Set(value.filter(item => typeof item === 'string' && item.length > 0) as string[]),
-      ].slice(0, 100)
-    : [];
 }
 function commandIsBassfish(value: unknown): value is string[] {
   return (
@@ -169,39 +158,6 @@ export function configureOpenCodeV2Mcp(editor: OpenCodeV2McpEditor, directory: s
 export function formatOpenCodeDeliveryPrompt(batch: OpenCodeDeliveryBatch): string {
   return formatDeliveryContext(batch);
 }
-function mergeDelivery(
-  left: OpenCodeDeliveryBatch,
-  right: OpenCodeDeliveryBatch,
-): OpenCodeDeliveryBatch {
-  const byId = new Map<string, DeliveredNotification>();
-  for (const notification of [...left.notifications, ...right.notifications])
-    byId.set(notification.notificationId, notification);
-  return {
-    kind:
-      left.kind === 'actionable' || right.kind === 'actionable'
-        ? 'actionable'
-        : left.kind === 'activity' || right.kind === 'activity'
-          ? 'activity'
-          : 'none',
-    count: new Set([...left.notificationIds, ...right.notificationIds]).size,
-    notificationIds: strings([...left.notificationIds, ...right.notificationIds]),
-    threadIds: strings([...left.threadIds, ...right.threadIds]),
-    ticketIds: strings([...left.ticketIds, ...right.ticketIds]),
-    reasons: strings([...left.reasons, ...right.reasons]),
-    senders: strings([...left.senders, ...right.senders]),
-    notifications: [...byId.values()],
-  };
-}
-const emptyDelivery = (): OpenCodeDeliveryBatch => ({
-  kind: 'none',
-  count: 0,
-  notificationIds: [],
-  threadIds: [],
-  ticketIds: [],
-  reasons: [],
-  senders: [],
-  notifications: [],
-});
 export function createBassfishPlugin(dependencies: OpenCodePluginDependencies = {}) {
   const connect =
     dependencies.connect ??
@@ -220,8 +176,8 @@ export function createBassfishPlugin(dependencies: OpenCodePluginDependencies = 
       string,
       {
         idle: boolean;
-        actionable: OpenCodeDeliveryBatch;
-        activity: OpenCodeDeliveryBatch;
+        actionable: OpenCodeDeliveryBatch[];
+        activity: OpenCodeDeliveryBatch[];
         injecting: boolean;
         controller: AbortController;
         client?: WakeClient;
@@ -283,9 +239,9 @@ export function createBassfishPlugin(dependencies: OpenCodePluginDependencies = 
       const state = sessions.get(sessionID);
       if (!state || state.injecting) return;
       const queue =
-        state.actionable.notificationIds.length > 0
+        state.actionable.length > 0
           ? 'actionable'
-          : state.idle && state.activity.notificationIds.length > 0
+          : state.idle && state.activity.length > 0
             ? 'activity'
             : undefined;
       if (!queue) return;
@@ -300,8 +256,7 @@ export function createBassfishPlugin(dependencies: OpenCodePluginDependencies = 
               if (queue === 'activity') return;
             }
           }
-          attempted = state[queue];
-          state[queue] = emptyDelivery();
+          attempted = state[queue].shift()!;
           const resume = state.idle;
           if (resume) state.idle = false;
           responseData(
@@ -318,7 +273,7 @@ export function createBassfishPlugin(dependencies: OpenCodePluginDependencies = 
           );
         })()
           .catch(error => {
-            if (attempted) state[queue] = mergeDelivery(attempted, state[queue]);
+            if (attempted) state[queue].unshift(attempted);
             void log('error', 'Bassfish notification injection failed.', error);
           })
           .finally(() => {
@@ -352,9 +307,9 @@ export function createBassfishPlugin(dependencies: OpenCodePluginDependencies = 
               },
               state.controller.signal,
             );
-            if (batch.count > 0 && batch.notificationIds.length > 0) {
+            if (batch.count > 0 && batch.batchToken) {
               const queue = batch.kind === 'actionable' ? 'actionable' : 'activity';
-              state[queue] = mergeDelivery(state[queue], batch);
+              state[queue].push(batch);
               schedule(sessionID);
             }
           }
@@ -377,8 +332,8 @@ export function createBassfishPlugin(dependencies: OpenCodePluginDependencies = 
       if (!state) {
         state = {
           idle: false,
-          actionable: emptyDelivery(),
-          activity: emptyDelivery(),
+          actionable: [],
+          activity: [],
           injecting: false,
           controller: new AbortController(),
         };

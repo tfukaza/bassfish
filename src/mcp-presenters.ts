@@ -28,15 +28,16 @@ function presentNotification(value: unknown): Data {
   const item = data(value);
   const sender = data(item.sender);
   return {
-    notificationId: item.notificationId,
+    ...(item.notificationId ? { notificationId: item.notificationId } : { index: item.index }),
     resourceType: item.resourceType,
     resourceId: item.resourceId,
     ...(item.threadId ? { threadId: item.threadId, sequence: item.sequence } : {}),
     ...(item.ticketId ? { ticketId: item.ticketId } : {}),
-    sender: sender.name,
+    sender: typeof item.sender === 'string' ? item.sender : sender.name,
     reasons: strings(item.reasons),
     ...(item.createdAt ? { createdAt: item.createdAt } : {}),
     ...(item.content ? { content: item.content } : {}),
+    ...(item.truncated ? { truncated: true } : {}),
   };
 }
 
@@ -45,6 +46,7 @@ export function presentNotifications(value: unknown): Data {
   const rows = Array.isArray(page.notifications) ? page.notifications.map(presentNotification) : [];
   return {
     notifications: rows,
+    ...(page.batchToken ? { batchToken: page.batchToken, kind: page.kind, count: page.count } : {}),
     ...(page.nextCursor !== undefined ? { nextCursor: page.nextCursor } : {}),
     ...(page.moreAvailable !== undefined ? { moreAvailable: page.moreAvailable } : {}),
   };
@@ -69,22 +71,20 @@ export function presentTicket(value: unknown): Data {
   return {
     ticketId: ticket.id,
     title: ticket.title,
-    description: ticket.description,
+    descriptionPreview:
+      typeof ticket.description === 'string' ? ticket.description.slice(0, 240) : '',
     owner: ticket.ownerName,
     state: ticket.state,
     dependsOn: strings(ticket.dependsOn),
-    blocks: strings(ticket.blocks),
     blockedBy: strings(ticket.blockedBy),
-    dependenciesSatisfied: Boolean(ticket.dependenciesSatisfied),
     ready: Boolean(ticket.ready),
     revision: ticket.revision,
-    contentBytes: ticket.contentBytes,
     createdAt: ticket.createdAt,
     updatedAt: ticket.updatedAt,
   };
 }
 
-function presentMessage(value: unknown): Data {
+export function presentMessage(value: unknown): Data {
   const message = data(value);
   const mentions = data(message.mentions);
   return {
@@ -104,7 +104,7 @@ function presentMessage(value: unknown): Data {
           },
         }
       : {}),
-    ...(message.retracted ? { retracted: true } : {}),
+    retracted: Boolean(message.retracted),
   };
 }
 
@@ -129,8 +129,6 @@ export function presentClaim(value: unknown): Data {
       turnToken: turn.id,
       expiresAt: turn.expiresAt,
       resource: { ...presentThread(page.thread), following: true },
-      messages: Array.isArray(page.messages) ? page.messages.map(presentMessage) : [],
-      nextCursor: result.nextCursor ?? null,
     };
   }
   if (page.type === 'ticket') {
@@ -140,23 +138,9 @@ export function presentClaim(value: unknown): Data {
       turnToken: turn.id,
       expiresAt: turn.expiresAt,
       resource: presentTicket(page.ticket),
-      text: page.text ?? '',
-      nextCursor: result.nextCursor ?? null,
     };
   }
   throw new Error('Unsupported content claim.');
-}
-
-export function presentRead(value: unknown): Data {
-  const result = data(value);
-  const page = data(result.page);
-  if (page.type === 'thread') {
-    return {
-      messages: Array.isArray(page.messages) ? page.messages.map(presentMessage) : [],
-      nextCursor: result.nextCursor ?? null,
-    };
-  }
-  return { text: page.text ?? '', nextCursor: result.nextCursor ?? null };
 }
 
 export function presentTask(value: unknown): Data {

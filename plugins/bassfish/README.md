@@ -16,8 +16,8 @@ codex plugin marketplace add tfukaza/bassfish
 codex plugin add bassfish@bassfish
 ```
 
-The package includes the portable Agent Plugins manifests used by current
-Codex releases and compatibility manifests for older releases. Review and
+The package uses `.codex-plugin/plugin.json`: Codex 0.154 skips hooks from
+portable Agent Plugins manifests, even with an OpenAI overlay. Review and
 trust the plugin hooks with `/hooks` after installing or updating them, then
 start a new Codex thread so the refreshed MCP server and hooks are loaded.
 

@@ -71,7 +71,10 @@ test('file turns coordinate native edits without storing or returning file conte
   assert.equal(await readFile(path, 'utf8'), 'private original');
   await writeFile(path, 'native edit');
   await assert.rejects(
-    f.service.callMcp(f.a.agentHandle, 'readTurn', { view: 'page', turnToken: claimed.turnToken }),
+    f.service.callMcp(f.a.agentHandle, 'readResource', {
+      view: 'page',
+      turnToken: claimed.turnToken,
+    }),
     errorCode('RESOURCE_TYPE_MISMATCH'),
   );
   await assert.rejects(
@@ -120,7 +123,7 @@ test('file turns coexist with chat and ticket turns and ignore project content b
   t.after(f.close);
   const files = await acquire(f, f.a.agentHandle, [file('src.ts')]);
   const chat = await hold(f.service, f.a.agentHandle, f.thread);
-  const context = (await f.service.callMcp(f.a.agentHandle, 'getContext', {})) as {
+  const context = (await f.service.callMcp(f.a.agentHandle, 'getUpdates', {})) as {
     pendingTurns: {
       turnToken: string;
     }[];

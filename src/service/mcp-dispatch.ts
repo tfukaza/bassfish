@@ -1,15 +1,26 @@
 import { mapAsync, filterAsync } from '../async.js';
 import { BassfishError, type MutationResult, type Ticket } from '../domain.js';
 import type { Mutation } from '../domain.js';
-import {
-  presentNotifications,
-  presentRead,
-  presentThread,
-  presentTicket,
-  presentTurnStatus,
-} from '../mcp-presenters.js';
+import { presentThread, presentTicket, presentTurnStatus } from '../mcp-presenters.js';
 import type { Bassfish } from '../service.js';
 import { ticketStatuses } from '../ticket.js';
+import { bytes, pageBytes } from '../bounded.js';
+
+function fit<T>(values: T[], present: (value: T) => Record<string, unknown>): T[] {
+  const selected: T[] = [];
+  for (const item of values) {
+    if (bytes(selected.map(present).concat(present(item))) > pageBytes - 300) {
+      if (!selected.length)
+        throw new BassfishError(
+          'RESPONSE_TOO_LARGE',
+          'Resource metadata exceeds this page budget.',
+        );
+      break;
+    }
+    selected.push(item);
+  }
+  return selected;
+}
 import {
   compare,
   decodeCursor,
@@ -37,60 +48,22 @@ export async function dispatchMcp(
         'HOST_SESSION_UNAVAILABLE',
         'Host session binding is available only through a managed MCP adapter.',
       );
-    case 'getContext': {
-      const session = (await service.info(handle)) as {
-        name: string;
-        pendingRequests: Record<string, unknown>[];
-        unreadNotificationCount: number;
-      };
-      const agents = (await service.listAgents(
-        handle,
-        !(args.includeOfflineAgents as boolean),
-        false,
-      )) as {
-        agents: Record<string, unknown>[];
-      };
-      const pendingTurns = await mapAsync(session.pendingRequests, async pending => {
-        const status = presentTurnStatus(pending);
-        const request = await service.control.view(
-          async state => await state.get('requests', String(status.requestToken)),
-        );
-        return status.state === 'claimed' && request?.turnId
-          ? { ...status, turnToken: request.turnId }
-          : status;
-      });
-      return {
-        agentName: session.name,
-        agents: agents.agents.map(agent => ({ name: agent.name, online: agent.online })),
-        pendingTurns,
-        unreadNotificationCount: session.unreadNotificationCount,
-      };
-    }
+    case 'getUpdates':
+      return service.updates.read(handle, args.cursor as string | undefined);
     case 'setAgentName': {
       const session = (await service.requestName(handle, args.name as string)) as {
         name: string;
       };
       return { agentName: session.name };
     }
-    case 'notifications': {
-      if (args.action === 'acknowledge') {
-        const result = (await service.ackNotifications(
-          handle,
-          args.notificationIds as string[],
-        )) as {
-          acknowledged: number;
-          unreadNotificationCount: number;
-        };
-        return { acknowledged: result.acknowledged, remaining: result.unreadNotificationCount };
-      }
-      return presentNotifications(
-        await service.listNotifications(
-          handle,
-          args.limit as number,
-          args.cursor as string | undefined,
-        ),
-      );
-    }
+    case 'notifications':
+      return args.action === 'acknowledge'
+        ? service.inbox.acknowledge(
+            handle,
+            String(args.batchToken),
+            args.items as number[] | undefined,
+          )
+        : service.inbox.read(handle, args);
     case 'waitForWork':
       throw new BassfishError(
         'TASKS_REQUIRED',
@@ -153,7 +126,7 @@ export async function dispatchMcp(
           );
         }
         const limit = args.limit as number;
-        const page = threads.slice(0, limit);
+        const page = fit(threads.slice(0, limit), presentThread);
         const last = page.at(-1);
         return {
           resources: await mapAsync(page, async thread =>
@@ -170,11 +143,11 @@ export async function dispatchMcp(
             }),
           ),
           nextCursor:
-            threads.length > limit && last ? encodeCursor([last.createdAt, last.id]) : null,
+            threads.length > page.length && last ? encodeCursor([last.createdAt, last.id]) : null,
         };
       }
       if (args.resourceType === 'ticket') {
-        const allTickets = await service.content.listTickets(actor.projectId);
+        const allTickets = await service.content.listTicketMetadata(actor.projectId);
         let tickets = allTickets;
         if (args.ticketId) {
           const ticket = tickets.find(value => value.id === args.ticketId);
@@ -206,13 +179,13 @@ export async function dispatchMcp(
           );
         }
         const limit = args.limit as number;
-        const page = tickets.slice(0, limit);
-        const last = page.at(-1);
         const metadata = new Map(describeTickets(allTickets).map(ticket => [ticket.id, ticket]));
+        const page = fit(tickets.slice(0, limit), t => presentTicket(metadata.get(t.id)));
+        const last = page.at(-1);
         return {
           resources: page.map(ticket => presentTicket(metadata.get(ticket.id))),
           nextCursor:
-            tickets.length > limit && last ? encodeCursor([last.createdAt, last.id]) : null,
+            tickets.length > page.length && last ? encodeCursor([last.createdAt, last.id]) : null,
         };
       }
       throw new BassfishError(
@@ -255,40 +228,8 @@ export async function dispatchMcp(
       return presentTurnStatus(
         await service.cancelTurnRequest(handle, args.requestToken as string),
       );
-    case 'readTurn': {
-      const credential = await service.mcpTurnCredential(handle, args.turnToken as string);
-      if (args.view === 'outline') {
-        const result = (await service.ticketOutline(
-          handle,
-          credential.id,
-          credential.fencingToken,
-        )) as {
-          headings: unknown[];
-        };
-        return { headings: result.headings };
-      }
-      if (args.view === 'find') {
-        const result = (await service.findTicket(
-          handle,
-          credential.id,
-          credential.fencingToken,
-          args.query as string,
-          args.mode as 'literal' | 'regex',
-          args.limit as number,
-        )) as {
-          matches: unknown[];
-        };
-        return { matches: result.matches };
-      }
-      return presentRead(
-        await service.readTurn(
-          handle,
-          credential.id,
-          credential.fencingToken,
-          args.cursor as string | undefined,
-        ),
-      );
-    }
+    case 'readResource':
+      return service.reads.read(handle, args);
     case 'commitTurn': {
       const credential = await service.mcpTurnCredential(handle, args.turnToken as string);
       const result = await service.commitTurn(

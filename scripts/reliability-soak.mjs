@@ -169,7 +169,7 @@ try {
       probe.socket.destroy();
     }
     for (let i = 0; i < agents.length; i++) {
-      await call(agents[i], 'getContext');
+      await call(agents[i], 'getUpdates');
       await agents[i].call('takeHostDelivery', {
         sessionId: identities[i].sessionId,
         phase: 'idle',
@@ -178,11 +178,14 @@ try {
     const agent = agents[operations % agents.length];
     const turn = await call(agent, 'acquireTurn', {
       target: { type: 'thread', threadId },
-      timeoutMs: 0,
     });
     await call(agent, 'commitTurn', {
       turnToken: turn.turnToken,
-      mutation: { kind: 'appendMessage', body: `@global soak-${operations} 魚🐟` },
+      mutation: {
+        kind: 'appendMessage',
+        body: `soak-${operations} 魚🐟`,
+        mentions: { agents: [], here: false, global: true },
+      },
     });
     operations++;
     if (

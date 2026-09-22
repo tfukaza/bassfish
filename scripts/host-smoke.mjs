@@ -101,7 +101,7 @@ for (const host of expected) {
   results.push({
     host: host.name,
     status: run.status === 0 && /BASSFISH_HOST_OK/.test(run.stdout) ? 'live-pass' : 'failed',
-    targetVersion: host.targetVersion,
+    minimumVersion: host.minimumVersion,
     version: version.stdout.trim(),
     ...(run.status === 0 ? {} : { reason: (run.stderr || run.stdout).slice(-1000).trim() }),
   });

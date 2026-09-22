@@ -32,6 +32,38 @@ check('opencode plugin entry imports', async () => {
   assert.ok(typeof plugin.createBassfishPlugin === 'function');
 });
 
+// Loading is not enough: the plugin must still attach a host session to every Bassfish tool
+// call. A stale hand-written tool list once dropped routing from getUpdates unnoticed.
+check('opencode plugin routes every bassfish tool to a host session', async () => {
+  const { bassfishToolNames, createBassfishPlugin } = await import(
+    join(root, 'dist/opencode-plugin.js')
+  );
+  const { mcpSchemas } = await import(join(root, 'dist/mcp-api.js'));
+  assert.deepEqual([...bassfishToolNames].sort(), Object.keys(mcpSchemas).sort());
+  const client = {
+    session: {
+      get: async () => ({ data: {} }),
+      status: async () => ({ data: {} }),
+      prompt: async () => ({ data: {} }),
+    },
+    app: { log: async () => ({ data: {} }) },
+  };
+  const hooks = await createBassfishPlugin()({ client, directory: root });
+  for (const tool of ['getUpdates', 'readResource', 'acquireTurn']) {
+    const call = { args: { keep: 'me' } };
+    await hooks['tool.execute.before'](
+      { sessionID: 'session-1', tool: `mcp__bassfish__${tool}` },
+      call,
+    );
+    assert.equal(
+      call.args.__bassfishHostSessionId,
+      'session-1',
+      `${tool} must carry its host session`,
+    );
+    assert.equal(call.args.keep, 'me', `${tool} must preserve caller arguments`);
+  }
+});
+
 // 2. Process-ownership locking must keep identical semantics on either SQLite driver.
 check('exclusive lock enforces single ownership', async () => {
   const { exclusiveLock, bestEffortLock, sqliteResultCode } = await import(

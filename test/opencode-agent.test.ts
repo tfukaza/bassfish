@@ -1,12 +1,14 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import bassfishPlugin, {
+  bassfishToolNames,
   BassfishV2Plugin,
   configureOpenCodeMcp,
   configureOpenCodeV2Mcp,
   createBassfishPlugin,
   formatOpenCodeDeliveryPrompt,
 } from '../src/opencode-plugin.js';
+import { mcpSchemas } from '../src/mcp-api.js';
 
 test('OpenCode plugin augments an existing local Bassfish MCP without replacing user settings', () => {
   const config: Record<string, unknown> = {
@@ -317,7 +319,7 @@ test('native OpenCode plugin routes each top-level session independently and wai
     );
     const childCall: Record<string, unknown> = { args: { query: 'kept' } };
     await hooks['tool.execute.before'](
-      { sessionID: 'child', tool: 'mcp__bassfish__getContext' },
+      { sessionID: 'child', tool: 'mcp__bassfish__getUpdates' },
       childCall,
     );
     assert.deepEqual(childCall.args, {
@@ -348,4 +350,15 @@ test('native OpenCode plugin routes each top-level session independently and wai
   } finally {
     await hooks.dispose();
   }
+});
+
+test('every MCP tool routes to a host session, so none falls back to the last caller', () => {
+  // A hand-maintained copy of this list drifted at 0.6.0: getContext/readTurn stopped existing,
+  // so getUpdates and readResource carried no __bassfishHostSessionId and resolved to whichever
+  // session last routed a call, or failed HOST_SESSION_REQUIRED on a fresh adapter.
+  assert.deepEqual([...bassfishToolNames].sort(), Object.keys(mcpSchemas).sort());
+  for (const dead of ['getContext', 'readTurn'])
+    assert.ok(!bassfishToolNames.has(dead), `${dead} is not an MCP tool`);
+  for (const required of ['getUpdates', 'readResource', 'bindHostSession'])
+    assert.ok(bassfishToolNames.has(required), `${required} must route to a host session`);
 });

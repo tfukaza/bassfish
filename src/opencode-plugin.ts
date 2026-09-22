@@ -6,6 +6,7 @@ import type {
   Plugin as OpenCodeV2Plugin,
 } from '@opencode/plugin/promise/plugin';
 import { dataDirectory, socketPath } from './config.js';
+import { mcpSchemas } from './mcp-api.js';
 import { RpcClient } from './ipc.js';
 import { processAncestry, readOrCreateOpenCodeClientId } from './agents/claude-native.js';
 import { formatDeliveryContext, type DeliveryBatch } from './notification-delivery.js';
@@ -39,19 +40,10 @@ const reservedEnvironment = {
   BASSFISH_OPENCODE_NATIVE: '1',
 };
 const hostSessionRouteKey = '__bassfishHostSessionId';
-const bassfishToolNames = new Set([
-  'getContext',
-  'setAgentName',
-  'notifications',
-  'waitForWork',
-  'findResources',
-  'createResource',
-  'acquireTurn',
-  'cancelTurn',
-  'readTurn',
-  'commitTurn',
-  'releaseTurn',
-]);
+// Derived, never restated. A hand-written copy drifted from the MCP tool set at 0.6.0 and
+// stopped matching getUpdates and readResource, which silently dropped per-call session routing
+// from the very first call every agent is told to make.
+export const bassfishToolNames: ReadonlySet<string> = new Set(Object.keys(mcpSchemas));
 function record(value: unknown): Record<string, unknown> | undefined {
   return value && typeof value === 'object' && !Array.isArray(value)
     ? (value as Record<string, unknown>)

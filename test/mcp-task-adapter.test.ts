@@ -182,7 +182,12 @@ test('completed task results use structured content without duplicate text JSON'
     },
     'complete',
   );
-  const result = task.result as { content: unknown[]; structuredContent: Record<string, unknown> };
-  assert.deepEqual(result.content, []);
+  const result = task.result as {
+    content: { type: string; text: string }[];
+    structuredContent: Record<string, unknown>;
+  };
+  // A structured result also carries the serialized JSON, so clients that render only
+  // `content` do not show an empty body.
+  assert.deepEqual(JSON.parse(result.content[0]!.text), result.structuredContent);
   assert.equal(result.structuredContent.turnToken, 'turn');
 });

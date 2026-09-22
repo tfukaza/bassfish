@@ -37,8 +37,16 @@ export function hasTasksCapability(
   );
 }
 
+/**
+ * MCP: "a tool that returns structured content SHOULD also return the serialized JSON in a
+ * TextContent block". Clients that render only `content` showed every Bassfish result as an
+ * empty body without it, so the payload is mirrored rather than left structured-only.
+ */
 export function toolResult(value: unknown): Record<string, unknown> {
-  return { content: [], structuredContent: value as Record<string, unknown> };
+  return {
+    content: [{ type: 'text' as const, text: JSON.stringify(value) }],
+    structuredContent: value as Record<string, unknown>,
+  };
 }
 
 export function wireTask(

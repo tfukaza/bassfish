@@ -191,7 +191,11 @@ try {
   const session = await client.callTool({ name: 'getUpdates', arguments: {} });
   assert.notEqual(session.isError, true);
   assert.ok(session.structuredContent?.agentName);
-  assert.deepEqual(session.content, []);
+  // Structured results must also carry the serialized JSON, or clients that render only
+  // `content` show an empty body for every call.
+  assert.equal(session.content.length, 1);
+  assert.equal(session.content[0].type, 'text');
+  assert.deepEqual(JSON.parse(session.content[0].text), session.structuredContent);
   await client.close();
   client = undefined;
   await exec(binary, ['daemon', 'stop'], { env });

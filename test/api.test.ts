@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { adminSchemas as schemas } from '../src/admin-api.js';
 import { mcpSchemas } from '../src/mcp-api.js';
+import { z } from 'zod';
 
 const tools = [
   'getSession',
@@ -57,9 +58,15 @@ test('MCP exposes only the compact collaboration surface', () => {
   assert.deepEqual(mcpSchemas.notifications.parse({ action: 'read' }), {
     action: 'read',
   });
+  // Branch-specific defaults are applied by mcp-dispatch, not the schema: a flat schema cannot
+  // express "default only when resourceType is ticket", and advertising one would misdescribe
+  // the other branch. The schema keeps only defaults that hold for every branch.
   assert.deepEqual(mcpSchemas.findResources.parse({ resourceType: 'thread' }), {
     resourceType: 'thread',
-    state: 'active',
+    limit: 20,
+  });
+  assert.deepEqual(mcpSchemas.findResources.parse({ resourceType: 'ticket' }), {
+    resourceType: 'ticket',
     limit: 20,
   });
   assert.equal(
@@ -241,4 +248,14 @@ test('file targets share acquisition and retired note APIs are rejected', () => 
     }).success,
     false,
   );
+});
+
+test('every MCP tool advertises a flat parameter object', () => {
+  // A root-level oneOf has no top-level `properties`, which function-calling layers that
+  // require a flat parameter object cannot represent, so tool arguments became unusable.
+  for (const [name, schema] of Object.entries(mcpSchemas)) {
+    const json = z.toJSONSchema(schema, { io: 'input' }) as Record<string, unknown>;
+    assert.ok(!json.oneOf && !json.anyOf && !json.allOf, `${name} must not use a root-level union`);
+    assert.equal(typeof json.properties, 'object', `${name} must expose top-level properties`);
+  }
 });

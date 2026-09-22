@@ -78,7 +78,7 @@ export async function dispatchMcp(
       const cursor = decodeCursor(args.cursor);
       if (args.resourceType === 'thread') {
         let threads = sortThreads(await service.content.listThreads(actor.projectId)).filter(
-          thread => thread.state === args.state,
+          thread => thread.state === (args.state ?? 'active'),
         );
         if (args.threadId) {
           const thread = threads.find(value => value.id === args.threadId);
@@ -154,7 +154,11 @@ export async function dispatchMcp(
           if (!ticket) throw new BassfishError('NOT_FOUND', 'Ticket not found in this project.');
           return { resource: presentTicket(describeTicket(ticket, allTickets)) };
         }
-        const states = args.states as Ticket['state'][];
+        const states = (args.states as Ticket['state'][] | undefined) ?? [
+          'todo',
+          'in_progress',
+          'blocked',
+        ];
         tickets = tickets.filter(ticket => states.includes(ticket.state));
         if (args.query) {
           const query = String(args.query).toLowerCase();
@@ -209,9 +213,9 @@ export async function dispatchMcp(
           title: args.title as string,
           description: args.description as string,
           owner: args.owner as string,
-          state: args.state as Ticket['state'],
-          body: args.body as string,
-          dependsOn: args.dependsOn as string[],
+          state: (args.state as Ticket['state'] | undefined) ?? 'todo',
+          body: (args.body as string | undefined) ?? '',
+          dependsOn: (args.dependsOn as string[] | undefined) ?? [],
         })) as MutationResult & {
           ticketId: string;
         };

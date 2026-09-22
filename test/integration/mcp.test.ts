@@ -107,7 +107,12 @@ test(
     ): Promise<T> {
       const result = await c.callTool({ name, arguments: args });
       assert.ok(!result.isError, JSON.stringify(result));
-      assert.deepEqual(result.content, []);
+      // Every structured result also carries the serialized JSON, so a client that renders
+      // only `content` does not see an empty body.
+      const [block, ...rest] = result.content as { type: string; text: string }[];
+      assert.equal(rest.length, 0);
+      assert.equal(block?.type, 'text');
+      assert.deepEqual(JSON.parse(block!.text), result.structuredContent);
       return result.structuredContent as T;
     }
     type PublicTicket = {

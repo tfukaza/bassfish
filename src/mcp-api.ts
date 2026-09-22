@@ -91,101 +91,91 @@ export const mcpSchemas = {
     .strict(),
   getUpdates: z.object({ cursor: z.string().max(500).optional() }).strict(),
   setAgentName: z.object({ name: nameSchema }).strict(),
-  notifications: z.discriminatedUnion('action', [
-    z
-      .object({
-        action: z.literal('read'),
-        batchToken: token.optional(),
-        item: z.number().int().min(0).max(19).optional(),
-        cursor: z.string().regex(/^\d+$/).max(20).optional(),
-      })
-      .strict()
-      .refine(v => v.item === undefined || Boolean(v.batchToken), 'Expansion needs batchToken.'),
-    z
-      .object({
-        action: z.literal('acknowledge'),
-        batchToken: token,
-        items: z.array(z.number().int().min(0).max(19)).min(1).max(20).optional(),
-      })
-      .strict(),
-  ]),
+  // Flat objects, not root-level unions: a JSON Schema whose root is `oneOf` has no top-level
+  // `properties`, and function-calling layers that require a flat parameter object cannot
+  // represent it. Branch rules are enforced by refinements instead. Defaults that belong to one
+  // branch stay out of the schema, since a flat schema cannot say "only when resourceType is
+  // ticket"; mcp-dispatch applies them where the branch is known.
+  notifications: z
+    .object({
+      action: z.enum(['read', 'acknowledge']),
+      batchToken: token.optional(),
+      item: z.number().int().min(0).max(19).optional(),
+      items: z.array(z.number().int().min(0).max(19)).min(1).max(20).optional(),
+      cursor: z.string().regex(/^\d+$/).max(20).optional(),
+    })
+    .strict()
+    .refine(v => v.action === 'acknowledge' || v.items === undefined, 'items needs acknowledge.')
+    .refine(
+      v => v.action === 'read' || (v.item === undefined && v.cursor === undefined),
+      'item and cursor need read.',
+    )
+    .refine(
+      v => v.action !== 'acknowledge' || Boolean(v.batchToken),
+      'Acknowledge needs batchToken.',
+    )
+    .refine(v => v.item === undefined || Boolean(v.batchToken), 'Expansion needs batchToken.'),
   waitForWork: z.object({}).strict(),
-  findResources: z.discriminatedUnion('resourceType', [
-    z
-      .object({
-        resourceType: z.literal('thread'),
-        threadId: token.optional(),
-        query: z.string().trim().min(1).max(200).optional(),
-        state: threadStateSchema.default('active'),
-        following: z.boolean().optional(),
-        limit: pageLimitSchema,
-        cursor: z.string().max(500).optional(),
-      })
-      .strict()
-      .refine(
-        value =>
-          !(value.threadId && (value.query || value.following !== undefined || value.cursor)),
-        'Exact thread lookup cannot be combined with search or pagination.',
-      ),
-    z
-      .object({
-        resourceType: z.literal('ticket'),
-        ticketId: token.optional(),
-        query: z.string().trim().min(1).max(200).optional(),
-        owner: nameSchema.optional(),
-        states: z
-          .array(ticketStateSchema)
-          .min(1)
-          .max(4)
-          .default(['todo', 'in_progress', 'blocked']),
-        ready: z.boolean().optional(),
-        limit: pageLimitSchema,
-        cursor: z.string().max(500).optional(),
-      })
-      .strict()
-      .refine(
-        value =>
-          !(
-            value.ticketId &&
-            (value.query || value.owner || value.ready !== undefined || value.cursor)
-          ),
-        'Exact ticket lookup cannot be combined with search or pagination.',
-      ),
-  ]),
-  createResource: z.discriminatedUnion('resourceType', [
-    z
-      .object({
-        resourceType: z.literal('thread'),
-        title: titleSchema,
-        description: z.string().max(2000).default(''),
-      })
-      .strict(),
-    z
-      .object({
-        resourceType: z.literal('ticket'),
-        title: titleSchema,
-        description: z.string().max(2000),
-        owner: nameSchema,
-        state: ticketStateSchema.default('todo'),
-        body: ticketBody.default(''),
-        dependsOn: z.array(token).max(64).default([]),
-      })
-      .strict(),
-  ]),
-  acquireTurn: z.union([
-    z
-      .object({
-        target: turnTarget,
-        timeoutMs: z.number().int().min(0).max(20_000).default(20_000),
-      })
-      .strict(),
-    z
-      .object({
-        requestToken: token,
-        timeoutMs: z.number().int().min(0).max(20_000).default(20_000),
-      })
-      .strict(),
-  ]),
+  findResources: z
+    .object({
+      resourceType: z.enum(['thread', 'ticket']),
+      threadId: token.optional(),
+      ticketId: token.optional(),
+      query: z.string().trim().min(1).max(200).optional(),
+      state: threadStateSchema.optional(),
+      following: z.boolean().optional(),
+      owner: nameSchema.optional(),
+      states: z.array(ticketStateSchema).min(1).max(4).optional(),
+      ready: z.boolean().optional(),
+      limit: pageLimitSchema,
+      cursor: z.string().max(500).optional(),
+    })
+    .strict()
+    .refine(
+      v =>
+        v.resourceType === 'ticket' ||
+        (v.ticketId === undefined && v.owner === undefined && v.ready === undefined),
+      'ticketId, owner and ready need resourceType ticket.',
+    )
+    .refine(
+      v => v.resourceType === 'thread' || (v.threadId === undefined && v.following === undefined),
+      'threadId and following need resourceType thread.',
+    )
+    .refine(
+      v => !(v.threadId && (v.query || v.following !== undefined || v.cursor)),
+      'Exact thread lookup cannot be combined with search or pagination.',
+    )
+    .refine(
+      v => !(v.ticketId && (v.query || v.owner || v.ready !== undefined || v.cursor)),
+      'Exact ticket lookup cannot be combined with search or pagination.',
+    ),
+  createResource: z
+    .object({
+      resourceType: z.enum(['thread', 'ticket']),
+      title: titleSchema,
+      description: z.string().max(2000).default(''),
+      owner: nameSchema.optional(),
+      state: ticketStateSchema.optional(),
+      body: ticketBody.optional(),
+      dependsOn: z.array(token).max(64).optional(),
+    })
+    .strict()
+    .refine(v => v.resourceType !== 'ticket' || Boolean(v.owner), 'A ticket needs an owner.')
+    .refine(
+      v => v.resourceType === 'ticket' || v.owner === undefined,
+      'owner needs resourceType ticket.',
+    ),
+  acquireTurn: z
+    .object({
+      target: turnTarget.optional(),
+      requestToken: token.optional(),
+      timeoutMs: z.number().int().min(0).max(20_000).default(20_000),
+    })
+    .strict()
+    .refine(
+      v => Boolean(v.target) !== Boolean(v.requestToken),
+      'Provide exactly one of target or requestToken.',
+    ),
   cancelTurn: z.object({ requestToken: token }).strict(),
   readResource: z
     .object({

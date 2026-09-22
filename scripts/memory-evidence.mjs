@@ -50,14 +50,45 @@ export async function processMemory(pid) {
   };
 }
 
-export function verifyMemoryWindow(samples, label, ceilingBytes = 512 * MiB) {
+function median(values) {
+  const sorted = [...values].sort((a, b) => a - b);
+  const middle = sorted.length >> 1;
+  return sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
+}
+
+/** Theil-Sen: the median pairwise slope, which ignores oscillation and tolerates outliers. */
+function trendBytesPerSample(values) {
+  const slopes = [];
+  for (let i = 0; i < values.length; i++)
+    for (let j = i + 1; j < values.length; j++) slopes.push((values[j] - values[i]) / (j - i));
+  return median(slopes);
+}
+
+/**
+ * Connection recycling makes daemon RSS sawtooth by tens of MiB, so an extreme measured
+ * against whichever sample opens the window reports amplitude rather than growth, and the
+ * boundary it happens to land on decides whether a healthy run passes. Fit a robust trend
+ * instead and report the drift it projects across the window: oscillation of any phase or
+ * amplitude contributes no slope, while a genuine leak does.
+ */
+export function measureMemoryWindow(samples, label, ceilingBytes = 512 * MiB) {
   assert.ok(samples.length >= 4, `${label}: too few memory samples`);
   for (const sample of samples)
     assert.ok(sample.physicalBytes < ceilingBytes, `${label}: memory safety ceiling exceeded`);
-  const growthBytes = Math.max(...samples.map(s => s.physicalBytes)) - samples[0].physicalBytes;
+  const bytes = samples.map(s => s.physicalBytes);
+  return {
+    growthBytes: trendBytesPerSample(bytes) * (bytes.length - 1),
+    samples: samples.length,
+    finalBytes: samples.at(-1).physicalBytes,
+  };
+}
+
+/** Gate on the measured trend. Only meaningful once the window is past daemon warm-up. */
+export function verifyMemoryWindow(samples, label, ceilingBytes = 512 * MiB) {
+  const result = measureMemoryWindow(samples, label, ceilingBytes);
   assert.ok(
-    growthBytes < 32 * MiB,
-    `${label}: final-window memory growth ${(growthBytes / MiB).toFixed(2)} MiB exceeds 32 MiB`,
+    result.growthBytes < 32 * MiB,
+    `${label}: final-window memory trend ${(result.growthBytes / MiB).toFixed(2)} MiB exceeds 32 MiB`,
   );
-  return { growthBytes, samples: samples.length, finalBytes: samples.at(-1).physicalBytes };
+  return result;
 }

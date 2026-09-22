@@ -13,7 +13,7 @@ import { ensureDaemon, connectDaemon } from '../dist/daemon.js';
 import { readOrCreateClaudeClientId } from '../dist/agents/claude-native.js';
 import { SonarClient } from '../dist/sonar/client.js';
 import { loadSonarUi } from '../dist/sonar/ui-runtime.js';
-import { processMemory, verifyMemoryWindow } from './memory-evidence.mjs';
+import { processMemory, measureMemoryWindow, verifyMemoryWindow } from './memory-evidence.mjs';
 const exec = promisify(execFile);
 const nativeMemory = process.argv.includes('--native-memory');
 const nativeSamples = [];
@@ -37,6 +37,9 @@ const durationMs = Number(
   process.argv.find(a => a.startsWith('--duration-ms='))?.split('=')[1] ?? 45 * 60_000,
 );
 assert.ok(Number.isInteger(durationMs) && durationMs >= 10_000);
+// verifyMemoryWindow needs at least four samples in the final third, so a short qualification
+// run has to sample proportionally faster than the 60s cadence a full-length soak uses.
+const sampleIntervalMs = Math.min(60_000, Math.max(2_000, Math.round(durationMs / 30)));
 const root = await mkdtemp(
   join(process.platform === 'darwin' ? '/private/tmp' : tmpdir(), 'bf-reliability-'),
 );
@@ -259,7 +262,7 @@ try {
           pid: expectedPid,
         }) + '\n',
       );
-      nextSample = Date.now() + 60_000;
+      nextSample = Date.now() + sampleIntervalMs;
     }
     await delay(2000);
   }
@@ -297,11 +300,18 @@ try {
       }
     }
     assert.ok(finalStorage.replacementSuccesses >= 2, 'soak must span multiple recycling cycles');
-    nativeResult = verifyMemoryWindow(
-      nativeSamples.filter(s => s.elapsedMs >= (durationMs * 2) / 3),
-      'daemon soak',
-      Infinity,
-    );
+    // The measured window is the final third. A short qualification run spends that window
+    // still warming up, where drift legitimately exceeds the steady-state bound, so record the
+    // trend without gating on it and leave the memory gate to the full-length soak.
+    const gateTrend = durationMs / 3 >= 300_000;
+    nativeResult = {
+      ...(gateTrend ? verifyMemoryWindow : measureMemoryWindow)(
+        nativeSamples.filter(s => s.elapsedMs >= (durationMs * 2) / 3),
+        'daemon soak',
+        Infinity,
+      ),
+      trendGated: gateTrend,
+    };
   }
   process.stdout.write(
     JSON.stringify({

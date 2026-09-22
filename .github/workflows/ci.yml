@@ -11,6 +11,7 @@ permissions:
 jobs:
   native:
     uses: ./.github/workflows/native.yml
+
   test:
     needs: native
     env:
@@ -34,13 +35,10 @@ jobs:
           merge-multiple: true
       - run: npm run build:release
       - run: npm run ci
-      - run: npm install -g @openai/codex@0.154.0
-      - run: npm run test:codex-queue
       - run: npm run test:memory
       - run: npm run package:check
-      - run: npm run test:memory-soak
 
-  storage-soak:
+  hosts:
     needs: native
     env:
       BASSFISH_RELEASE_BUILD: '1'
@@ -62,7 +60,33 @@ jobs:
           path: native/turso/artifacts
           merge-multiple: true
       - run: npm run build:release
-      - run: npm run test:soak
+      - run: npm install -g @openai/codex@0.154.0
+      - run: npm run test:codex-queue
+
+  soak-smoke:
+    needs: native
+    env:
+      BASSFISH_RELEASE_BUILD: '1'
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24.12.0
+          cache: npm
+      - run: npm ci
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: native-*
+          path: native/turso/artifacts
+          merge-multiple: true
+      - run: npm run build:release
+      - run: npm run test:soak:quick
+      - run: npm run test:memory-soak:quick
 
   bun:
     needs: native

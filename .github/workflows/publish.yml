@@ -8,10 +8,13 @@ on:
 permissions:
   contents: read
 
+# Every tag runs the fast gate. Full-length soaks run on a schedule in soak.yml; see
+# docs/release-qualification.md for what a release therefore does and does not evidence.
 jobs:
   native:
     uses: ./.github/workflows/native.yml
-  qualify:
+
+  verify:
     needs: native
     env:
       BASSFISH_RELEASE_BUILD: '1'
@@ -35,13 +38,10 @@ jobs:
           merge-multiple: true
       - run: npm run build:release
       - run: npm run ci
-      - run: npm install -g @openai/codex@0.154.0
-      - run: npm run test:codex-queue
       - run: npm run test:memory
       - run: npm run package:check
-      - run: npm run test:memory-soak
 
-  storage-soak:
+  hosts:
     needs: native
     env:
       BASSFISH_RELEASE_BUILD: '1'
@@ -64,7 +64,35 @@ jobs:
           path: native/turso/artifacts
           merge-multiple: true
       - run: npm run build:release
-      - run: npm run test:soak
+      - run: npm install -g @openai/codex@0.154.0
+      - run: npm run test:codex-queue
+
+  soak-smoke:
+    needs: native
+    env:
+      BASSFISH_RELEASE_BUILD: '1'
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24.12.0
+          cache: npm
+      - run: node scripts/verify-release-tag.mjs
+      - run: npm ci
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: native-*
+          path: native/turso/artifacts
+          merge-multiple: true
+      - run: npm run build:release
+      # Short runs catch gross regressions; soak.yml carries the full-length evidence.
+      - run: npm run test:soak:quick
+      - run: npm run test:memory-soak:quick
 
   bun:
     needs: native
@@ -97,7 +125,7 @@ jobs:
       - run: npm run test:bun
 
   publish:
-    needs: [qualify, storage-soak, bun]
+    needs: [verify, hosts, soak-smoke, bun]
     runs-on: ubuntu-latest
     permissions:
       contents: read

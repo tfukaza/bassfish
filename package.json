@@ -53,8 +53,9 @@
     "test:bun": "node scripts/bun-smoke.mjs",
     "test:codex-queue": "node --import tsx scripts/codex-queue-smoke.mjs",
     "test:soak": "node scripts/soak.mjs",
+    "test:soak:quick": "node scripts/soak.mjs --duration-ms=180000",
     "package:check": "node scripts/package-smoke.mjs",
-    "release:check": "npm run ci && npm run test:bun && npm run package:check && npm run test:hosts",
+    "release:check": "npm run ci && npm run test:bun && npm run package:check && npm run test:soak:quick && npm run test:memory-soak:quick && npm run test:hosts",
     "ci": "npm run format:check && npm run check && npm run check:dead-code && npm test && npm run build && npm run test:integration",
     "dev": "tsx src/cli.ts",
     "prepack": "npm run build:release",
@@ -63,6 +64,7 @@
     "native:package": "node scripts/native-package.mjs",
     "test:memory": "node scripts/native-memory.mjs",
     "test:memory-soak": "node --expose-gc scripts/reliability-soak.mjs --native-memory --duration-ms=1800000",
+    "test:memory-soak:quick": "node --expose-gc scripts/reliability-soak.mjs --native-memory --duration-ms=180000",
     "package:check:host": "node scripts/package-smoke.mjs --host-only"
   },
   "dependencies": {

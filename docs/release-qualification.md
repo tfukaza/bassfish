@@ -10,14 +10,26 @@ The native-build workflow first builds and merges patched binaries for macOS arm
 npm ci
 npm run build:release
 npm run release:check
-npm run test:memory
-npm run test:memory-soak
-npm run test:soak
 ```
+
+The gate is split by wall clock. Tag publication runs `verify`, `hosts`, `soak-smoke`, and `bun` as parallel jobs, so a release is gated on roughly eight minutes rather than the forty-two a serial job with full-length soaks required. `release:check` mirrors that gate locally and includes the same three-minute `test:soak:quick` and `test:memory-soak:quick` runs.
+
+Full-length soaks moved to the `Full-length soak` workflow, which runs nightly and on manual dispatch against any ref:
+
+```sh
+npm run test:soak          # 30 minutes
+npm run test:memory-soak   # 30 minutes
+```
+
+The release smoke run deliberately does not gate on memory drift. Its measured window is the final third of a three-minute run, which is still daemon warm-up, where drift legitimately exceeds the steady-state bound — gating there fails healthy builds. It records the trend in `nativeResult` with `trendGated: false` and still gates on everything that does not depend on window length: monitors surviving, no unexpected daemon restart, zero replacement failures, at least two recycling cycles, no heartbeat-expired session, the Sonar retained-heap ceiling, and the final thread sequence matching every commit. The nightly full-length soak carries `trendGated: true` and is the memory gate.
+
+Those long runs, not the release smoke runs, are the memory and durability evidence for a version. A tag can therefore publish before its commit has full-length soak coverage: check that the nightly soak passed on that commit, or dispatch `Full-length soak` selecting the release tag as its ref, before recording the version as qualified. Short runs sample proportionally faster so the memory window keeps enough samples to judge, but they span fewer recycling cycles and less drift.
 
 `release:check` includes `test:bun`, which runs the OpenCode plugin entry, the process-ownership lock, the patched Turso binding, and a full daemon lifecycle under Bun. CI and publication run it against Bun 1.3.14 — the runtime OpenCode 1.18.29 embeds — and the latest Bun. `npm run ci` is Node-only and cannot catch a Node-only builtin reaching the plugin entry, so a release is not qualified without the Bun job. `test:bun` skips with a message when Bun is absent, which is acceptable locally but not as release evidence.
 
 `test:soak` uses embedded Turso for 30 minutes by default. A short diagnostic run is `node scripts/soak.mjs --duration-ms=5000`; it is not release evidence.
+
+Retained-memory qualification judges a trend, not an extreme. Daemon RSS sawtooths by tens of MiB as Turso connections recycle, so `verifyMemoryWindow` fits a robust (Theil-Sen) slope across the final third of the run and asserts the drift it projects over that window stays under 32 MiB. An earlier check compared the window maximum against its first sample, which measured oscillation amplitude against an arbitrary boundary: the same commit passed in CI and failed publication at 32.34 MiB. `test/memory-evidence.test.ts` pins both directions, including that verbatim sample window.
 
 Release packaging requires all three verified binaries, their build metadata and hashes, and the upstream license. The compressed package limit is 64 MiB. `package:check` installs the complete tarball on each supported platform and verifies the patched identity without the official native dependency. `build` and `package:check:host` allow host-only development and do not qualify a release. See [native memory acceptance](native-memory.md) for isolated regressions, physical footprint measurement, and activation instructions.
 

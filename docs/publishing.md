@@ -34,7 +34,7 @@ If the installed npm version is older than 11.15.0, configure the trusted publis
 1. Update the version in `package.json`, `package-lock.json`, the Claude plugin and marketplace manifests, and the Codex plugin manifest.
 2. Run `npm run release:check` and complete the live host/OS qualification in [release-qualification.md](release-qualification.md).
 3. Commit the release, create the exact tag `v<package-version>`, and push the tag.
-4. Confirm both operating-system qualification jobs and the publish job pass.
+4. Confirm the `verify`, `hosts`, `soak-smoke`, and `bun` jobs and the publish job pass. These run short soaks; confirm the nightly `Full-length soak` workflow also passed on the release commit, or dispatch it against the tag, before treating the version as qualified.
 5. Verify the registry version and provenance on the npm package page.
 
 The workflow rejects a tag that does not exactly match `package.json`. npm versions and Git tags are immutable release identities in v0; fix forward with a new version rather than replacing an artifact.

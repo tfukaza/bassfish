@@ -1,0 +1,67 @@
+name: Full-length soak
+
+# Release tags run short soaks so publication is not gated on an hour of wall clock. The
+# full-length runs that carry release-qualification evidence happen here instead.
+on:
+  schedule:
+    - cron: '0 8 * * *'
+  # Dispatch this against the ref you want evidence for — a release tag selects that tag's
+  # source for the reusable native build too, which a ref input could not reach.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  native:
+    uses: ./.github/workflows/native.yml
+
+  storage-soak:
+    needs: native
+    env:
+      BASSFISH_RELEASE_BUILD: '1'
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24.12.0
+          cache: npm
+      - run: npm ci
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: native-*
+          path: native/turso/artifacts
+          merge-multiple: true
+      - run: npm run build:release
+      - run: npm run test:soak
+
+  memory-soak:
+    needs: native
+    env:
+      BASSFISH_RELEASE_BUILD: '1'
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24.12.0
+          cache: npm
+      - run: npm ci
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: native-*
+          path: native/turso/artifacts
+          merge-multiple: true
+      - run: npm run build:release
+      - run: npm run test:memory-soak

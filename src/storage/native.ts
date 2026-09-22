@@ -44,10 +44,12 @@ export function loadBinding(directory = new URL('../../dist/native/', import.met
     if (loaded.bassfishBindingIdentity() !== bindingIdentity)
       throw new Error('Incompatible native binding identity');
     return loaded;
-  } catch {
+  } catch (error) {
+    // Keep the cause: a runtime that cannot load the addon looks identical to a missing one.
     throw new BassfishError(
       'STORAGE_UNAVAILABLE',
       `Bassfish patched Turso artifact for ${platform} is missing or incompatible. Rebuild or reinstall the CLI.`,
+      { cause: error instanceof Error ? error.message : String(error) },
     );
   }
 }

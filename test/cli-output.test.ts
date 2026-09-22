@@ -146,7 +146,7 @@ test('the CLI bootstrap suppresses only the SQLite experimental warning', async 
   const version = await exec(process.execPath, ['--import', 'tsx', 'src/cli.ts', '--version'], {
     env,
   });
-  assert.equal(version.stdout, '0.6.1\n');
+  assert.equal(version.stdout, '0.6.2\n');
   assert.equal(version.stderr, '');
   const doctor = await exec(
     process.execPath,

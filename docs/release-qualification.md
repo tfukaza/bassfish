@@ -15,6 +15,8 @@ npm run test:memory-soak
 npm run test:soak
 ```
 
+`release:check` includes `test:bun`, which runs the OpenCode plugin entry, the process-ownership lock, the patched Turso binding, and a full daemon lifecycle under Bun. CI and publication run it against Bun 1.3.14 — the runtime OpenCode 1.18.29 embeds — and the latest Bun. `npm run ci` is Node-only and cannot catch a Node-only builtin reaching the plugin entry, so a release is not qualified without the Bun job. `test:bun` skips with a message when Bun is absent, which is acceptable locally but not as release evidence.
+
 `test:soak` uses embedded Turso for 30 minutes by default. A short diagnostic run is `node scripts/soak.mjs --duration-ms=5000`; it is not release evidence.
 
 Release packaging requires all three verified binaries, their build metadata and hashes, and the upstream license. The compressed package limit is 64 MiB. `package:check` installs the complete tarball on each supported platform and verifies the patched identity without the official native dependency. `build` and `package:check:host` allow host-only development and do not qualify a release. See [native memory acceptance](native-memory.md) for isolated regressions, physical footprint measurement, and activation instructions.

@@ -1,6 +1,6 @@
 # Local storage and the 0.5 upgrade
 
-Bassfish 0.5 stores coordination, current content, immutable resource revisions, notifications, and activity in one local `bassfish.db`. The daemon owns eight embedded Turso 0.7.2 connections, configured with MVCC concurrent transactions, foreign keys, and full synchronous durability. There is no database server, TCP listener, cloud account, or sync dependency. The only SQLite files are empty process-ownership locks.
+Bassfish 0.5 stores coordination, current content, immutable resource revisions, notifications, and activity in one local `bassfish.db`. The daemon owns eight embedded Turso 0.7.2 connections, configured with MVCC concurrent transactions, foreign keys, and full synchronous durability. There is no database server, TCP listener, cloud account, or sync dependency. The only SQLite files are empty process-ownership locks; they open through `node:sqlite` or `bun:sqlite`, whichever the running runtime provides.
 
 Each mutation commits its content, revision receipt, notifications, and turn/task completion in one transaction. Independent resource writes can overlap. Conflicting transactions retry only after confirmed rollback, up to five attempts. An uncertain commit is never automatically replayed: inspect the current resource and history before deciding whether another mutation is needed. Ticket graph edits serialize per project; file reservations validate overlaps with a shared transactional guard. Turn fencing remains authoritative after a restart.
 
@@ -25,4 +25,4 @@ To return to the preview, stop all hosts and the new daemon, archive the new dir
 
 ## Native platforms
 
-The pinned package supports Apple Silicon macOS and glibc Linux arm64/x64. Intel macOS, Windows, and musl Linux are unsupported. Node must be `>=24.12.0 <25`. CI covers each supported native target; third-party host qualification remains a separate release check.
+The pinned package supports Apple Silicon macOS and glibc Linux arm64/x64. Intel macOS, Windows, and musl Linux are unsupported. Node must be `>=24.12.0 <25`; Bun `>=1.3.14` is supported as an alternative runtime. CI covers each supported native target; third-party host qualification remains a separate release check.

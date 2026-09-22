@@ -9,7 +9,7 @@ import {
 } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { performance } from 'node:perf_hooks';
-import { exclusiveLock } from './lock.js';
+import { bestEffortLock } from './lock.js';
 import { packageVersion } from './config.js';
 import type { DiagnosticFields, DiagnosticSink } from './diagnostic-events.js';
 
@@ -128,7 +128,7 @@ export class DiagnosticLog {
     let unlock: (() => void) | undefined;
     try {
       mkdirSync(dirname(this.path), { recursive: true, mode: 0o700 });
-      if (this.shared) unlock = exclusiveLock(join(dirname(this.path), 'diagnostic-clients.lock'));
+      if (this.shared) unlock = bestEffortLock(join(dirname(this.path), 'diagnostic-clients.lock'));
       rotateDiagnosticLog(this.path);
       if (this.dropped) {
         appendFileSync(this.path, diagnosticLine('logging.dropped', { count: this.dropped }), {

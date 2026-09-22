@@ -2,7 +2,7 @@
 
 ## Install and connect
 
-Bassfish requires Node.js `>=24.12.0 <25`, Git, and macOS or Linux on arm64 or x64.
+Bassfish requires Node.js `>=24.12.0 <25` (or Bun `>=1.3.14`), Git, and macOS or Linux on arm64 or x64.
 
 ```sh
 npm install -g @bassfish/cli

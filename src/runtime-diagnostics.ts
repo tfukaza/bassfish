@@ -4,12 +4,24 @@ import type { DiagnosticFields, DiagnosticSink } from './diagnostic-events.js';
 import { DiagnosticLog } from './diagnostic-log.js';
 import { join } from 'node:path';
 
+// Bun emits no `gc` performance entries and returns a permanent zero from
+// eventLoopUtilization(); reporting those as real numbers would hide a stalled loop.
+const isBun = Boolean((process.versions as { bun?: string }).bun);
+const supportedEntryTypes = (PerformanceObserver as unknown as { supportedEntryTypes?: string[] })
+  .supportedEntryTypes;
+const gcEntriesSupported = supportedEntryTypes ? supportedEntryTypes.includes('gc') : !isBun;
+const eventLoopUtilizationSupported = !isBun;
+const unavailableMetrics = [
+  ...(gcEntriesSupported ? [] : ['gc']),
+  ...(eventLoopUtilizationSupported ? [] : ['eventLoopUtilization']),
+];
+
 /** A worker owns runtime I/O and observes a shared heartbeat without main-loop cooperation. */
 export class RuntimeDiagnostics {
   private readonly heartbeat = new BigInt64Array(new SharedArrayBuffer(8));
   private readonly worker: Worker;
   private readonly timer: NodeJS.Timeout;
-  private readonly gc: PerformanceObserver;
+  private readonly gc: PerformanceObserver | undefined;
   private gcMs = 0;
   private gcCount = 0;
   private pending = 0;
@@ -40,7 +52,7 @@ export class RuntimeDiagnostics {
       this.lastSummary = { status: 'worker_failed' };
       this.stopped = true;
       clearInterval(this.timer);
-      this.gc.disconnect();
+      this.gc?.disconnect();
       const fallback = new DiagnosticLog(join(dataDir, 'run', 'runtime.log'));
       fallback.emit('runtime.worker_failed', { epoch: startup.epoch });
       fallback.close();
@@ -50,20 +62,22 @@ export class RuntimeDiagnostics {
         this.lastSummary = { status: 'worker_failed', exitCode: code };
         this.stopped = true;
         clearInterval(this.timer);
-        this.gc.disconnect();
+        this.gc?.disconnect();
         const fallback = new DiagnosticLog(join(dataDir, 'run', 'runtime.log'));
         fallback.emit('runtime.worker_failed', { epoch: startup.epoch, exitCode: code });
         fallback.close();
       }
     });
     this.worker.unref();
-    this.gc = new PerformanceObserver(list => {
-      for (const entry of list.getEntries()) {
-        this.gcMs += entry.duration;
-        this.gcCount++;
-      }
-    });
-    this.gc.observe({ entryTypes: ['gc'] });
+    if (gcEntriesSupported) {
+      this.gc = new PerformanceObserver(list => {
+        for (const entry of list.getEntries()) {
+          this.gcMs += entry.duration;
+          this.gcCount++;
+        }
+      });
+      this.gc.observe({ entryTypes: ['gc'] });
+    }
     this.timer = setInterval(() => {
       Atomics.store(this.heartbeat, 0, process.hrtime.bigint() / 1000000n);
       const elu = performance.eventLoopUtilization(this.previousElu);
@@ -71,14 +85,14 @@ export class RuntimeDiagnostics {
       const memory = process.memoryUsage();
       this.emit('runtime.main', {
         sampledAt: Date.now(),
-        eventLoopUtilization: elu.utilization,
+        ...(eventLoopUtilizationSupported ? { eventLoopUtilization: elu.utilization } : {}),
         heapUsedBytes: memory.heapUsed,
         heapTotalBytes: memory.heapTotal,
         externalBytes: memory.external,
-        gcMs: this.gcMs,
-        gcCount: this.gcCount,
+        ...(gcEntriesSupported ? { gcMs: this.gcMs, gcCount: this.gcCount } : {}),
         coalescedOperationUpdates: this.coalescedOperationUpdates,
         deferredOperationStates: this.deferredOperations.size,
+        ...(unavailableMetrics.length ? { unavailableMetrics } : {}),
       });
       this.gcMs = 0;
       this.gcCount = 0;
@@ -152,7 +166,7 @@ export class RuntimeDiagnostics {
   }
   async close(): Promise<void> {
     clearInterval(this.timer);
-    this.gc.disconnect();
+    this.gc?.disconnect();
     if (this.stopped) return;
     this.stopped = true;
     await new Promise<void>(resolve => {

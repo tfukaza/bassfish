@@ -5,7 +5,7 @@ import { mkdtemp, rm, writeFile, readFile, stat } from 'node:fs/promises';
 import { closeSync, writeSync } from 'node:fs';
 import { join } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
-import { exclusiveLock } from '../src/lock.js';
+import { exclusiveLock, sqliteResultCode } from '../src/lock.js';
 import {
   daemonDiagnostics,
   openDaemonLog,
@@ -29,7 +29,7 @@ test('ownership locks distinguish contention from a corrupt lock database', asyn
   await writeFile(path, 'not a sqlite database');
   assert.throws(
     () => exclusiveLock(path),
-    error => (error as { errcode?: number }).errcode === 26,
+    error => sqliteResultCode(error) === 26,
   );
 });
 test('daemon diagnostics survive exit and rotation preserves inherited append descriptors', async t => {

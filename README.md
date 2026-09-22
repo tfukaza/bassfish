@@ -35,7 +35,7 @@ File locks reserve an atomic set of explicit file or directory paths. Directorie
 
 ## Install Bassfish
 
-Use **Node.js `>=24.12.0 <25`** and Git. Bassfish supports Apple Silicon macOS and glibc Linux on arm64 or x64. It bundles **Turso 0.7.2** (patched binding `0.7.2-bassfish.1`) as an embedded native database; no database server or cloud account is required. The [native memory protections](docs/native-memory.md) preserve the database format and require no migration or reset.
+Use **Node.js `>=24.12.0 <25`** and Git. **Bun `>=1.3.14`** also runs the CLI, daemon, and plugins; Node remains the runtime CI qualifies for release. Bassfish supports Apple Silicon macOS and glibc Linux on arm64 or x64. It bundles **Turso 0.7.2** (patched binding `0.7.2-bassfish.1`) as an embedded native database; no database server or cloud account is required. The [native memory protections](docs/native-memory.md) preserve the database format and require no migration or reset.
 
 ```sh
 npm install -g @bassfish/cli@latest

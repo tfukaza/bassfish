@@ -8,7 +8,8 @@
 fail() {
   printf '%s\n' \
     'Bassfish could not find the `bassfish` executable.' \
-    'Install it with `npm install -g @bassfish/cli@latest` and ensure your login shell can run `bassfish --version`.' >&2
+    'Install it with `npm install -g @bassfish/cli@latest` (or `bun install -g @bassfish/cli@latest`)' \
+    'and ensure your login shell can run `bassfish --version`.' >&2
   exit 127
 }
 
@@ -46,9 +47,23 @@ EOF
   printf '%s\n' "$resolved"
 }
 
+resolve_runtime() {
+  # The CLI carries a `/usr/bin/env node` shebang. On a Bun-only machine there is no node
+  # to resolve it, so run the same entry point under bun instead of failing.
+  command -v node >/dev/null 2>&1 && return 1
+  user_shell=${SHELL:-/bin/sh}
+  [ -x "$user_shell" ] || user_shell=/bin/sh
+  "$user_shell" -lic 'command -v node' >/dev/null 2>&1 && return 1
+  command -v bun >/dev/null 2>&1
+}
+
 bassfish_executable=$(resolve_executable) || fail
 bassfish_bin=${bassfish_executable%/*}
 PATH=$bassfish_bin${PATH:+:$PATH}
 export PATH
+
+if resolve_runtime; then
+  exec bun "$bassfish_executable" "$@"
+fi
 
 exec "$bassfish_executable" "$@"

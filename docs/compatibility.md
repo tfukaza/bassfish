@@ -2,13 +2,32 @@
 
 Bassfish 0.6 uses daemon API 15, observer protocol 2, and Turso schema 2. Schema 1 upgrades transactionally without deleting content or unread notifications; restart all hosts and update the shared skills together. Legacy SQLite/Dolt data is rejected without modification. Archive it and initialize fresh storage as described in [storage.md](storage.md). Restart all hosts after upgrading. Resource history is read-only and requires no turn; project-wide historical snapshots and restore commands have been removed.
 
-Target host versions for the 0.6 qualification are Codex `0.154.0`, Claude Code `2.1.265`, and OpenCode `1.18.29`. Bassfish itself requires Node `>=24.12.0 <25` and embedded Turso `0.7.2`. Supported native targets are Apple Silicon macOS and glibc Linux arm64/x64.
+Target host versions for the 0.6 qualification are Codex `0.154.0`, Claude Code `2.1.265`, and OpenCode `1.18.29`. Bassfish itself requires Node `>=24.12.0 <25` or Bun `>=1.3.14`, and embedded Turso `0.7.2`. Supported native targets are Apple Silicon macOS and glibc Linux arm64/x64.
 
 | Host | macOS | Linux |
 | --- | --- | --- |
 | Codex 0.154.0 | qualification required | qualification required |
 | Claude Code 2.1.265 | qualification required | qualification required |
 | OpenCode 1.18.29 | qualification required | qualification required |
+
+## Runtimes
+
+| Runtime | Plugin entry | CLI and daemon | Runtime metrics |
+| --- | --- | --- | --- |
+| Node `>=24.12.0 <25` | supported | supported | complete |
+| Bun `>=1.3.14` | supported | supported | no `gc`, no `eventLoopUtilization` |
+
+OpenCode imports the package entry in its own embedded Bun, so the plugin must load there:
+OpenCode 1.18.29 embeds Bun 1.3.14, which has no `node:sqlite`. The process-ownership lock
+therefore selects `bun:sqlite` or `node:sqlite` at runtime. `npm run test:bun` covers both
+the embedded version and the latest Bun; `npm run ci` runs only under Node and cannot catch
+a Node-only builtin reaching the plugin.
+
+Bun reports no `gc` performance entries and returns a permanent zero from
+`performance.eventLoopUtilization()`. The daemon omits both rather than publishing zeros,
+and lists them in `runtime.main.unavailableMetrics`; `status` still reflects the real
+main-loop heartbeat. Retained-memory qualification (`npm run test:memory`,
+`npm run test:memory-soak`) depends on Node 24.12's V8 GC extension and stays Node-only.
 
 “Qualification required” is deliberate: implementation tests are not a claim that a third-party host/version/OS row passed. Replace it with a dated `pass` only after both the launch inventory and `--live` smoke in [release-qualification.md](release-qualification.md) succeed on that operating system.
 
